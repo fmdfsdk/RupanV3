@@ -39,7 +39,7 @@ export default function ProductDetail({
 }: ProductDetailProps) {
   const PRODUCTS = products || MOCK_PRODUCTS;
   const REVIEWS = reviews || MOCK_REVIEWS;
-  const product = PRODUCTS.find((p) => p.id === productId) || PRODUCTS[0];
+  const product = PRODUCTS.find((p) => p.id === productId || p.slug === productId || getProductSlug(p.name) === productId) || PRODUCTS[0];
 
   const [activeImage, setActiveImage] = useState<string>(product.images[0]);
   const [selectedColor, setSelectedColor] = useState<string>(product.colors[0]?.name || '');
@@ -220,10 +220,10 @@ export default function ProductDetail({
             </div>
           </div>
 
-          {/* Short description */}
-          <p className="text-sm text-gray-600 leading-relaxed font-sans">
-            {product.description}
-          </p>
+          <div 
+            className="text-sm text-gray-600 leading-relaxed font-sans whitespace-pre-line"
+            dangerouslySetInnerHTML={{ __html: product.description || '' }}
+          />
 
           {/* Stock state badges */}
           <div className="flex flex-wrap gap-2 text-[11px] font-bold">
@@ -405,7 +405,10 @@ export default function ProductDetail({
           {activeTab === 'details' ? (
             <div className="space-y-4">
               <p className="font-bold text-gray-900 text-base">{product.name}</p>
-              <p className="text-gray-600 leading-relaxed">{product.description}</p>
+              <div 
+                className="text-gray-600 leading-relaxed whitespace-pre-line"
+                dangerouslySetInnerHTML={{ __html: product.description || '' }}
+              />
               
               <div className="pt-4 space-y-2">
                 <p className="font-bold text-gray-900 uppercase text-xs tracking-wider">Key features:</p>
