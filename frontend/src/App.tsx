@@ -651,8 +651,8 @@ export default function App() {
     const loadData = async () => {
       if (isSupabaseOnline) {
         try {
-          // Fetch products (lightweight columns optimization)
-          const { data: pData } = await supabase.from('products').select('id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at').eq('status', 'published');
+          // Fetch products (lightweight columns optimization with 5,000 limit)
+          const { data: pData } = await supabase.from('products').select('id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at').eq('status', 'published').limit(5000);
           if (pData && pData.length > 0) {
             setDbProducts(pData);
           }

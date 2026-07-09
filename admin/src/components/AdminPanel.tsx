@@ -83,6 +83,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   const [bannerModalOpen, setBannerModalOpen] = useState<boolean>(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [bannerForm, setBannerForm] = useState<any>({
+    title: '',
+    subtitle: '',
+    image: '',
+    cta_text: 'SHOP NOW',
+    category: '',
+    type: 'homepage',
+    is_active: true,
+    publish_date: ''
+  });
 
   const [blogModalOpen, setBlogModalOpen] = useState<boolean>(false);
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
@@ -834,6 +844,107 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         images: [...(productForm.images || []), customImageUrl.trim()]
       });
       setCustomImageUrl('');
+    }
+  };
+
+  // Banner Actions
+  const openBannerForm = (banner: any | null) => {
+    if (banner) {
+      setEditingBanner(banner);
+      setBannerForm({
+        title: banner.title || '',
+        subtitle: banner.subtitle || '',
+        image: banner.image || '',
+        cta_text: banner.cta_text || 'SHOP NOW',
+        category: banner.category || '',
+        type: banner.type || 'homepage',
+        is_active: banner.is_active ?? true,
+        publish_date: banner.publish_date || ''
+      });
+    } else {
+      setEditingBanner(null);
+      setBannerForm({
+        title: '',
+        subtitle: '',
+        image: '',
+        cta_text: 'SHOP NOW',
+        category: '',
+        type: 'homepage',
+        is_active: true,
+        publish_date: ''
+      });
+    }
+    setBannerModalOpen(true);
+  };
+
+  const handleSaveBanner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bannerForm.title || !bannerForm.image) {
+      alert("Please enter at least Title and Image URL.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (editingBanner) {
+        const { data, error } = await supabase
+          .from('banners')
+          .update({
+            title: bannerForm.title,
+            subtitle: bannerForm.subtitle,
+            image: bannerForm.image,
+            cta_text: bannerForm.cta_text,
+            category: bannerForm.category,
+            type: bannerForm.type,
+            is_active: bannerForm.is_active,
+            publish_date: bannerForm.publish_date || null
+          })
+          .eq('id', editingBanner.id)
+          .select();
+
+        if (error) throw error;
+        if (data && data[0]) {
+          setBanners(prev => prev.map(b => b.id === editingBanner.id ? data[0] : b));
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('banners')
+          .insert([{
+            title: bannerForm.title,
+            subtitle: bannerForm.subtitle,
+            image: bannerForm.image,
+            cta_text: bannerForm.cta_text,
+            category: bannerForm.category,
+            type: bannerForm.type,
+            is_active: bannerForm.is_active,
+            publish_date: bannerForm.publish_date || null
+          }])
+          .select();
+
+        if (error) throw error;
+        if (data && data[0]) {
+          setBanners(prev => [data[0], ...prev]);
+        }
+      }
+      setBannerModalOpen(false);
+      alert("Banner slide saved successfully!");
+    } catch (err: any) {
+      alert(`Error saving banner: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteBanner = async (bannerId: string) => {
+    if (!confirm("Are you sure you want to delete this banner slide permanently?")) return;
+    setLoading(true);
+    const { error } = await supabase.from('banners').delete().eq('id', bannerId);
+    setLoading(false);
+    if (!error) {
+      setBanners(prev => prev.filter(b => b.id !== bannerId));
+      alert("Banner slide deleted!");
+    } else {
+      alert(`Error deleting banner: ${error.message}`);
     }
   };
 
@@ -2165,12 +2276,20 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                           </div>
 
                           <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center text-[10px]">
-                            <button
-                              onClick={() => openBannerForm(b)}
-                              className="text-brand-primary font-bold hover:underline cursor-pointer"
-                            >
-                              Edit
-                            </button>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => openBannerForm(b)}
+                                className="text-brand-primary font-bold hover:underline cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBanner(b.id)}
+                                className="text-red-500 font-bold hover:underline cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
                             <button
                               onClick={async () => {
                                 const updated = banners.map(bn => bn.id === b.id ? { ...bn, isActive: !bn.isActive } : bn);
@@ -3328,6 +3447,139 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 Close Inspect
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: HERO BANNER EDIT FORM */}
+      {bannerModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <h2 className="text-xl font-black tracking-tight text-zinc-900 uppercase">
+                {editingBanner ? 'Edit Banner Slide' : 'Create Banner Slide'}
+              </h2>
+              <button 
+                onClick={() => setBannerModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBanner} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="uppercase font-bold text-gray-400">Slide Title</label>
+                <input
+                  type="text"
+                  required
+                  value={bannerForm.title}
+                  onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                  placeholder="e.g. EID UL ADHA FESTIVAL COLLECTION"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="uppercase font-bold text-gray-400">Subtitle / Highlight Text</label>
+                <input
+                  type="text"
+                  value={bannerForm.subtitle}
+                  onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                  placeholder="e.g. Royal Jacquard Panjabi"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="uppercase font-bold text-gray-400">Image URL</label>
+                <input
+                  type="text"
+                  required
+                  value={bannerForm.image}
+                  onChange={(e) => setBannerForm({ ...bannerForm, image: e.target.value })}
+                  placeholder="Paste banner image URL link"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">CTA Button Text</label>
+                  <input
+                    type="text"
+                    value={bannerForm.cta_text}
+                    onChange={(e) => setBannerForm({ ...bannerForm, cta_text: e.target.value })}
+                    placeholder="e.g. SHOP NOW"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Target Category Link</label>
+                  <input
+                    type="text"
+                    value={bannerForm.category}
+                    onChange={(e) => setBannerForm({ ...bannerForm, category: e.target.value })}
+                    placeholder="e.g. Panjabi"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Banner Type</label>
+                  <select
+                    value={bannerForm.type}
+                    onChange={(e) => setBannerForm({ ...bannerForm, type: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="homepage">Homepage Hero Slide</option>
+                    <option value="promo">Promotional Banner</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Publish Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={bannerForm.publish_date}
+                    onChange={(e) => setBannerForm({ ...bannerForm, publish_date: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="bannerIsActive"
+                  checked={bannerForm.is_active}
+                  onChange={(e) => setBannerForm({ ...bannerForm, is_active: e.target.checked })}
+                  className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
+                />
+                <label htmlFor="bannerIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
+                  Publish Slide Instantly (Online)
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+                <button 
+                  type="button"
+                  onClick={() => setBannerModalOpen(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer"
+                >
+                  {editingBanner ? "Save Slide" : "Create Slide"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
