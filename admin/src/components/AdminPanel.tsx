@@ -196,8 +196,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         { id: 'log-1', source_id: 'mohasagor', status: 'success', items_fetched: 2747, items_imported: 120, items_updated: 2627, items_failed: 0, started_at: '2026-07-08 14:00', completed_at: '2026-07-08 14:15' }
       ];
       
-      if (sourcesData) setSyncSources(sourcesData); else setSyncSources(sourcesFallback);
-      if (logsData) setSyncLogs(logsData); else setSyncLogs(logsFallback);
+      if (sourcesData && sourcesData.length > 0) setSyncSources(sourcesData); else setSyncSources(sourcesFallback);
+      if (logsData && logsData.length > 0) setSyncLogs(logsData); else setSyncLogs(logsFallback);
 
     } catch (err) {
       console.error("Error fetching admin data:", err);
@@ -731,13 +731,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   };
 
   // Dynamically extract categories from all loaded products
-  const dynamicCategories = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
+  const dynamicCategories = ['All', ...Array.from(new Set(products.map(p => p?.category || 'General').filter(Boolean)))];
 
   // Filter products matching search and categories
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.id.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!p) return false;
+    const nameStr = p.name ? String(p.name) : '';
+    const catStr = p.category ? String(p.category) : '';
+    const idStr = p.id ? String(p.id) : '';
+
+    const matchesSearch = nameStr.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          catStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          idStr.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = filterCategory === 'All' || p.category === filterCategory;
     const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
     return matchesSearch && matchesCategory && matchesStatus;
