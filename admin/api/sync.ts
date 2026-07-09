@@ -56,6 +56,7 @@ export default async function handler(req: any, res: any) {
     // 1. Fetch source credentials from database
     const { data: sourceConfig, error: configError } = await supabase
       .from('sync_sources')
+      .select('*')
       .eq('id', source)
       .single();
 
