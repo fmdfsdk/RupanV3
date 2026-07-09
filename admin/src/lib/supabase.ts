@@ -260,6 +260,25 @@ class LocalDatabase {
       ];
       localStorage.setItem('rup_db_users', JSON.stringify(initialUsers));
     }
+
+    // 9. Sync Sources
+    if (!localStorage.getItem('rup_db_sync_sources')) {
+      const initialSources = [
+        {
+          id: 'mohasagor',
+          name: 'Mohasagor Reseller API',
+          type: 'api',
+          api_url: 'https://mohasagor.com.bd/api/reseller/product',
+          api_key: 'A8niclztH9JtzS4t',
+          secret_key: '2ff380917a11d3a7c97bcf6dddfb8adf38194c7d6b726ab12c4d0d5fb136fef8',
+          config: { markup_percentage: 25, auto_publish: true },
+          is_active: true,
+          last_sync_at: null,
+          created_at: new Date().toISOString()
+        }
+      ];
+      localStorage.setItem('rup_db_sync_sources', JSON.stringify(initialSources));
+    }
   }
 
   getTable(name: string): any[] {

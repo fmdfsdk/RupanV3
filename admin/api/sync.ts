@@ -243,16 +243,35 @@ export default async function handler(req: any, res: any) {
         .upsert(upsertBuffer, { onConflict: 'id' });
 
       if (upsertError) {
-        throw new Error(`Supabase upsert failed: ${upsertError.message}`);
-      }
-
-      upsertBuffer.forEach(p => {
-        if (existingIds.has(p.id)) {
-          updatedCount++;
-        } else {
-          importedCount++;
+        console.warn(`Bulk upsert failed for page ${page}, falling back to individual inserts: ${upsertError.message}`);
+        
+        // Attempt individual upserts to isolate the problematic product(s)
+        for (const row of upsertBuffer) {
+          const { error: indError } = await supabase
+            .from('products')
+            .upsert([row], { onConflict: 'id' });
+            
+          if (indError) {
+            failedCount++;
+            errors.push(`Product ID ${row.id} failed: ${indError.message}`);
+          } else {
+            if (existingIds.has(row.id)) {
+              updatedCount++;
+            } else {
+              importedCount++;
+            }
+          }
         }
-      });
+      } else {
+        // Bulk upsert succeeded
+        upsertBuffer.forEach(p => {
+          if (existingIds.has(p.id)) {
+            updatedCount++;
+          } else {
+            importedCount++;
+          }
+        });
+      }
     }
 
     const completedAt = new Date().toISOString();
