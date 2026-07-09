@@ -158,7 +158,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Render standalone dashboard, passing logout trigger */}
-        <AdminPanel onClose={handleLogout} />
+        <AdminPanel onClose={handleLogout} isSupabaseOnline={isSupabaseOnline} />
       </div>
     );
   }

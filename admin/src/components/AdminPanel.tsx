@@ -15,9 +15,10 @@ import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, User
 
 interface AdminPanelProps {
   onClose: () => void;
+  isSupabaseOnline?: boolean;
 }
 
-export default function AdminPanel({ onClose }: AdminPanelProps) {
+export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminPanelProps) {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
