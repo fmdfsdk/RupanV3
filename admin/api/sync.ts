@@ -269,7 +269,6 @@ export default async function handler(req: any, res: any) {
           is_flash_sale: false,
           source_id: source,
           source_product_id: String(item.id),
-          source_raw_data: item, // PRESERVE ALL DATA
           updated_at: new Date().toISOString()
         };
 

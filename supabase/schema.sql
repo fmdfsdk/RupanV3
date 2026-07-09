@@ -115,7 +115,6 @@ create table public.products (
   -- Sync properties
   source_id text not null default 'manual', -- 'manual', 'mohasagor', etc.
   source_product_id text, -- original product ID from source
-  source_raw_data jsonb, -- ALL raw API data preserved
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
