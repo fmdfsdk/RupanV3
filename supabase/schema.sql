@@ -26,10 +26,22 @@ create table public.profiles (
 
 -- RLS for profiles
 alter table public.profiles enable row level security;
+
+-- Helper function to check admin status bypassing RLS (security definer)
+create or replace function public.is_admin(user_id uuid)
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles 
+    where id = user_id and role in ('Super Admin', 'Admin')
+  );
+end;
+$$ language plpgsql security definer;
+
 create policy "Allow public read of profiles" on public.profiles for select using (true);
 create policy "Allow individual user profile updates" on public.profiles for update using (auth.uid() = id);
 create policy "Allow admin changes to profiles" on public.profiles for all using (
-  exists (select 1 from public.profiles where id = auth.uid() and role in ('Super Admin', 'Admin'))
+  public.is_admin(auth.uid())
 );
 
 -- 2. Create Settings table
