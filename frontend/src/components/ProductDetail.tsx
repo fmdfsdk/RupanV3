@@ -220,10 +220,11 @@ export default function ProductDetail({
             </div>
           </div>
 
-          <div 
-            className="text-sm text-gray-600 leading-relaxed font-sans whitespace-pre-line"
-            dangerouslySetInnerHTML={{ __html: product.description || '' }}
-          />
+          {product.short_description || product.shortDescription ? (
+            <div className="text-sm text-gray-500 leading-relaxed font-sans font-medium">
+              {product.short_description || product.shortDescription}
+            </div>
+          ) : null}
 
           {/* Stock state badges */}
           <div className="flex flex-wrap gap-2 text-[11px] font-bold">

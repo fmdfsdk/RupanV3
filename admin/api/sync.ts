@@ -205,8 +205,12 @@ export default async function handler(req: any, res: any) {
         const colors = Array.from(colorsMap.values());
         const sizes = Array.from(sizesSet);
 
-        // Fallback default sizes if none provided
-        if (sizes.length === 0) {
+        // Fallback default sizes if none provided (only for clothing categories)
+        const clothingCategories = ['panjabi', 'saree', 'kurti', 'shirt', 'polo', 'clothing', 'women', 'men', 'couple', 'fashion', 'kids'];
+        const itemCategoryLower = (item.category || '').toLowerCase();
+        const isClothing = clothingCategories.some(c => itemCategoryLower.includes(c));
+
+        if (sizes.length === 0 && isClothing) {
           sizes.push('M', 'L', 'XL');
         }
 

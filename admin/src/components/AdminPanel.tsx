@@ -146,7 +146,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: pData } = await supabase.from('products').select('*');
+      const { data: pData } = await supabase.from('products').select('*').limit(5000);
       const { data: oData } = await supabase.from('orders').select('*');
       const { data: cData } = await supabase.from('coupons').select('*');
       const { data: bData } = await supabase.from('banners').select('*');
@@ -394,7 +394,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (logsData) setSyncLogs(logsData);
       
       // Reload products list
-      const { data: pData } = await supabase.from('products').select('*');
+      const { data: pData } = await supabase.from('products').select('*').limit(5000);
       if (pData) setProducts(pData);
 
     } catch (err: any) {
