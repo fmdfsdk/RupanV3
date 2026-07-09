@@ -637,21 +637,22 @@ export { hasRealKeys };
 // Export the active client: uses real Supabase if keys exist, otherwise falls back smoothly to localDB mock client
 export const supabase = hasRealKeys ? realSupabase! : mockSupabase;
 
-export const checkSupabaseConnection = async (): Promise<boolean> => {
+export const getSupabaseConnectionError = async (): Promise<string | null> => {
   if (!hasRealKeys || !realSupabase) {
-    return false;
+    return "Supabase credentials are not configured in your environment variables.";
   }
   try {
-    // Attempt a lightweight request to verify the credentials and network connection
-    // We can query a default system or metadata path, or query 'products' table with a limit
     const { error } = await realSupabase.from('products').select('id').limit(1);
     if (error) {
-      console.warn('Supabase connection check returned an error:', error.message);
-      return false;
+      return error.message;
     }
-    return true;
-  } catch (err) {
-    console.warn('Supabase connection check threw an exception:', err);
-    return false;
+    return null;
+  } catch (err: any) {
+    return err?.message || String(err);
   }
+};
+
+export const checkSupabaseConnection = async (): Promise<boolean> => {
+  const err = await getSupabaseConnectionError();
+  return err === null;
 };

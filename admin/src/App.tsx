@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminPanel from './components/AdminPanel';
-import { supabase, checkSupabaseConnection } from './lib/supabase';
+import { supabase, checkSupabaseConnection, getSupabaseConnectionError } from './lib/supabase';
 import { Lock, Mail, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 
 export default function App() {
@@ -9,6 +9,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
   // Login Form States
   const [email, setEmail] = useState<string>('admin@rupan.com');
@@ -19,10 +20,12 @@ export default function App() {
     // 1. Verify Supabase connection
     const checkConnection = async () => {
       try {
-        const isOnline = await checkSupabaseConnection();
-        setIsSupabaseOnline(isOnline);
-      } catch (err) {
+        const errMsg = await getSupabaseConnectionError();
+        setIsSupabaseOnline(errMsg === null);
+        setConnectionError(errMsg);
+      } catch (err: any) {
         setIsSupabaseOnline(false);
+        setConnectionError(err?.message || String(err));
       }
     };
     checkConnection();
@@ -187,17 +190,24 @@ export default function App() {
         </div>
 
         {/* Database Status Tag */}
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center justify-center space-y-2">
           {isSupabaseOnline ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Live Database Mode
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold bg-amber-950 text-amber-400 border border-amber-900 uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-              Demo Fallback Mode
-            </span>
+            <div className="flex flex-col items-center space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold bg-amber-950 text-amber-400 border border-amber-900 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                Demo Fallback Mode
+              </span>
+              {connectionError && (
+                <p className="text-[10px] text-amber-500/80 text-center max-w-xs leading-normal font-medium bg-amber-950/20 border border-amber-900/30 px-3 py-1.5 rounded-xl">
+                  Error: {connectionError}
+                </p>
+              )}
+            </div>
           )}
         </div>
 
