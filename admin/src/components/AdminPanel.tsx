@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile } from '../types';
+import { PRODUCTS } from '../data';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -289,6 +290,44 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
         const updatedLogs = [mockLog, ...syncLogs];
         setSyncLogs(updatedLogs);
+
+        // Load mock products to state to show in dashboard catalog
+        const formattedProducts: Product[] = PRODUCTS.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          sku: p.sku || `RUP-${p.id.toUpperCase()}`,
+          brand: p.brand || 'Rupan',
+          category: p.category || 'General',
+          sub_category: p.subCategory || '',
+          tags: p.tags || [],
+          gender: p.gender || 'Men',
+          price: Number(p.discountPrice || p.price || 0),
+          discount_price: p.discountPrice ? Number(p.price) : null,
+          purchase_price: Number(p.price) * 0.75, // mock cost
+          rating: Number(p.rating || 5.0),
+          reviews_count: Number(p.reviewsCount || 0),
+          images: p.images || [],
+          colors: p.colors || [],
+          sizes: p.sizes || [],
+          description: p.description || '',
+          short_description: p.shortDescription || '',
+          features: p.features || [],
+          stock: p.stock || 50,
+          low_stock_warning: p.lowStockWarning || 5,
+          weight: p.weight || 0.35,
+          material: p.material || 'Premium Quality Blend',
+          status: p.status || 'published',
+          is_featured: p.isFeatured || false,
+          is_trending: p.isTrending || false,
+          is_new: p.isNew || false,
+          is_best_seller: p.isBestSeller || false,
+          is_flash_sale: p.isFlashSale || false,
+          source_id: 'mohasagor',
+          source_product_id: p.id,
+          created_at: new Date().toISOString()
+        }));
+        setProducts(formattedProducts);
         
         alert("Simulated Sync Completed!\nProcessed 2,747 products across 14 pages.\nImported: 140 new products\nUpdated: 2,607 products\nFailed: 0");
         setSyncing(false);
