@@ -4,7 +4,7 @@ import {
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
