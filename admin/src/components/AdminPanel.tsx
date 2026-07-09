@@ -329,6 +329,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         }));
         setProducts(formattedProducts);
         
+        // Save to LocalStorage for offline database persistence
+        localStorage.setItem('rup_db_products', JSON.stringify(formattedProducts));
+        
         alert("Simulated Sync Completed!\nProcessed 2,747 products across 14 pages.\nImported: 140 new products\nUpdated: 2,607 products\nFailed: 0");
         setSyncing(false);
         return;

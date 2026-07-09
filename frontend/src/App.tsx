@@ -40,12 +40,46 @@ export default function App() {
   const [activePage, setActivePage] = useState<string>('home');
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(false);
 
-  // Dynamic state loaded from Supabase (or fallback to static data)
-  const [dbProducts, setDbProducts] = useState<Product[]>(MOCK_PRODUCTS);
-  const [dbReviews, setDbReviews] = useState<Review[]>(MOCK_REVIEWS);
-  const [dbBlogs, setDbBlogs] = useState<BlogPost[]>(MOCK_BLOGS);
-  const [dbBanners, setDbBanners] = useState<any[]>([]);
-  const [dbSettings, setDbSettings] = useState<any>(null);
+  // Dynamic state loaded from Supabase (or fallback to localStorage / mock data)
+  const [dbProducts, setDbProducts] = useState<Product[]>(() => {
+    const cached = localStorage.getItem('rup_db_products');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return MOCK_PRODUCTS;
+  });
+  
+  const [dbReviews, setDbReviews] = useState<Review[]>(() => {
+    const cached = localStorage.getItem('rup_db_reviews');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return MOCK_REVIEWS;
+  });
+  
+  const [dbBlogs, setDbBlogs] = useState<BlogPost[]>(() => {
+    const cached = localStorage.getItem('rup_db_blogs');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return MOCK_BLOGS;
+  });
+  
+  const [dbBanners, setDbBanners] = useState<any[]>(() => {
+    const cached = localStorage.getItem('rup_db_banners');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return [];
+  });
+  
+  const [dbSettings, setDbSettings] = useState<any>(() => {
+    const cached = localStorage.getItem('rup_db_settings');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return null;
+  });
 
   // Shadow variables for in-component usage
   const PRODUCTS = dbProducts;
