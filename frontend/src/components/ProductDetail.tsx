@@ -14,6 +14,7 @@ import ProductCard from './ProductCard';
 
 interface ProductDetailProps {
   productId: string;
+  selectedProduct?: Product | null;
   onAddToCart: (product: Product, size: string, color: string, qty?: number) => void;
   onBuyNow: (product: Product, size: string, color: string) => void;
   onToggleWishlist: (product: Product) => void;
@@ -21,6 +22,7 @@ interface ProductDetailProps {
   onOpenSizeGuide: (category: string) => void;
   products?: Product[];
   reviews?: Review[];
+  onNavigate?: (page: string, category?: string) => void;
 }
 
 const getProductSlug = (name: string) => {
@@ -29,17 +31,19 @@ const getProductSlug = (name: string) => {
 
 export default function ProductDetail({
   productId,
+  selectedProduct,
   onAddToCart,
   onBuyNow,
   onToggleWishlist,
   wishlist,
   onOpenSizeGuide,
   products,
-  reviews
+  reviews,
+  onNavigate
 }: ProductDetailProps) {
   const PRODUCTS = products || MOCK_PRODUCTS;
   const REVIEWS = reviews || MOCK_REVIEWS;
-  const product = PRODUCTS.find((p) => p.id === productId || p.slug === productId || getProductSlug(p.name) === productId) || PRODUCTS[0];
+  const product = selectedProduct || PRODUCTS.find((p) => p.id === productId || p.slug === productId || getProductSlug(p.name) === productId) || PRODUCTS[0];
 
   const [activeImage, setActiveImage] = useState<string>(product.images[0]);
   const [selectedColor, setSelectedColor] = useState<string>(product.colors[0]?.name || '');
@@ -122,13 +126,26 @@ export default function ProductDetail({
     <div className="w-full max-w-[1750px] mx-auto px-4 md:px-12 lg:px-16 py-10 space-y-12">
       {/* Breadcrumb Navigation */}
       <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-500">
-        <a href="/" className="hover:text-brand-primary transition-colors">Home</a>
+        <button 
+          onClick={() => onNavigate && onNavigate('home')} 
+          className="hover:text-brand-primary transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
+        >
+          Home
+        </button>
         <span>/</span>
-        <a href="/shop" className="hover:text-brand-primary transition-colors">Shop</a>
+        <button 
+          onClick={() => onNavigate && onNavigate('shop', 'All')} 
+          className="hover:text-brand-primary transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
+        >
+          Shop
+        </button>
         <span>/</span>
-        <a href={`/shop?category=${encodeURIComponent(product.category)}`} className="hover:text-brand-primary transition-colors uppercase">
+        <button 
+          onClick={() => onNavigate && onNavigate('shop', product.category)} 
+          className="hover:text-brand-primary transition-colors uppercase cursor-pointer border-none bg-transparent p-0 outline-none font-semibold text-gray-700"
+        >
           {product.category}
-        </a>
+        </button>
         <span>/</span>
         <span className="text-brand-text truncate max-w-xs font-semibold">{product.name}</span>
       </div>

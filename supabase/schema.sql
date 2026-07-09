@@ -62,6 +62,20 @@ create table public.settings (
   meta_test_event_code text,
   google_tag_manager_id text,
   google_analytics_id text,
+  homepage_config jsonb not null default '{
+    "featured_categories": [
+      { "name": "Men Fashions", "desc": "Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.", "icon": "👕", "bg": "from-orange-50 to-amber-50/20" },
+      { "name": "Women Fashions", "desc": "High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.", "icon": "👗", "bg": "from-rose-50 to-pink-50/10" },
+      { "name": "Couple Collection", "desc": "Perfectly coordinated matching couple outfits for special occasions and wedding festivals.", "icon": "👩‍❤️‍👨", "bg": "from-purple-50 to-indigo-50/10" },
+      { "name": "Kids Fashions", "desc": "Extremely soft combed organic cotton comfort drops for children and growing toddlers.", "icon": "👶", "bg": "from-blue-50 to-sky-50/10" },
+      { "name": "Accessories", "desc": "Classic chronometer watches, dial analogs, and smart leather everyday utility gear.", "icon": "⌚", "bg": "from-gray-100 to-zinc-50" }
+    ],
+    "featured_product_ids": {
+      "trending": [],
+      "new_arrivals": [],
+      "best_sellers": []
+    }
+  }'::jsonb,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

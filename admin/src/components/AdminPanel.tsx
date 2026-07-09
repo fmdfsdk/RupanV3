@@ -56,11 +56,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [syncStats, setSyncStats] = useState({ fetched: 0, imported: 0, updated: 0, failed: 0 });
   const [selectedLog, setSelectedLog] = useState<any>(null);
 
+  // Pagination states
+  const [productsPage, setProductsPage] = useState<number>(1);
+  const [totalProductsCount, setTotalProductsCount] = useState<number>(0);
+  const [pageSize] = useState<number>(50);
+  const [availableCategories, setAvailableCategories] = useState<string[]>(['All']);
+
   // Loading states
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
+
+  // Homepage Config state
+  const [homepageConfig, setHomepageConfig] = useState<any>({
+    featured_categories: [],
+    featured_product_ids: { trending: [], new_arrivals: [], best_sellers: [] }
+  });
 
   // Modal / Form States
   const [productModalOpen, setProductModalOpen] = useState<boolean>(false);
@@ -138,15 +150,91 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [imageInputMethod, setImageInputMethod] = useState<'url' | 'upload'>('url');
   const [customImageUrl, setCustomImageUrl] = useState<string>('');
 
-  // Fetch all tables on mount
+  // Fetch all tables on mount (excluding products, which is paginated)
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Reset pagination page on search/filter changes
+  useEffect(() => {
+    setProductsPage(1);
+  }, [searchQuery, filterCategory, filterStatus]);
+
+  // Load paginated products page
+  useEffect(() => {
+    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus);
+  }, [productsPage, searchQuery, filterCategory, filterStatus]);
+
+  const fetchProductsPage = async (page: number, search: string, category: string, status: string) => {
+    try {
+      if (!isSupabaseOnline) {
+        // --- OFFLINE MOCK MODE ---
+        let localData = PRODUCTS;
+        const stored = localStorage.getItem('rup_db_products');
+        if (stored) {
+          try { localData = JSON.parse(stored); } catch (e) {}
+        }
+        
+        // Filter in memory
+        const filtered = localData.filter(p => {
+          if (!p) return false;
+          const nameStr = p.name ? String(p.name) : '';
+          const catStr = p.category ? String(p.category) : '';
+          const idStr = p.id ? String(p.id) : '';
+          
+          const matchesSearch = nameStr.toLowerCase().includes(search.toLowerCase()) || 
+                                catStr.toLowerCase().includes(search.toLowerCase()) ||
+                                idStr.toLowerCase().includes(search.toLowerCase());
+          const matchesCategory = category === 'All' || p.category === category;
+          const matchesStatus = status === 'All' || p.status === status;
+          return matchesSearch && matchesCategory && matchesStatus;
+        });
+        
+        setTotalProductsCount(filtered.length);
+        const start = (page - 1) * pageSize;
+        const pageData = filtered.slice(start, start + pageSize);
+        setProducts(pageData);
+        return;
+      }
+      
+      // --- LIVE DATABASE MODE ---
+      let dbQuery = supabase.from('products').select('*', { count: 'exact' });
+      
+      // Apply filters
+      if (status !== 'All') {
+        dbQuery = dbQuery.eq('status', status);
+      }
+      if (category !== 'All') {
+        dbQuery = dbQuery.eq('category', category);
+      }
+      
+      // Search query (fuzzy search on name/sku/id)
+      if (search.trim()) {
+        const queryTerm = `%${search.trim()}%`;
+        dbQuery = dbQuery.or(`name.ilike.${queryTerm},sku.ilike.${queryTerm},id.ilike.${queryTerm}`);
+      }
+      
+      // Pagination range
+      const start = (page - 1) * pageSize;
+      const end = page * pageSize - 1;
+      
+      const { data, count, error } = await dbQuery
+        .order('updated_at', { ascending: false })
+        .range(start, end);
+        
+      if (error) throw error;
+      
+      if (data) setProducts(data);
+      if (count !== null) setTotalProductsCount(count);
+      
+    } catch (err: any) {
+      console.error("Error fetching products page:", err);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: pData } = await supabase.from('products').select('*').limit(5000);
       const { data: oData } = await supabase.from('orders').select('*');
       const { data: cData } = await supabase.from('coupons').select('*');
       const { data: bData } = await supabase.from('banners').select('*');
@@ -155,7 +243,6 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       const { data: uData } = await supabase.from('users').select('*');
       const { data: sData } = await supabase.from('settings').select('*').single();
 
-      if (pData) setProducts(pData);
       if (oData) {
         // Sort orders descending
         const sortedOrders = [...oData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -183,6 +270,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId || '',
           googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId || ''
         });
+        if (sData.homepage_config) {
+          setHomepageConfig(sData.homepage_config);
+        }
       }
 
       // Fetch sync sources & logs
@@ -198,6 +288,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       
       if (sourcesData && sourcesData.length > 0) setSyncSources(sourcesData); else setSyncSources(sourcesFallback);
       if (logsData && logsData.length > 0) setSyncLogs(logsData); else setSyncLogs(logsFallback);
+
+      // Fetch dynamic categories list
+      if (isSupabaseOnline) {
+        const { data: catData } = await supabase.from('products').select('category');
+        if (catData) {
+          const uniqueCats = Array.from(new Set(catData.map(c => c.category).filter(Boolean)));
+          setAvailableCategories(['All', ...uniqueCats]);
+        }
+      } else {
+        let localData = PRODUCTS;
+        const stored = localStorage.getItem('rup_db_products');
+        if (stored) {
+          try { localData = JSON.parse(stored); } catch (e) {}
+        }
+        const uniqueCats = Array.from(new Set(localData.map(p => p.category).filter(Boolean)));
+        setAvailableCategories(['All', ...uniqueCats]);
+      }
 
     } catch (err) {
       console.error("Error fetching admin data:", err);
@@ -730,23 +837,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
   };
 
-  // Dynamically extract categories from all loaded products
-  const dynamicCategories = ['All', ...Array.from(new Set(products.map(p => p?.category || 'General').filter(Boolean)))];
 
-  // Filter products matching search and categories
-  const filteredProducts = products.filter(p => {
-    if (!p) return false;
-    const nameStr = p.name ? String(p.name) : '';
-    const catStr = p.category ? String(p.category) : '';
-    const idStr = p.id ? String(p.id) : '';
-
-    const matchesSearch = nameStr.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          catStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          idStr.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === 'All' || p.category === filterCategory;
-    const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  // Filter products (resolved server-side in paginated query)
+  const filteredProducts = products;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#F8F9FA] flex flex-col font-sans overflow-hidden text-zinc-800">
@@ -924,13 +1017,13 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
-              onClick={() => { setActiveTab('banners'); setMobileSidebarOpen(false); }}
+              onClick={() => { setActiveTab('homepage'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === 'banners' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+                activeTab === 'homepage' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <Image className="w-4 h-4" />
-              <span>Banners & Promos</span>
+              <LayoutDashboard className="w-4 h-4 text-orange-500" />
+              <span>Homepage Manager</span>
             </button>
 
             <button
@@ -1235,7 +1328,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                           onChange={(e) => setFilterCategory(e.target.value)}
                           className="bg-gray-50 border border-gray-200 text-xs font-bold rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
                         >
-                          {dynamicCategories.map(cat => (
+                          {availableCategories.map(cat => (
                             <option key={cat} value={cat}>{cat === 'All' ? 'All Categories' : cat}</option>
                           ))}
                         </select>
@@ -1355,6 +1448,65 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                           })}
                         </tbody>
                       </table>
+                    </div>
+                    
+                    {/* Pagination Controls */}
+                    <div className="bg-white p-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                      <div className="text-xs font-semibold text-gray-500">
+                        Showing <span className="text-gray-900 font-bold">{totalProductsCount === 0 ? 0 : Math.min(totalProductsCount, (productsPage - 1) * pageSize + 1)}</span> to{' '}
+                        <span className="text-gray-900 font-bold">{Math.min(totalProductsCount, productsPage * pageSize)}</span> of{' '}
+                        <span className="text-gray-900 font-bold">{totalProductsCount}</span> products
+                      </div>
+                      
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setProductsPage(prev => Math.max(1, prev - 1))}
+                          disabled={productsPage === 1}
+                          className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-all cursor-pointer"
+                        >
+                          Previous
+                        </button>
+                        
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, Math.ceil(totalProductsCount / pageSize)) }).map((_, idx) => {
+                            const totalPages = Math.ceil(totalProductsCount / pageSize);
+                            let pageNo = idx + 1;
+                            
+                            if (productsPage > 3 && totalPages > 5) {
+                              if (productsPage + 2 >= totalPages) {
+                                pageNo = totalPages - 4 + idx;
+                              } else {
+                                pageNo = productsPage - 2 + idx;
+                              }
+                            }
+                            
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setProductsPage(pageNo)}
+                                className={`w-8 h-8 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                                  productsPage === pageNo
+                                    ? 'bg-brand-primary text-white font-black'
+                                    : 'text-gray-600 hover:bg-gray-100 border border-transparent'
+                                }`}
+                              >
+                                {pageNo}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setProductsPage(prev => Math.min(Math.ceil(totalProductsCount / pageSize), prev + 1))}
+                          disabled={productsPage >= Math.ceil(totalProductsCount / pageSize)}
+                          className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-all cursor-pointer"
+                        >
+                          Next
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1964,58 +2116,262 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               )}
 
               {/* TAB 7: BANNERS & PROMOS */}
-              {activeTab === 'banners' && (
+              {/* TAB: HOMEPAGE MANAGER */}
+              {activeTab === 'homepage' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h1 className="text-2xl font-black tracking-tight">Banners & Promotions</h1>
-                      <p className="text-xs text-gray-500">Create, edit, and schedule homepage sliders, category banners, or promotional popups.</p>
+                      <h1 className="text-2xl font-black tracking-tight">Homepage Customization</h1>
+                      <p className="text-xs text-gray-500">Configure promotional sliders, category showcase blocks, and featured collections.</p>
                     </div>
                   </div>
 
-                  {/* Banners Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {banners.map((b) => (
-                      <div key={b.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs relative flex flex-col justify-between">
-                        <div>
-                          <div className="relative h-44 bg-zinc-950 overflow-hidden">
-                            <img 
-                              src={b.image || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600'} 
-                              alt={b.title} 
-                              className="w-full h-full object-cover opacity-75"
-                              referrerPolicy="no-referrer"
-                            />
-                            <span className="absolute top-3 left-3 bg-brand-primary text-white text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider">
-                              {b.type}
-                            </span>
-                          </div>
-                          
-                          <div className="p-4 space-y-2">
-                            <h4 className="font-bold text-sm text-zinc-950 leading-snug">{b.title}</h4>
-                            <p className="text-xs text-zinc-500 font-medium leading-relaxed">{b.subtitle}</p>
-                          </div>
-                        </div>
+                  {/* Section 1: Hero Banners */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-4">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                      <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 flex items-center gap-2">
+                        <Image className="w-4 h-4 text-orange-500" />
+                        Hero Banner Sliders
+                      </h3>
+                      <button
+                        onClick={() => openBannerForm(null)}
+                        className="bg-brand-primary text-white text-[10px] font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg hover:bg-blue-900 transition-all cursor-pointer"
+                      >
+                        Add Slide
+                      </button>
+                    </div>
 
-                        <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                          <span className="text-[10px] font-mono text-gray-400 font-bold uppercase">
-                            Published {b.publishDate || 'Immediate'}
-                          </span>
-                          
-                          <button
-                            onClick={async () => {
-                              const updated = banners.map(bn => bn.id === b.id ? { ...bn, isActive: !bn.isActive } : bn);
-                              await supabase.from('banners').update({ isActive: !b.isActive }).eq('id', b.id);
-                              setBanners(updated);
-                            }}
-                            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded ${
-                              b.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {b.isActive ? 'Online' : 'Offline'}
-                          </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {banners.map((b) => (
+                        <div key={b.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-2xs relative flex flex-col justify-between">
+                          <div>
+                            <div className="relative h-32 bg-zinc-950 overflow-hidden">
+                              <img 
+                                src={b.image || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600'} 
+                                alt={b.title} 
+                                className="w-full h-full object-cover opacity-75"
+                                referrerPolicy="no-referrer"
+                              />
+                              <span className="absolute top-2 left-2 bg-brand-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
+                                {b.type}
+                              </span>
+                            </div>
+                            
+                            <div className="p-4 space-y-1">
+                              <h4 className="font-bold text-xs text-zinc-950 leading-snug">{b.title}</h4>
+                              <p className="text-[10px] text-zinc-500 font-semibold">{b.subtitle}</p>
+                              {b.category && <p className="text-[10px] text-brand-primary font-bold">Link: {b.category}</p>}
+                            </div>
+                          </div>
+
+                          <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center text-[10px]">
+                            <button
+                              onClick={() => openBannerForm(b)}
+                              className="text-brand-primary font-bold hover:underline cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const updated = banners.map(bn => bn.id === b.id ? { ...bn, isActive: !bn.isActive } : bn);
+                                await supabase.from('banners').update({ isActive: !b.isActive }).eq('id', b.id);
+                                setBanners(updated);
+                              }}
+                              className={`font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                                b.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {b.isActive ? 'Online' : 'Offline'}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section 2: Featured Collections */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
+                    <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-3 flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-emerald-500" />
+                      Featured Collections Products
+                    </h3>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {['trending', 'new_arrivals', 'best_sellers'].map((type) => {
+                        const title = type === 'trending' ? 'Trending Products' : type === 'new_arrivals' ? 'New Arrivals' : 'Best Sellers';
+                        const idsList = homepageConfig.featured_product_ids?.[type] || [];
+                        
+                        return (
+                          <div key={type} className="border border-gray-200 rounded-2xl p-4 bg-gray-50/30 space-y-3">
+                            <span className="text-xs font-black uppercase text-zinc-800 block">{title}</span>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                              {idsList.length === 0 ? (
+                                <p className="text-[11px] text-gray-400 font-semibold italic">No products added. Using dynamic algorithms.</p>
+                              ) : (
+                                idsList.map((id: string) => (
+                                  <div key={id} className="flex justify-between items-center p-2 bg-white rounded-lg border border-gray-100 text-xs font-semibold">
+                                    <span className="truncate max-w-[120px]">{id}</span>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const updatedConfig = {
+                                          ...homepageConfig,
+                                          featured_product_ids: {
+                                            ...homepageConfig.featured_product_ids,
+                                            [type]: idsList.filter((item: string) => item !== id)
+                                          }
+                                        };
+                                        const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', 1);
+                                        if (!error) {
+                                          setHomepageConfig(updatedConfig);
+                                        }
+                                      }}
+                                      className="text-red-500 hover:text-red-700 font-bold px-1"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+
+                            {/* Add Product ID Form */}
+                            <form
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                const form = e.currentTarget;
+                                const input = form.elements.namedItem('productId') as HTMLInputElement;
+                                const newId = input.value.trim();
+                                if (newId && !idsList.includes(newId)) {
+                                  const updatedConfig = {
+                                    ...homepageConfig,
+                                    featured_product_ids: {
+                                      ...homepageConfig.featured_product_ids,
+                                      [type]: [...idsList, newId]
+                                    }
+                                  };
+                                  const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', 1);
+                                  if (!error) {
+                                    setHomepageConfig(updatedConfig);
+                                    input.value = '';
+                                  } else {
+                                    alert(`Failed to save: ${error.message}`);
+                                  }
+                                }
+                              }}
+                              className="flex gap-2"
+                            >
+                              <input
+                                type="text"
+                                name="productId"
+                                placeholder="Paste Product ID (e.g. mohasagor-8327)"
+                                className="flex-1 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                              />
+                              <button
+                                type="submit"
+                                className="bg-brand-primary text-white text-xs px-3 py-1.5 rounded-lg font-bold"
+                              >
+                                Add
+                              </button>
+                            </form>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Section 3: Homepage Featured Categories */}
+                  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
+                    <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-3 flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-purple-500" />
+                      Showcase Categories Grid (Home)
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {(homepageConfig.featured_categories || []).map((cat: any, index: number) => (
+                        <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{cat.icon}</span>
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                value={cat.name}
+                                onChange={async (e) => {
+                                  const list = [...homepageConfig.featured_categories];
+                                  list[index] = { ...cat, name: e.target.value };
+                                  const updatedConfig = { ...homepageConfig, featured_categories: list };
+                                  setHomepageConfig(updatedConfig);
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none"
+                                placeholder="Category Name"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold text-gray-400">Description</label>
+                            <textarea
+                              value={cat.desc}
+                              onChange={(e) => {
+                                const list = [...homepageConfig.featured_categories];
+                                list[index] = { ...cat, desc: e.target.value };
+                                setHomepageConfig({ ...homepageConfig, featured_categories: list });
+                              }}
+                              className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs focus:outline-none h-16 resize-none font-semibold text-gray-600"
+                              placeholder="Category description..."
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div>
+                              <label className="uppercase font-bold text-gray-400 block mb-1">Icon Emoji</label>
+                              <input
+                                type="text"
+                                value={cat.icon}
+                                onChange={(e) => {
+                                  const list = [...homepageConfig.featured_categories];
+                                  list[index] = { ...cat, icon: e.target.value };
+                                  setHomepageConfig({ ...homepageConfig, featured_categories: list });
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 focus:outline-none text-center"
+                                placeholder="👕"
+                              />
+                            </div>
+                            <div>
+                              <label className="uppercase font-bold text-gray-400 block mb-1">Tailwind Gradient</label>
+                              <input
+                                type="text"
+                                value={cat.bg}
+                                onChange={(e) => {
+                                  const list = [...homepageConfig.featured_categories];
+                                  list[index] = { ...cat, bg: e.target.value };
+                                  setHomepageConfig({ ...homepageConfig, featured_categories: list });
+                                }}
+                                className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
+                                placeholder="from-orange-50 to-amber-50/20"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-end pt-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', 1);
+                          if (!error) {
+                            alert("Homepage category configurations saved successfully!");
+                          } else {
+                            alert(`Failed to save categories: ${error.message}`);
+                          }
+                        }}
+                        className="bg-[#ff5c00] text-white text-xs font-bold uppercase tracking-wider px-6 py-3.5 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+                      >
+                        Save Categories Grid Configuration
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

@@ -104,9 +104,11 @@ export default function App() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [sizeGuideOpen, setSizeGuideOpen] = useState<boolean>(false);
   const [sizeGuideCategory, setSizeGuideCategory] = useState<string>('Panjabi');
+  const [fullProductDetail, setFullProductDetail] = useState<Product | null>(null);
 
   // Interactive Shop Filters & Sorting States
   const [checkedCategories, setCheckedCategories] = useState<string[]>([]);
+  const [checkedSubCategories, setCheckedSubCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
@@ -116,6 +118,7 @@ export default function App() {
 
   // Collapsible section triggers
   const [categoriesExpanded, setCategoriesExpanded] = useState<boolean>(true);
+  const [subCategoriesExpanded, setSubCategoriesExpanded] = useState<boolean>(true);
   const [brandExpanded, setBrandExpanded] = useState<boolean>(true);
   const [priceExpanded, setPriceExpanded] = useState<boolean>(true);
   const [stockExpanded, setStockExpanded] = useState<boolean>(true);
@@ -123,6 +126,7 @@ export default function App() {
   // Consolidated applied filters for clicking "Apply Filter"
   const [appliedFilters, setAppliedFilters] = useState({
     categories: [] as string[],
+    subCategories: [] as string[],
     brands: [] as string[],
     minPrice: '',
     maxPrice: '',
@@ -470,32 +474,41 @@ export default function App() {
   // Active hero carousel slide
   const [heroSlide, setHeroSlide] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(86327); // 23h 58m 27s
-  const heroBanners = [
-    {
-      title: 'EID UL ADHA FESTIVAL COLLECTION',
-      highlight: 'Royal Jacquard Panjabi',
-      subtitle: 'Style That Speaks Traditional Luxury',
-      bgUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=1200&auto=format&fit=crop',
-      ctaText: 'Shop Panjabi Collection',
-      category: 'Panjabi'
-    },
-    {
-      title: 'EXCLUSIVE COORDINATED MATCHING SETS',
-      highlight: 'Crimson Love Couple Sets',
-      subtitle: 'Synchronized Elegance For Special Celebrations',
-      bgUrl: 'https://images.unsplash.com/photo-1614975058789-41316d0e2e9c?q=80&w=1200&auto=format&fit=crop',
-      ctaText: 'Shop Couple Collection',
-      category: 'Couple Collection'
-    },
-    {
-      title: 'MODERN COTTON ESSENTIALS',
-      highlight: 'Premium Combed Cotton T-Shirts',
-      subtitle: 'Ultra-Soft, High-Strength 180 GSM Fabric',
-      bgUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1200&auto=format&fit=crop',
-      ctaText: 'Shop Western Collections',
-      category: 'T-Shirts'
-    }
-  ];
+  const heroBanners = dbBanners && dbBanners.length > 0
+    ? dbBanners.map((b: any) => ({
+        title: b.title || 'RUPAN EXCLUSIVE',
+        highlight: b.title || '',
+        subtitle: b.subtitle || '',
+        bgUrl: b.image || 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=1200&auto=format&fit=crop',
+        ctaText: 'SHOP NOW',
+        category: b.category || 'All'
+      }))
+    : [
+        {
+          title: 'EID UL ADHA FESTIVAL COLLECTION',
+          highlight: 'Royal Jacquard Panjabi',
+          subtitle: 'Style That Speaks Traditional Luxury',
+          bgUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=1200&auto=format&fit=crop',
+          ctaText: 'Shop Panjabi Collection',
+          category: 'Panjabi'
+        },
+        {
+          title: 'EXCLUSIVE COORDINATED MATCHING SETS',
+          highlight: 'Crimson Love Couple Sets',
+          subtitle: 'Synchronized Elegance For Special Celebrations',
+          bgUrl: 'https://images.unsplash.com/photo-1614975058789-41316d0e2e9c?q=80&w=1200&auto=format&fit=crop',
+          ctaText: 'Shop Couple Collection',
+          category: 'Couple Collection'
+        },
+        {
+          title: 'MODERN COTTON ESSENTIALS',
+          highlight: 'Premium Combed Cotton T-Shirts',
+          subtitle: 'Ultra-Soft, High-Strength 180 GSM Fabric',
+          bgUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1200&auto=format&fit=crop',
+          ctaText: 'Shop Western Collections',
+          category: 'T-Shirts'
+        }
+      ];
 
   // Auto sliding carousel effect
   useEffect(() => {
@@ -638,8 +651,8 @@ export default function App() {
     const loadData = async () => {
       if (isSupabaseOnline) {
         try {
-          // Fetch products
-          const { data: pData } = await supabase.from('products').select('*').eq('status', 'published');
+          // Fetch products (lightweight columns optimization)
+          const { data: pData } = await supabase.from('products').select('id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at').eq('status', 'published');
           if (pData && pData.length > 0) {
             setDbProducts(pData);
           }
@@ -682,6 +695,46 @@ export default function App() {
     };
     loadData();
   }, [isSupabaseOnline]);
+
+  // Load full product details dynamically when viewing product-detail page
+  useEffect(() => {
+    const loadFullProduct = async () => {
+      if (activePage === 'product-detail' && currentProductId) {
+        // If supabase is offline, load from local list
+        if (!isSupabaseOnline) {
+          const found = PRODUCTS.find(p => p.id === currentProductId || p.slug === currentProductId);
+          if (found) setFullProductDetail(found);
+          return;
+        }
+
+        // Live Mode: query database for this single item by ID or slug
+        const getProductSlug = (name: string) => {
+          return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        };
+        
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .or(`id.eq."${currentProductId}",slug.eq."${currentProductId}"`)
+          .maybeSingle();
+
+        if (!error && data) {
+          setFullProductDetail(data);
+        } else {
+          // Slug search fallback
+          const foundLocal = PRODUCTS.find(p => p.id === currentProductId || getProductSlug(p.name) === currentProductId);
+          if (foundLocal) {
+            const { data: detailData } = await supabase.from('products').select('*').eq('id', foundLocal.id).maybeSingle();
+            if (detailData) setFullProductDetail(detailData);
+          }
+        }
+      } else {
+        setFullProductDetail(null);
+      }
+    };
+
+    loadFullProduct();
+  }, [activePage, currentProductId, PRODUCTS, isSupabaseOnline]);
 
   // Telemetry page view tracking
   useEffect(() => {
@@ -856,17 +909,23 @@ export default function App() {
       let matchSearch = true;
       if (appliedFilters.search.trim()) {
         const query = appliedFilters.search.toLowerCase();
-        matchSearch = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
+        matchSearch = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query) || p.id.toLowerCase().includes(query) || (p.sku && p.sku.toLowerCase().includes(query));
       }
 
       // Global header search query if present
       let matchGlobalSearch = true;
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        matchGlobalSearch = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
+        matchGlobalSearch = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query) || p.id.toLowerCase().includes(query) || (p.sku && p.sku.toLowerCase().includes(query));
       }
 
-      return matchCategory && matchGender && matchBrand && matchPrice && matchStock && matchSearch && matchGlobalSearch;
+      // Sub-category filter
+      let matchSubCategory = true;
+      if (appliedFilters.subCategories.length > 0) {
+        matchSubCategory = appliedFilters.subCategories.includes(p.sub_category || p.subCategory || '');
+      }
+
+      return matchCategory && matchSubCategory && matchGender && matchBrand && matchPrice && matchStock && matchSearch && matchGlobalSearch;
     });
 
     // Handle interactive sorting
@@ -883,6 +942,18 @@ export default function App() {
     return filtered;
   };
 
+  // Automatically apply filters instantly on sidebar selection changes
+  useEffect(() => {
+    setAppliedFilters({
+      categories: checkedCategories,
+      brands: selectedBrands,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      stock: selectedStock,
+      search: sidebarSearch
+    });
+  }, [checkedCategories, selectedBrands, minPrice, maxPrice, selectedStock, sidebarSearch]);
+
   // Filter application action triggers
   const handleApplyFilters = () => {
     setAppliedFilters({
@@ -897,6 +968,7 @@ export default function App() {
 
   const handleResetFilters = () => {
     setCheckedCategories([]);
+    setCheckedSubCategories([]);
     setSelectedBrands([]);
     setMinPrice('');
     setMaxPrice('');
@@ -907,6 +979,7 @@ export default function App() {
     setSearchQuery('');
     setAppliedFilters({
       categories: [],
+      subCategories: [],
       brands: [],
       minPrice: '',
       maxPrice: '',
@@ -919,6 +992,41 @@ export default function App() {
   const handleOpenSizeGuide = (category: string) => {
     setSizeGuideCategory(category);
     setSizeGuideOpen(true);
+  };
+
+  // Helper to load customized homepage product lists
+  const getHomepageProducts = (type: 'trending' | 'new_arrivals' | 'best_sellers', fallbackFilter: (p: Product) => boolean, limit = 6) => {
+    const configIds = dbSettings?.homepage_config?.featured_product_ids?.[type] || [];
+    if (configIds.length > 0) {
+      const matches = configIds
+        .map((id: string) => PRODUCTS.find(p => p.id === id || p.slug === id))
+        .filter(Boolean) as Product[];
+      if (matches.length > 0) {
+        if (matches.length < limit) {
+          const fill = PRODUCTS.filter(p => fallbackFilter(p) && !matches.some(m => m.id === p.id)).slice(0, limit - matches.length);
+          return [...matches, ...fill];
+        }
+        return matches.slice(0, limit);
+      }
+    }
+    return PRODUCTS.filter(fallbackFilter).slice(0, limit);
+  };
+
+  const getHomepageNewArrivals = () => {
+    const configIds = dbSettings?.homepage_config?.featured_product_ids?.new_arrivals || [];
+    if (configIds.length > 0) {
+      const matches = configIds
+        .map((id: string) => PRODUCTS.find(p => p.id === id || p.slug === id))
+        .filter(Boolean) as Product[];
+      if (matches.length > 0) {
+        if (matches.length < 18) {
+          const fill = PRODUCTS.filter(p => !matches.some(m => m.id === p.id)).slice(0, 18 - matches.length);
+          return [...matches, ...fill];
+        }
+        return matches.slice(0, 18);
+      }
+    }
+    return PRODUCTS.slice(0, 18);
   };
 
   return (
@@ -1294,7 +1402,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                {PRODUCTS.filter((p) => p.isFeatured).slice(0, 6).map((product) => (
+                {getHomepageProducts('trending', (p) => p.isFeatured, 6).map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -1324,7 +1432,7 @@ export default function App() {
 
               {/* 3 rows of 6 products */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                {PRODUCTS.slice(0, 18).map((product) => (
+                {getHomepageNewArrivals().map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -1353,7 +1461,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                {PRODUCTS.filter((p) => p.isBestSeller).slice(0, 6).map((product) => (
+                {getHomepageProducts('best_sellers', (p) => p.isBestSeller, 6).map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -1552,6 +1660,48 @@ export default function App() {
                                 />
                                 <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-950 font-bold' : ''}`}>
                                   {cat}
+                                </span>
+                              </div>
+                              <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Subcategories Collapsible */}
+                  <div className="border-t border-gray-100 pt-4 space-y-3">
+                    <button 
+                      onClick={() => setSubCategoriesExpanded(!subCategoriesExpanded)}
+                      className="flex items-center justify-between w-full text-left"
+                    >
+                      <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Sub Categories</span>
+                      <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+                        {subCategoriesExpanded ? '−' : '+'}
+                      </span>
+                    </button>
+                    
+                    {subCategoriesExpanded && (
+                      <div className="space-y-2.5 pt-1">
+                        {Array.from(new Set(PRODUCTS.map(p => p.sub_category || p.subCategory || '').filter(Boolean))).map((sub) => {
+                          const count = PRODUCTS.filter(p => (p.sub_category || p.subCategory) === sub).length;
+                          const isChecked = checkedSubCategories.includes(sub);
+                          return (
+                            <label key={sub} className="flex items-center justify-between group cursor-pointer text-sm">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setCheckedSubCategories(prev => 
+                                      isChecked ? prev.filter(s => s !== sub) : [...prev, sub]
+                                    );
+                                  }}
+                                  className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
+                                />
+                                <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-950 font-bold' : ''}`}>
+                                  {sub}
                                 </span>
                               </div>
                               <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
@@ -2895,13 +3045,16 @@ export default function App() {
 
             {/* Premium bento grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
-                { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },
-                { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10' },
-                { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
-                { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
-              ].map(cat => (
+              {(dbSettings?.homepage_config?.featured_categories && dbSettings.homepage_config.featured_categories.length > 0
+                ? dbSettings.homepage_config.featured_categories
+                : [
+                    { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
+                    { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },
+                    { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10' },
+                    { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
+                    { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
+                  ]
+              ).map(cat => (
                 <div 
                   key={cat.name} 
                   onClick={() => {
@@ -3876,6 +4029,7 @@ export default function App() {
         {activePage === 'product-detail' && currentProductId && (
           <ProductDetail
             productId={currentProductId}
+            selectedProduct={fullProductDetail}
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
             onToggleWishlist={handleToggleWishlist}
@@ -3883,6 +4037,24 @@ export default function App() {
             onOpenSizeGuide={handleOpenSizeGuide}
             products={PRODUCTS}
             reviews={REVIEWS}
+            onNavigate={(page, category) => {
+              if (page === 'home') {
+                setSelectedCategory('All');
+                setActivePage('home');
+                window.history.pushState(null, '', '/');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else if (page === 'shop') {
+                setSelectedCategory(category || 'All');
+                if (category && category !== 'All') {
+                  setCheckedCategories([category]);
+                } else {
+                  setCheckedCategories([]);
+                }
+                setActivePage('shop');
+                window.history.pushState(null, '', category && category !== 'All' ? `/shop?category=${encodeURIComponent(category)}` : '/shop');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
           />
         )}
 
