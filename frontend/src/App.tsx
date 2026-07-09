@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 import { Product, CartItem, Order, Review, BlogPost } from './types';
-import { PRODUCTS, REVIEWS, BLOGS, FAQ } from './data';
+import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS, BLOGS as MOCK_BLOGS, FAQ } from './data';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ProductCard from './components/ProductCard';
@@ -41,9 +41,9 @@ export default function App() {
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(false);
 
   // Dynamic state loaded from Supabase (or fallback to static data)
-  const [dbProducts, setDbProducts] = useState<Product[]>(PRODUCTS);
-  const [dbReviews, setDbReviews] = useState<Review[]>(REVIEWS);
-  const [dbBlogs, setDbBlogs] = useState<BlogPost[]>(BLOGS);
+  const [dbProducts, setDbProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [dbReviews, setDbReviews] = useState<Review[]>(MOCK_REVIEWS);
+  const [dbBlogs, setDbBlogs] = useState<BlogPost[]>(MOCK_BLOGS);
   const [dbBanners, setDbBanners] = useState<any[]>([]);
   const [dbSettings, setDbSettings] = useState<any>(null);
 
