@@ -24,12 +24,33 @@ import WhatsAppButton from './components/WhatsAppButton';
 import AdminPanel from './components/AdminPanel';
 import ProductDetail from './components/ProductDetail';
 import BlogPage from './components/BlogPage';
-import { checkSupabaseConnection } from './lib/supabase';
+import { checkSupabaseConnection, supabase } from './lib/supabase';
+import { 
+  generateEventId, 
+  initializeTelemetry, 
+  trackPageView, 
+  trackViewContent, 
+  trackAddToCart, 
+  trackInitiateCheckout, 
+  trackPurchase 
+} from './lib/telemetry';
 
 export default function App() {
   // Navigation & UI States
   const [activePage, setActivePage] = useState<string>('home');
   const [isSupabaseOnline, setIsSupabaseOnline] = useState<boolean>(false);
+
+  // Dynamic state loaded from Supabase (or fallback to static data)
+  const [dbProducts, setDbProducts] = useState<Product[]>(PRODUCTS);
+  const [dbReviews, setDbReviews] = useState<Review[]>(REVIEWS);
+  const [dbBlogs, setDbBlogs] = useState<BlogPost[]>(BLOGS);
+  const [dbBanners, setDbBanners] = useState<any[]>([]);
+  const [dbSettings, setDbSettings] = useState<any>(null);
+
+  // Shadow variables for in-component usage
+  const PRODUCTS = dbProducts;
+  const REVIEWS = dbReviews;
+  const BLOGS = dbBlogs;
 
   useEffect(() => {
     const runCheck = async () => {
@@ -500,6 +521,10 @@ export default function App() {
       });
     }
     saveCartToStorage(newCart);
+
+    // Trigger Telemetry Event
+    const eventId = generateEventId('AddToCart');
+    trackAddToCart(product, qty, size, color, eventId, dbSettings?.meta_test_event_code);
   };
 
   // Instant Buy Now CTA (adds to cart and redirects straight to checkout)
@@ -557,9 +582,11 @@ export default function App() {
 
   const getShippingFee = () => {
     if (cart.length === 0) return 0;
-    // Waive shipping fee for subtotals over 3000
-    if (getSubtotal() >= 3000) return 0;
-    return checkoutForm.area === 'Inside Dhaka' ? 60 : 120;
+    const freeShippingLimit = dbSettings?.free_shipping_min_order ?? dbSettings?.freeShippingMinOrder ?? 3000;
+    if (getSubtotal() >= freeShippingLimit) return 0;
+    const insideFee = dbSettings?.inside_dhaka_shipping ?? dbSettings?.insideDhakaShipping ?? 60;
+    const outsideFee = dbSettings?.outside_dhaka_shipping ?? dbSettings?.outsideDhakaShipping ?? 120;
+    return checkoutForm.area === 'Inside Dhaka' ? insideFee : outsideFee;
   };
 
   const getDiscountAmount = () => {
@@ -572,6 +599,82 @@ export default function App() {
     return getSubtotal() + getShippingFee() - getDiscountAmount();
   };
 
+  // Load database tables once Supabase is verified online
+  useEffect(() => {
+    const loadData = async () => {
+      if (isSupabaseOnline) {
+        try {
+          // Fetch products
+          const { data: pData } = await supabase.from('products').select('*').eq('status', 'published');
+          if (pData && pData.length > 0) {
+            setDbProducts(pData);
+          }
+
+          // Fetch reviews
+          const { data: rData } = await supabase.from('reviews').select('*').eq('status', 'approved');
+          if (rData) {
+            setDbReviews(rData);
+          }
+
+          // Fetch blogs
+          const { data: blData } = await supabase.from('blogs').select('*').eq('status', 'published');
+          if (blData) {
+            setDbBlogs(blData);
+          }
+
+          // Fetch banners
+          const { data: bData } = await supabase.from('banners').select('*').eq('is_active', true);
+          if (bData) {
+            setDbBanners(bData);
+          }
+
+          // Fetch settings
+          const { data: sData } = await supabase.from('settings').select('*').single();
+          if (sData) {
+            setDbSettings(sData);
+            
+            // Initialize marketing telemetry (pixels, analytics, GTM)
+            initializeTelemetry({
+              metaPixelId: sData.meta_pixel_id,
+              metaTestEventCode: sData.meta_test_event_code,
+              googleTagManagerId: sData.google_tag_manager_id,
+              googleAnalyticsId: sData.google_analytics_id
+            });
+          }
+        } catch (e) {
+          console.error("Error loading Supabase storefront data:", e);
+        }
+      }
+    };
+    loadData();
+  }, [isSupabaseOnline]);
+
+  // Telemetry page view tracking
+  useEffect(() => {
+    const path = window.location.pathname + window.location.search;
+    const eventId = generateEventId('PageView');
+    trackPageView(path, eventId, dbSettings?.meta_test_event_code);
+  }, [activePage, currentProductId, currentBlogId, dbSettings]);
+
+  // Telemetry product view tracking
+  useEffect(() => {
+    if (activePage === 'product-detail' && currentProductId) {
+      const product = PRODUCTS.find(p => p.id === currentProductId);
+      if (product) {
+        const eventId = generateEventId('ViewContent');
+        trackViewContent(product, eventId, dbSettings?.meta_test_event_code);
+      }
+    }
+  }, [activePage, currentProductId, PRODUCTS, dbSettings]);
+
+  // Telemetry checkout start tracking
+  useEffect(() => {
+    if (activePage === 'checkout' && cart.length > 0) {
+      const eventId = generateEventId('InitiateCheckout');
+      trackInitiateCheckout(cart, getSubtotal(), eventId, dbSettings?.meta_test_event_code);
+    }
+  }, [activePage, cart, dbSettings]);
+
   // Checkout submission
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -580,6 +683,7 @@ export default function App() {
       return;
     }
 
+    const purchaseEventId = generateEventId('Purchase');
     const orderId = `RUP-${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder: Order = {
       id: orderId,
@@ -609,6 +713,40 @@ export default function App() {
     const updatedOrders = [newOrder, ...orders];
     setOrders(updatedOrders);
     localStorage.setItem('rup_orders', JSON.stringify(updatedOrders));
+
+    // Save order to Supabase if online
+    const writeOrderToSupabase = async () => {
+      if (isSupabaseOnline) {
+        try {
+          const { error } = await supabase.from('orders').insert([{
+            id: orderId,
+            customer_name: checkoutForm.name,
+            phone: checkoutForm.phone,
+            address: checkoutForm.address,
+            area: checkoutForm.area,
+            payment_method: checkoutForm.paymentMethod,
+            items: newOrder.items,
+            subtotal: newOrder.subtotal,
+            shipping_fee: newOrder.shippingFee,
+            total: newOrder.total,
+            status: 'Pending',
+            payment_status: 'Unpaid',
+            customer_notes: '',
+            meta_event_id: purchaseEventId,
+            is_guest: currentUser === null
+          }]);
+          if (error) {
+            console.error("Error writing order to Supabase:", error.message);
+          }
+        } catch (err) {
+          console.error("Error writing order to Supabase:", err);
+        }
+      }
+    };
+    writeOrderToSupabase();
+
+    // Trigger Telemetry Purchase Event
+    trackPurchase(newOrder, purchaseEventId, dbSettings?.meta_test_event_code);
 
     // Clear cart and reset states
     setLastPlacedOrder(newOrder);
@@ -3709,12 +3847,17 @@ export default function App() {
             onToggleWishlist={handleToggleWishlist}
             wishlist={wishlist}
             onOpenSizeGuide={handleOpenSizeGuide}
+            products={PRODUCTS}
+            reviews={REVIEWS}
           />
         )}
 
         {/* FASHION JOURNAL & BLOG PAGES */}
         {(activePage === 'blog' || activePage === 'blog-detail') && (
-          <BlogPage blogId={activePage === 'blog-detail' ? currentBlogId : null} />
+          <BlogPage 
+            blogId={activePage === 'blog-detail' ? currentBlogId : null} 
+            blogs={BLOGS}
+          />
         )}
 
       </main>
