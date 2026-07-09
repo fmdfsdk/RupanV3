@@ -1,0 +1,6 @@
+{
+  "name": "Rupan Clothing",
+  "description": "Premium, modern, conversion-focused eCommerce website for Rupan Clothing, a Bangladeshi fashion brand.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
