@@ -53,6 +53,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [syncProgress, setSyncProgress] = useState<number>(0);
   const [syncPage, setSyncPage] = useState<number>(1);
   const [syncLastPage, setSyncLastPage] = useState<number>(1);
+  const [syncStats, setSyncStats] = useState({ fetched: 0, imported: 0, updated: 0, failed: 0 });
   const [selectedLog, setSelectedLog] = useState<any>(null);
 
   // Loading states
@@ -256,6 +257,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     setSyncProgress(0);
     setSyncPage(1);
     setSyncLastPage(1);
+    setSyncStats({ fetched: 0, imported: 0, updated: 0, failed: 0 });
 
     const targetSource = activeSource;
     const startTime = new Date().toISOString();
@@ -270,6 +272,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         while (page <= lastPage) {
           setSyncPage(page);
           setSyncProgress(Math.round((page / lastPage) * 100));
+          setSyncStats(prev => ({
+            fetched: prev.fetched + (page === 14 ? 147 : 200),
+            imported: prev.imported + (page === 14 ? 10 : 10),
+            updated: prev.updated + (page === 14 ? 137 : 190),
+            failed: prev.failed
+          }));
           // Wait 200ms
           await new Promise(resolve => setTimeout(resolve, 200));
           page++;
@@ -367,6 +375,13 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         totalImported += result.imported || 0;
         totalUpdated += result.updated || 0;
         totalFailed += result.failed || 0;
+
+        setSyncStats(prev => ({
+          fetched: prev.fetched + (result.items_fetched || 0),
+          imported: prev.imported + (result.imported || 0),
+          updated: prev.updated + (result.updated || 0),
+          failed: prev.failed + (result.failed || 0)
+        }));
 
         setSyncProgress(Math.round((currentPage / lastPage) * 100));
         currentPage++;
@@ -547,17 +562,35 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return;
     }
 
+    const rowsToUpsert = selectedProductIds.map(id => {
+      const p = products.find(prod => prod.id === id);
+      const currentStock = p?.stock || 0;
+      const newStock = Math.max(0, currentStock + bulkStockAdd);
+      return { id, stock: newStock };
+    });
+
+    setLoading(true);
+    const { error } = await supabase.from('products').upsert(rowsToUpsert);
+    setLoading(false);
+
+    if (error) {
+      alert(`Error updating database: ${error.message}`);
+      return;
+    }
+
     const updated = products.map(p => {
       if (selectedProductIds.includes(p.id)) {
         const currentStock = p.stock || 0;
         const newStock = Math.max(0, currentStock + bulkStockAdd);
-        
-        // Update database
-        supabase.from('products').update({ stock: newStock }).eq('id', p.id);
         return { ...p, stock: newStock };
       }
       return p;
     });
+
+    // Save to LocalStorage if in offline demo mode
+    if (!isSupabaseOnline) {
+      localStorage.setItem('rup_db_products', JSON.stringify(updated));
+    }
 
     setProducts(updated);
     setSelectedProductIds([]);
@@ -696,6 +729,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       setCustomImageUrl('');
     }
   };
+
+  // Dynamically extract categories from all loaded products
+  const dynamicCategories = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
 
   // Filter products matching search and categories
   const filteredProducts = products.filter(p => {
@@ -1194,12 +1230,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                           onChange={(e) => setFilterCategory(e.target.value)}
                           className="bg-gray-50 border border-gray-200 text-xs font-bold rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
                         >
-                          <option value="All">All Categories</option>
-                          <option value="Panjabi">Panjabi</option>
-                          <option value="Saree">Saree</option>
-                          <option value="Shirts">Shirts</option>
-                          <option value="Couple Collection">Couple Collection</option>
-                          <option value="Accessories">Accessories</option>
+                          {dynamicCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat === 'All' ? 'All Categories' : cat}</option>
+                          ))}
                         </select>
                       </div>
 
@@ -2425,20 +2458,45 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
                       {/* Real-time Progress Bar */}
                       {syncing && (
-                        <div className="p-4 bg-orange-50/50 border border-orange-100 rounded-2xl space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="p-5 bg-gradient-to-br from-orange-50/60 via-white to-amber-50/40 border border-orange-100 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 shadow-2xs">
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-orange-600 uppercase tracking-wider">Sync in progress</span>
-                            <span className="font-bold text-orange-600 font-mono">{syncProgress}%</span>
+                            <div className="flex items-center space-x-2">
+                              <Loader2 className="w-3.5 h-3.5 text-[#ff5c00] animate-spin" />
+                              <span className="font-extrabold text-orange-600 uppercase tracking-wider text-[10px]">Syncing Mohasagor API...</span>
+                            </div>
+                            <span className="font-extrabold text-orange-600 font-mono text-[11px] bg-orange-100 px-2 py-0.5 rounded-full">{syncProgress}%</span>
                           </div>
-                          <div className="w-full bg-orange-100 h-2 rounded-full overflow-hidden">
+                          
+                          {/* Sleek animated line progress bar */}
+                          <div className="w-full bg-orange-100 h-2.5 rounded-full overflow-hidden relative">
                             <div 
-                              className="bg-[#ff5c00] h-full transition-all duration-300 rounded-full"
+                              className="bg-gradient-to-r from-orange-500 via-[#ff5c00] to-amber-500 h-full transition-all duration-300 rounded-full relative"
                               style={{ width: `${syncProgress}%` }}
-                            ></div>
+                            >
+                              <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[pulse_1.5s_infinite]"></div>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-orange-600/80 font-medium">
-                            Processing Page {syncPage} of {syncLastPage} from wholesale API...
-                          </p>
+                          
+                          <div className="flex items-center justify-between text-[10px] text-orange-600/80 font-medium">
+                            <span>Processing Page {syncPage} of {syncLastPage}</span>
+                            <span className="font-mono">{syncStats.fetched.toLocaleString()} Items Fetched</span>
+                          </div>
+
+                          {/* Live Statistics Cards Grid */}
+                          <div className="grid grid-cols-3 gap-2.5 pt-1">
+                            <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-xl p-2.5 text-center">
+                              <span className="text-[9px] uppercase font-bold text-emerald-600 tracking-wider block">Imported</span>
+                              <span className="text-sm font-black text-emerald-700 font-mono">{syncStats.imported}</span>
+                            </div>
+                            <div className="bg-blue-50/50 border border-blue-100/50 rounded-xl p-2.5 text-center">
+                              <span className="text-[9px] uppercase font-bold text-blue-600 tracking-wider block">Updated</span>
+                              <span className="text-sm font-black text-blue-700 font-mono">{syncStats.updated}</span>
+                            </div>
+                            <div className="bg-red-50/50 border border-red-100/50 rounded-xl p-2.5 text-center">
+                              <span className="text-[9px] uppercase font-bold text-red-600 tracking-wider block">Failed</span>
+                              <span className="text-sm font-black text-red-700 font-mono">{syncStats.failed}</span>
+                            </div>
+                          </div>
                         </div>
                       )}
 

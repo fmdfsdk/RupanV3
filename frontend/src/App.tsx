@@ -1534,7 +1534,7 @@ export default function App() {
                     
                     {categoriesExpanded && (
                       <div className="space-y-2.5 pt-1">
-                        {['Grocery', 'Baby & Kids', 'Women Fashions', 'Men Fashions', 'Accessories', 'Fitness', 'Electronics', 'Health Care'].map((cat) => {
+                        {Array.from(new Set(PRODUCTS.map(p => p.category).filter(Boolean))).map((cat) => {
                           const count = PRODUCTS.filter(p => p.category === cat).length;
                           const isChecked = checkedCategories.includes(cat);
                           return (

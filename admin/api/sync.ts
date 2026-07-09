@@ -36,6 +36,48 @@ const getColorMetadata = (colorName: string) => {
   return colorMap[name] || { class: 'bg-gray-300', hex: '#d1d5db' };
 };
 
+// Sanitizes strings recursively to prevent PostgreSQL json/jsonb parsing errors on bad control characters
+function sanitizeStringForJsonb(str: string): string {
+  // Strip control characters (0-31) except tab (9), newline (10), carriage return (13)
+  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+}
+
+function sanitizeForJsonb(obj: any): any {
+  if (typeof obj === 'string') {
+    return sanitizeStringForJsonb(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForJsonb);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      cleaned[key] = sanitizeForJsonb(obj[key]);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+// Extends subcategory detection dynamically based on product tags and name
+function extractSubCategory(name: string, category: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('three piece') || n.includes('three-piece')) return 'Three Piece';
+  if (n.includes('hoodie')) return 'Hoodie';
+  if (n.includes('speaker')) return 'Speaker';
+  if (n.includes('microphone') || n.includes('mic')) return 'Microphone';
+  if (n.includes('adapter') || n.includes('charger')) return 'Adapter';
+  if (n.includes('watch')) return 'Watch';
+  if (n.includes('saree') || n.includes('sari')) return 'Saree';
+  if (n.includes('panjabi')) return 'Panjabi';
+  if (n.includes('shirt')) return 'Shirt';
+  if (n.includes('t-shirt') || n.includes('tshirt')) return 'T-Shirt';
+  if (n.includes('kurti') || n.includes('kurtis')) return 'Kurti';
+  
+  // Fallback default
+  return '';
+}
+
 export default async function handler(req: any, res: any) {
   // Configure CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -118,13 +160,16 @@ export default async function handler(req: any, res: any) {
     // 3. Process products in batch
     const upsertBuffer: any[] = [];
 
-    for (const item of productsArray) {
+    for (const rawItem of productsArray) {
       try {
-        if (!item.id || !item.name) {
+        if (!rawItem.id || !rawItem.name) {
           failedCount++;
-          errors.push(`Skipped row missing id/name: ${JSON.stringify(item).substring(0, 100)}`);
+          errors.push(`Skipped row missing id/name: ${JSON.stringify(rawItem).substring(0, 100)}`);
           continue;
         }
+
+        // Sanitize the raw item recursively to strip PostgreSQL json/jsonb control characters
+        const item = sanitizeForJsonb(rawItem);
 
         // Map images: thumbnail is index 0
         const imagesSet = new Set<string>();
@@ -182,6 +227,14 @@ export default async function handler(req: any, res: any) {
         // Generate clean tags
         const tags = [item.category || 'Reseller'];
 
+        // Determine stock availability
+        const isOutOfStock = 
+          item.stock_status === 'out_of_stock' || 
+          item.stock_status === 'unavailable' ||
+          item.status === 'inactive';
+          
+        const stock = isOutOfStock ? 0 : 50;
+
         // Map fields into final products schema
         const productRow = {
           id: `${source}-${item.id}`,
@@ -190,7 +243,7 @@ export default async function handler(req: any, res: any) {
           sku: item.product_code ? `${source.toUpperCase()}-${item.product_code}` : `${source.toUpperCase()}-${item.id}`,
           brand: item.brand || 'Rupan Reseller',
           category: item.category || 'General',
-          sub_category: item.sub_category || '',
+          sub_category: extractSubCategory(item.name, item.category),
           tags: tags,
           gender: 'Men', // Default, editable from dashboard
           price: price,
@@ -204,7 +257,7 @@ export default async function handler(req: any, res: any) {
           description: item.details || item.name,
           short_description: item.details ? item.details.substring(0, 150) + '...' : item.name,
           features: [],
-          stock: item.stock_status === 'available' ? 50 : 0, // Fallback stock levels
+          stock: stock,
           low_stock_warning: 5,
           weight: 0.35,
           material: 'Premium Quality Blend',
