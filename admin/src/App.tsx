@@ -72,11 +72,19 @@ export default function App() {
         if (error || !profileData) {
           console.warn("Could not find user profile in DB, creating customer profile...", error);
           // Auto create profile fallback
+          const isStaffEmail = 
+            email === 'admin@rupan.com' || 
+            email === 'admin@myrupan.com' || 
+            email === 'teamrupan@gmail.com' ||
+            email?.startsWith('admin@') || 
+            email?.endsWith('@myrupan.com') ||
+            email?.endsWith('@rupan.com');
+
           const newProfile = {
             id: userId,
             email: email || '',
             full_name: email?.split('@')[0] || 'Staff Member',
-            role: email === 'admin@rupan.com' ? 'Super Admin' : 'Customer',
+            role: isStaffEmail ? 'Super Admin' : 'Customer',
             is_active: true
           };
           
