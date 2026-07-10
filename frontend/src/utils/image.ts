@@ -4,7 +4,7 @@
  */
 export function getOptimizedImageUrl(url: string, width = 600): string {
   if (!url) {
-    return 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600';
+    return '';
   }
   
   // If it's a local/relative asset, a base64 string, or already optimized, return as is

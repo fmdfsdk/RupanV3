@@ -8,11 +8,12 @@ import {
   Star, Heart, ShoppingBag, Truck, RotateCcw, ShieldCheck, 
   MessageCircle, ArrowLeft, Plus, Minus, CheckCircle, Share2, Search
 } from 'lucide-react';
-import { Product, Review } from '../types';
 import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS } from '../data';
 import ProductCard from './ProductCard';
+import { Product, Review } from '../types';
 import { useStore } from '../store/useStore';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
+import ProductImage from './ProductImage';
 import { formatDescriptionToHtml } from '../lib/formatter';
 
 interface ProductDetailProps {
@@ -204,7 +205,7 @@ export default function ProductDetail({
               <Search className="w-4 h-4" />
             </button>
             
-            <img
+            <ProductImage
               src={getOptimizedImageUrl(activeImage, 800)}
               alt={product.name}
               style={{
@@ -212,7 +213,6 @@ export default function ProductDetail({
                 ...zoomStyle
               }}
               className="max-w-full max-h-full object-contain"
-              referrerPolicy="no-referrer"
             />
           </div>
 
@@ -226,12 +226,10 @@ export default function ProductDetail({
                   activeImage === img ? 'border-brand-primary ring-1 ring-brand-primary/50' : 'border-gray-200 hover:border-gray-400'
                 }`}
               >
-                <img
+                <ProductImage
                   src={getOptimizedImageUrl(img, 150)}
                   alt={`${product.name} Thumbnail ${i + 1}`}
                   className="w-full h-full object-contain p-1"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
                 />
               </button>
             ))}

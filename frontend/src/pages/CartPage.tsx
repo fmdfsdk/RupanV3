@@ -3,6 +3,7 @@ import { X, ShoppingBag } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { getOptimizedImageUrl } from '../utils/image';
+import ProductImage from '../components/ProductImage';
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -67,11 +68,10 @@ export default function CartPage() {
                 key={index}
                 className="bg-white rounded-2xl border border-gray-100 p-4 flex gap-4 shadow-xs items-center relative"
               >
-                <img
+                <ProductImage
                   src={getOptimizedImageUrl(item.product.images[0], 150)}
                   alt={item.product.name}
                   className="w-20 h-24 object-cover rounded-xl"
-                  referrerPolicy="no-referrer"
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-display font-bold text-sm md:text-base text-brand-text truncate">

@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard';
 import { useNavigate } from 'react-router-dom';
 import { productService } from '../services/productService';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
+import ProductImage from '../components/ProductImage';
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -119,7 +120,7 @@ export default function SearchPage() {
                   }}
                   className="p-3.5 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
                 >
-                  <img 
+                  <ProductImage 
                     src={getOptimizedImageUrl(item.images?.[0], 100)} 
                     alt={item.name} 
                     className="w-9 h-11 object-cover rounded-md border border-gray-100"

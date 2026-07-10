@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { X, Star, Ruler, Truck, RotateCcw, ShieldCheck, Heart } from 'lucide-react';
 import { Product } from '../types';
 import { getOptimizedImageUrl } from '../utils/image';
+import ProductImage from './ProductImage';
 import { formatDescriptionToHtml } from '../lib/formatter';
 
 interface QuickViewModalProps {
@@ -74,11 +75,10 @@ export default function QuickViewModal({
         {/* Left Side: Product Gallery */}
         <div className="w-full md:w-1/2 p-4 md:p-6 bg-gray-50 flex flex-col justify-between md:overflow-y-auto">
           <div className="flex-1 flex items-center justify-center min-h-[250px] max-h-[350px] md:max-h-[450px] rounded-xl overflow-hidden bg-white relative">
-            <img
+            <ProductImage
               src={getOptimizedImageUrl(selectedImage, 600)}
               alt={product.name}
               className="w-full h-full object-contain transition-all duration-300"
-              referrerPolicy="no-referrer"
             />
             {discountPercent > 0 && (
               <span className="absolute top-3 left-3 bg-red-600 text-white font-bold text-xs px-2.5 py-1 rounded-full shadow-xs">
@@ -100,11 +100,10 @@ export default function QuickViewModal({
                       : 'border-transparent opacity-75 hover:opacity-100'
                   }`}
                 >
-                  <img
+                  <ProductImage
                     src={getOptimizedImageUrl(img, 150)}
                     alt={`${product.name} thumbnail ${i}`}
                     className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
                   />
                 </button>
               ))}

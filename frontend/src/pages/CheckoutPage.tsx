@@ -3,6 +3,7 @@ import { Truck, CreditCard } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { getOptimizedImageUrl } from '../utils/image';
+import ProductImage from '../components/ProductImage';
 import { orderService } from '../services/orderService';
 
 export default function CheckoutPage() {
@@ -299,11 +300,10 @@ export default function CheckoutPage() {
           <div className="divide-y divide-gray-100 max-h-[250px] overflow-y-auto">
             {cart.map((item, i) => (
               <div key={i} className="py-3 flex gap-3">
-                <img
+                <ProductImage
                   src={getOptimizedImageUrl(item.product.images[0], 100)}
                   alt={item.product.name}
                   className="w-10 h-12 object-cover rounded-md shrink-0"
-                  referrerPolicy="no-referrer"
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="text-xs font-bold text-brand-text truncate">{item.product.name}</h4>
