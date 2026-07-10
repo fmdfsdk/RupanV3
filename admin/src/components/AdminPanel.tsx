@@ -2169,16 +2169,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
               {/* Form buttons */}
               <div className="flex justify-end gap-3 border-t border-gray-100 pt-6">
+                {editingProduct && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      const sourceProductId = editingProduct.sourceProductId || editingProduct.source_product_id || editingProduct.id.split('-')[1] || editingProduct.id;
+                      const productCode = editingProduct.sku ? editingProduct.sku.split('-').slice(1).join('-') : sourceProductId;
+                      
+                      const apiFormat = {
+                        id: Number(sourceProductId) || sourceProductId,
+                        name: editingProduct.name,
+                        slug: editingProduct.slug,
+                        product_code: productCode,
+                        brand: editingProduct.brand || 'Rupan',
+                        category: editingProduct.category,
+                        details: editingProduct.description || editingProduct.name,
+                        price: editingProduct.price,
+                        sale_price: editingProduct.purchasePrice || editingProduct.purchase_price || editingProduct.price,
+                        stock_status: editingProduct.stock > 0 ? 'in_stock' : 'out_of_stock',
+                        thumbnail_img: editingProduct.images?.[0] || '',
+                        product_images: (editingProduct.images || []).map(img => ({ product_image: img })),
+                        product_variants: [
+                          ...(editingProduct.colors || []).map((c: any) => ({ attribute: 'color', variant: c.name || c })),
+                          ...(editingProduct.sizes || []).map((s: any) => ({ attribute: 'size', variant: s }))
+                        ]
+                      };
+                      
+                      navigator.clipboard.writeText(JSON.stringify(apiFormat, null, 2));
+                      alert("Copied raw API JSON to clipboard!");
+                    }}
+                    className="mr-auto bg-zinc-800 hover:bg-black text-white text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy API JSON</span>
+                  </button>
+                )}
                 <button 
                   type="button" 
                   onClick={() => setProductModalOpen(false)}
-                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-900 transition-all cursor-pointer"
+                  className="bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-900 transition-all cursor-pointer text-xs uppercase tracking-wider"
                 >
                   {editingProduct ? "Save Changes" : "Create Product SKU"}
                 </button>
