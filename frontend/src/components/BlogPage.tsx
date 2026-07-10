@@ -15,8 +15,13 @@ export default function BlogPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [id, location.pathname]);
 
-  // Find active blog post (match either location pathname or parameterized ID)
-  const activePost = BLOGS.find((b) => b.id === location.pathname || b.id === id || b.id === `/blog/${id}`);
+  // Find active blog post (match either location pathname or parameterized ID, immune to slash/hyphen prefixes)
+  const activePost = BLOGS.find((b) => {
+    const cleanDbId = b.id.replace(/^\//, '').replace(/^blog\//, '').replace(/^blog-/, '');
+    const cleanTargetId = id ? id.replace(/^\//, '').replace(/^blog\//, '').replace(/^blog-/, '') : '';
+    const cleanPathname = location.pathname.replace(/^\//, '').replace(/^blog\//, '').replace(/^blog-/, '');
+    return cleanDbId === cleanTargetId || cleanDbId === cleanPathname || b.id === location.pathname || b.id === id || b.id === `/blog/${id}`;
+  });
 
   // Parse metadata block
   const blogSettings = (() => {

@@ -306,7 +306,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       }
       if (cData) setCoupons(cData);
       if (bData) setBanners(bData);
-      if (blData) setBlogs(blData);
+      if (blData) {
+        const mapped = blData.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          excerpt: b.excerpt,
+          content: b.content,
+          image: b.image,
+          date: b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : b.date,
+          readTime: b.read_time || b.readTime || '3 min read',
+          category: b.category,
+          status: b.status,
+          seoTitle: b.seo_title || b.seoTitle,
+          seoDescription: b.seo_description || b.seoDescription
+        }));
+        setBlogs(mapped);
+      }
       if (rData) setReviews(rData);
       if (uData) setUsers(uData);
       if (sData) {
