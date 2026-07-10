@@ -4,7 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Search, Menu, X, Heart, User, Sparkles, HelpCircle, Flame, Grid, MapPin, BookOpen } from 'lucide-react';
+import { productService } from '../services/productService';
 
 interface HeaderProps {
   activePage: string;
@@ -28,6 +30,10 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [scrolled, setScrolled] = useState(false);
+  
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,12 +47,33 @@ export default function Header({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const navigate = useNavigate();
+
+  // Fetch search suggestions
+  useEffect(() => {
+    if (localSearch.trim().length <= 1) {
+      setSuggestions([]);
+      return;
+    }
+    setLoadingSuggestions(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await productService.searchProducts(localSearch, 5);
+        setSuggestions(results);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (localSearch.trim()) {
-      // Navigate to shop with search query
-      window.history.pushState(null, '', `/shop?search=${encodeURIComponent(localSearch.trim())}`);
-      window.dispatchEvent(new Event('popstate'));
+      setShowSuggestions(false);
+      navigate(`/shop?search=${encodeURIComponent(localSearch.trim())}`);
     }
   };
 
@@ -106,24 +133,68 @@ export default function Header({
           </div>
 
           {/* Search Bar */}
-          <form 
-            onSubmit={handleSearchSubmit}
-            className="hidden md:flex items-center flex-1 max-w-2xl bg-white rounded-md overflow-hidden shadow-inner"
-          >
-            <input 
-              type="text"
-              placeholder="Search for Products..."
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="flex-1 px-4 py-2.5 text-sm text-gray-800 outline-none placeholder-gray-400"
-            />
-            <button 
-              type="submit"
-              className="bg-[#ff5c00] hover:bg-[#e04f00] text-white px-5 py-2.5 transition-colors cursor-pointer flex items-center justify-center border-l border-gray-100"
+          <div className="hidden md:block flex-1 max-w-2xl relative">
+            <form 
+              onSubmit={handleSearchSubmit}
+              className="flex items-center w-full bg-white rounded-md overflow-hidden shadow-inner"
             >
-              <Search className="w-4.5 h-4.5" />
-            </button>
-          </form>
+              <input 
+                type="text"
+                placeholder="Search for Products..."
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="flex-1 px-4 py-2.5 text-sm text-gray-800 outline-none placeholder-gray-400"
+              />
+              <button 
+                type="submit"
+                className="bg-[#ff5c00] hover:bg-[#e04f00] text-white px-5 py-2.5 transition-colors cursor-pointer flex items-center justify-center border-l border-gray-100"
+              >
+                <Search className="w-4.5 h-4.5" />
+              </button>
+            </form>
+
+            {/* Header Suggestions Dropdown */}
+            {showSuggestions && localSearch.trim().length > 1 && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden text-left divide-y divide-gray-50 max-h-[360px] overflow-y-auto">
+                {loadingSuggestions && (
+                  <div className="p-3 text-xs text-gray-400 font-semibold text-center animate-pulse">
+                    Searching catalog...
+                  </div>
+                )}
+                {!loadingSuggestions && suggestions.length === 0 && (
+                  <div className="p-3 text-xs text-gray-400 font-semibold text-center italic">
+                    No matching products found.
+                  </div>
+                )}
+                {suggestions.map((item) => (
+                  <div 
+                    key={item.id}
+                    onClick={() => {
+                      setLocalSearch('');
+                      setShowSuggestions(false);
+                      navigate(`/product/${item.slug || item.id}`);
+                    }}
+                    className="p-3 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
+                  >
+                    <img 
+                      src={item.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=100'} 
+                      alt={item.name} 
+                      className="w-8 h-10 object-cover rounded border border-gray-100 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-xs text-gray-900 leading-snug truncate">{item.name}</h5>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-[#ff5c00] font-bold uppercase tracking-wider">{item.category}</span>
+                        <span className="text-[10px] text-gray-400 font-semibold">{item.discount_price ? item.discount_price : item.price}৳</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Right Action Widgets */}
           <div className="flex items-center gap-4">

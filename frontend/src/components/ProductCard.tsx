@@ -73,14 +73,36 @@ export default function ProductCard({
           loading="lazy"
         />
 
-        {/* Top-left Discount Badge (Dark charcoal box like in screenshot) */}
-        {discountPercent > 0 && (
-          <div className="absolute top-2 left-2 z-10">
-            <span className="bg-[#1e1e1e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">
-              -{discountPercent}%
+        {/* Top-left Badge Container */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1.5 items-start">
+          {product.stock === 0 ? (
+            <span className="bg-red-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-sm tracking-wider shadow-sm">
+              Out of Stock
             </span>
-          </div>
-        )}
+          ) : product.stock <= 5 ? (
+            <span className="bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-sm tracking-wider shadow-sm">
+              Only {product.stock} Left
+            </span>
+          ) : null}
+
+          {product.isFlashSale && (
+            <span className="bg-rose-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-sm tracking-wider shadow-sm flex items-center gap-0.5">
+              ⚡ Flash Sale
+            </span>
+          )}
+
+          {discountPercent > 0 && (
+            <span className="bg-[#1e1e1e] text-white text-[9px] font-black px-2 py-0.5 rounded-sm shadow-sm">
+              SAVE {discountPercent}%
+            </span>
+          )}
+
+          {product.isNew && !product.isFlashSale && (
+            <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-sm tracking-wider shadow-sm">
+              New
+            </span>
+          )}
+        </div>
 
         {/* Top-right Heart Toggle (Subtle hover button on desktop, always visible on mobile) */}
         <button
@@ -169,18 +191,29 @@ export default function ProductCard({
 
           {/* Quick Buy Buttons */}
           <div className="mt-4 pt-3.5 border-t border-gray-100 flex gap-2">
-            <button
-              onClick={handleAdd}
-              className="flex-1 border border-[#ff5c00] text-[#ff5c00] hover:bg-[#ff5c00] hover:text-white transition-all duration-300 py-1.5 rounded-md text-[11px] font-extrabold text-center cursor-pointer select-none"
-            >
-              Add to Cart
-            </button>
-            <button
-              onClick={handleBuy}
-              className="flex-1 bg-[#ff5c00] hover:bg-[#cc4a00] text-white transition-all duration-300 py-1.5 rounded-md text-[11px] font-extrabold text-center cursor-pointer select-none shadow-sm"
-            >
-              Order Now
-            </button>
+            {product.stock === 0 ? (
+              <button
+                disabled
+                className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2 rounded-md text-[11px] font-extrabold text-center cursor-not-allowed select-none"
+              >
+                OUT OF STOCK
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleAdd}
+                  className="flex-1 border border-[#ff5c00] text-[#ff5c00] hover:bg-[#ff5c00] hover:text-white transition-all duration-300 py-1.5 rounded-md text-[11px] font-extrabold text-center cursor-pointer select-none"
+                >
+                  Add to Cart
+                </button>
+                <button
+                  onClick={handleBuy}
+                  className="flex-1 bg-[#ff5c00] hover:bg-[#cc4a00] text-white transition-all duration-300 py-1.5 rounded-md text-[11px] font-extrabold text-center cursor-pointer select-none shadow-sm"
+                >
+                  Order Now
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

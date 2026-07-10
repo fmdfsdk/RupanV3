@@ -12,8 +12,8 @@ export default function App() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   
   // Login Form States
-  const [email, setEmail] = useState<string>('admin@rupan.com');
-  const [password, setPassword] = useState<string>('admin123');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   useEffect(() => {
@@ -72,19 +72,11 @@ export default function App() {
         if (error || !profileData) {
           console.warn("Could not find user profile in DB, creating customer profile...", error);
           // Auto create profile fallback
-          const isStaffEmail = 
-            email === 'admin@rupan.com' || 
-            email === 'admin@myrupan.com' || 
-            email === 'teamrupan@gmail.com' ||
-            email?.startsWith('admin@') || 
-            email?.endsWith('@myrupan.com') ||
-            email?.endsWith('@rupan.com');
-
           const newProfile = {
             id: userId,
             email: email || '',
-            full_name: email?.split('@')[0] || 'Staff Member',
-            role: isStaffEmail ? 'Super Admin' : 'Customer',
+            full_name: email?.split('@')[0] || 'Customer',
+            role: 'Customer',
             is_active: true
           };
           

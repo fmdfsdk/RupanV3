@@ -11,6 +11,7 @@ import {
 import { Product, Review } from '../types';
 import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS } from '../data';
 import ProductCard from './ProductCard';
+import { useStore } from '../store/useStore';
 
 interface ProductDetailProps {
   productId: string;
@@ -53,14 +54,40 @@ export default function ProductDetail({
   const [addedFeedback, setAddedFeedback] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
+  // Hover zoom styles state
+  const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
+  
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomStyle({
+      transformOrigin: `${x}% ${y}%`,
+      transform: 'scale(1.5)',
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomStyle({
+      transform: 'scale(1)',
+      transformOrigin: 'center center',
+    });
+  };
+
+  const addRecentlyViewedId = useStore((state) => state.addRecentlyViewedId);
+  const recentlyViewedIds = useStore((state) => state.recentlyViewedIds);
+
   // Sync state if product changes
   useEffect(() => {
     setActiveImage(product.images[0]);
     setSelectedColor(product.colors[0]?.name || '');
     setSelectedSize(product.sizes[0] || 'Standard');
     setQuantity(1);
+    if (product.id) {
+      addRecentlyViewedId(product.id);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [productId, product]);
+  }, [productId, product, addRecentlyViewedId]);
 
   const isWishlisted = wishlist.some((w) => w.id === product.id);
 
@@ -155,7 +182,11 @@ export default function ProductDetail({
         
         {/* Left Column: Image Gallery (7 cols on lg) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="relative aspect-square rounded-sm overflow-hidden bg-white border border-gray-200 flex items-center justify-center p-8 group">
+          <div 
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className="relative aspect-square rounded-sm overflow-hidden bg-white border border-gray-200 flex items-center justify-center p-8 group cursor-zoom-in"
+          >
             {discountPercent > 0 && (
               <span className="absolute top-4 left-4 z-10 bg-[#ff5c00] text-white text-xs font-black px-3 py-1.5 rounded-sm">
                 -{discountPercent}%
@@ -170,7 +201,11 @@ export default function ProductDetail({
             <img
               src={activeImage || undefined}
               alt={product.name}
-              className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+              style={{
+                transition: 'transform 0.08s ease-out, transform-origin 0.08s ease-out',
+                ...zoomStyle
+              }}
+              className="max-w-full max-h-full object-contain"
               referrerPolicy="no-referrer"
             />
           </div>
@@ -237,18 +272,31 @@ export default function ProductDetail({
             </div>
           </div>
 
-          {product.short_description || product.shortDescription ? (
+          {product.shortDescription ? (
             <div className="text-sm text-gray-500 leading-relaxed font-sans font-medium">
-              {product.short_description || product.shortDescription}
+              {product.shortDescription}
             </div>
           ) : null}
 
           {/* Stock state badges */}
           <div className="flex flex-wrap gap-2 text-[11px] font-bold">
-            <span className="bg-red-50 text-red-600 border border-red-100 px-2.5 py-1 rounded-sm">
-              {product.stock} in stock
-            </span>
-            <span className="bg-orange-50 text-orange-600 border border-orange-100 px-2.5 py-1 rounded-sm">
+            {product.stock > 10 ? (
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1.5 rounded-sm flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                In Stock ({product.stock} units)
+              </span>
+            ) : product.stock > 0 ? (
+              <span className="bg-amber-50 text-amber-700 border border-amber-150 px-2.5 py-1.5 rounded-sm flex items-center gap-1.5 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                Low Stock (Only {product.stock} left!)
+              </span>
+            ) : (
+              <span className="bg-rose-50 text-rose-700 border border-rose-100 px-2.5 py-1.5 rounded-sm flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                Out of Stock
+              </span>
+            )}
+            <span className="bg-orange-50 text-orange-600 border border-orange-100 px-2.5 py-1.5 rounded-sm flex items-center">
               Brand: {product.brand || 'No Brand'}
             </span>
           </div>
@@ -535,6 +583,41 @@ export default function ProductDetail({
           ))}
         </div>
       </div>
+
+      {/* Recently Viewed Products section */}
+      {recentlyViewedIds.length > 1 && (
+        <div className="border-t border-gray-100 pt-10 mt-10 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-sans text-xl md:text-2xl font-black text-gray-900 uppercase tracking-tight">
+              Recently Viewed
+            </h2>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+            {recentlyViewedIds
+              .filter(id => id !== product.id)
+              .map(id => PRODUCTS.find(p => p.id === id))
+              .filter((p): p is Product => p !== undefined)
+              .slice(0, 4)
+              .map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onQuickView={(prod) => {
+                    const slug = getProductSlug(prod.name);
+                    window.history.pushState(null, '', `/product/${slug}`);
+                    window.dispatchEvent(new Event('popstate'));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onAddToCart={onAddToCart}
+                  onBuyNow={onBuyNow}
+                  onToggleWishlist={onToggleWishlist}
+                  isWishlisted={wishlist.some((w) => w.id === p.id)}
+                />
+              ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );

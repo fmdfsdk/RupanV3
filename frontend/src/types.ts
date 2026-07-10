@@ -85,6 +85,7 @@ export interface Order {
   paymentStatus?: 'Unpaid' | 'Paid' | 'Refunded';
   isGuest?: boolean;
   isIncognitoGuest?: boolean;
+  userId?: string;
 }
 
 export interface BlogPost {
@@ -136,6 +137,10 @@ export interface WebsiteSettings {
   outsideDhakaShipping: number;
   freeShippingMinOrder: number;
   theme: string;
+  metaPixelId?: string;
+  metaTestEventCode?: string;
+  googleTagManagerId?: string;
+  googleAnalyticsId?: string;
 }
 
 export interface UserProfile {
@@ -146,5 +151,29 @@ export interface UserProfile {
   isActive: boolean;
   totalSpending: number;
   lastLogin?: string;
+  createdAt: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string;
+  parentId?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  createdAt: string;
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId?: string;
+  productName: string;
+  color?: string;
+  size?: string;
+  price: number;
+  quantity: number;
+  image?: string;
   createdAt: string;
 }

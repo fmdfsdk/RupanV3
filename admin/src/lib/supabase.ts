@@ -269,8 +269,8 @@ class LocalDatabase {
           name: 'Mohasagor Reseller API',
           type: 'api',
           api_url: 'https://mohasagor.com.bd/api/reseller/product',
-          api_key: 'A8niclztH9JtzS4t',
-          secret_key: '2ff380917a11d3a7c97bcf6dddfb8adf38194c7d6b726ab12c4d0d5fb136fef8',
+          api_key: 'MOCK_API_KEY',
+          secret_key: 'MOCK_SECRET_KEY',
           config: { markup_percentage: 25, auto_publish: true },
           is_active: true,
           last_sync_at: null,
@@ -599,12 +599,10 @@ class MockStorage {
     return {
       async upload(path: string, file: File | Blob, options?: any) {
         // Just return a simulated public URL directly
-        // Create an object URL or Unsplash random URL based on typical upload mock
         const mockUrl = URL.createObjectURL(file);
         return { data: { path, url: mockUrl }, error: null };
       },
       getPublicUrl(path: string) {
-        // Return a stable image or mock url
         return { data: { publicUrl: path.startsWith('blob:') ? path : `https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600` } };
       }
     };
@@ -618,7 +616,6 @@ class MockChannel {
     this.name = name;
   }
   on(event: string, filter: any, callback: Function) {
-    // Subscribe to matching events
     if (filter && filter.table) {
       localDB.subscribe(filter.table, (data: any) => {
         callback({
@@ -647,14 +644,270 @@ class MockSupabaseClient {
   channel(name: string) {
     return new MockChannel(name);
   }
+
+  rpc(fn: string, args?: any) {
+    if (fn === 'search_products') {
+      const query = args?.search_query || '';
+      const products = JSON.parse(localStorage.getItem('rup_db_products') || '[]');
+      const filtered = products.filter((p: any) => 
+        String(p.name || '').toLowerCase().includes(query.toLowerCase()) ||
+        String(p.category || '').toLowerCase().includes(query.toLowerCase()) ||
+        String(p.subCategory || '').toLowerCase().includes(query.toLowerCase()) ||
+        String(p.description || '').toLowerCase().includes(query.toLowerCase())
+      );
+      return Promise.resolve({ data: filtered, error: null });
+    }
+    return Promise.resolve({ data: null, error: { message: `Function ${fn} not implemented in mock client.` } });
+  }
 }
 
 export const mockSupabase = new MockSupabaseClient() as any;
 
 export { hasRealKeys };
 
-// Export the active client: uses real Supabase if keys exist, otherwise falls back smoothly to localDB mock client
-export const supabase = hasRealKeys ? realSupabase! : mockSupabase;
+// Helper functions for key casing translation
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function convertKeysToSnake(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(convertKeysToSnake);
+  }
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      if (key === 'colors' || key === 'config' || key === 'homepage_config') {
+        newObj[camelToSnake(key)] = obj[key];
+      } else {
+        newObj[camelToSnake(key)] = convertKeysToSnake(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
+
+function convertKeysToCamel(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(convertKeysToCamel);
+  }
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      if (key === 'colors' || key === 'config' || key === 'homepage_config') {
+        newObj[snakeToCamel(key)] = obj[key];
+      } else {
+        newObj[snakeToCamel(key)] = convertKeysToCamel(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
+
+const allowedColumns: Record<string, string[]> = {
+  profiles: ['id', 'email', 'full_name', 'role', 'is_active', 'total_spending', 'last_login', 'created_at'],
+  settings: [
+    'id', 'logo_text', 'logo_accent', 'tagline', 'whatsapp_number', 'support_number', 
+    'currency_symbol', 'inside_dhaka_shipping', 'outside_dhaka_shipping', 'free_shipping_min_order', 
+    'theme', 'meta_pixel_id', 'meta_test_event_code', 'google_tag_manager_id', 'google_analytics_id', 
+    'homepage_config', 'updated_at'
+  ],
+  products: [
+    'id', 'name', 'slug', 'sku', 'brand', 'category', 'sub_category', 'tags', 'gender', 'price', 
+    'discount_price', 'purchase_price', 'rating', 'reviews_count', 'images', 'colors', 'sizes', 
+    'description', 'short_description', 'features', 'stock', 'low_stock_warning', 'weight', 
+    'material', 'status', 'is_featured', 'is_trending', 'is_new', 'is_best_seller', 'is_flash_sale', 
+    'flash_sale_limit', 'flash_sale_sold', 'seo_title', 'seo_description', 'source_id', 
+    'source_product_id', 'created_at', 'updated_at'
+  ],
+  sync_sources: ['id', 'name', 'type', 'api_url', 'api_key', 'secret_key', 'config', 'is_active', 'last_sync_at', 'created_at'],
+  sync_logs: ['id', 'source_id', 'status', 'items_fetched', 'items_imported', 'items_updated', 'items_failed', 'error_message', 'details', 'started_at', 'completed_at'],
+  orders: [
+    'id', 'customer_name', 'phone', 'address', 'area', 'payment_method', 'items', 'subtotal', 
+    'shipping_fee', 'total', 'status', 'payment_status', 'customer_notes', 'admin_notes', 
+    'meta_event_id', 'is_guest', 'created_at'
+  ],
+  reviews: ['id', 'user_name', 'rating', 'comment', 'verified', 'user_photo', 'product_id', 'status', 'reply', 'created_at'],
+  coupons: ['code', 'type', 'value', 'min_order', 'max_discount', 'expiry_date', 'is_active', 'usage_limit', 'used_count', 'created_at'],
+  banners: ['id', 'title', 'subtitle', 'image', 'cta_text', 'category', 'is_active', 'type', 'publish_date', 'created_at'],
+  blogs: ['id', 'title', 'excerpt', 'content', 'image', 'read_time', 'category', 'status', 'seo_title', 'seo_description', 'created_at']
+};
+
+function cleanObjectForTable(table: string, obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  const cols = allowedColumns[table];
+  if (!cols) return obj;
+  
+  const cleaned: any = {};
+  for (const key of Object.keys(obj)) {
+    if (cols.includes(key)) {
+      cleaned[key] = obj[key];
+    }
+  }
+  return cleaned;
+}
+
+class QueryBuilderWrapper {
+  private query: any;
+  private table: string;
+
+  constructor(query: any, table: string) {
+    this.query = query;
+    this.table = table;
+  }
+
+  select(columns: string = '*') {
+    this.query = this.query.select(columns);
+    return this;
+  }
+
+  eq(column: string, value: any) {
+    this.query = this.query.eq(camelToSnake(column), value);
+    return this;
+  }
+
+  order(column: string, options?: any) {
+    this.query = this.query.order(camelToSnake(column), options);
+    return this;
+  }
+
+  limit(count: number) {
+    this.query = this.query.limit(count);
+    return this;
+  }
+
+  range(start: number, end: number) {
+    this.query = this.query.range(start, end);
+    return this;
+  }
+
+  single() {
+    const promise = this.query.single().then((res: any) => {
+      if (res.data) {
+        return {
+          data: convertKeysToCamel(res.data),
+          error: res.error
+        };
+      }
+      return res;
+    });
+    return promise as any;
+  }
+
+  maybeSingle() {
+    const promise = this.query.maybeSingle().then((res: any) => {
+      if (res.data) {
+        return {
+          data: convertKeysToCamel(res.data),
+          error: res.error
+        };
+      }
+      return res;
+    });
+    return promise as any;
+  }
+
+  async insert(values: any[], options?: any) {
+    const snakeValues = convertKeysToSnake(values);
+    const cleanedValues = Array.isArray(snakeValues)
+      ? snakeValues.map((v: any) => cleanObjectForTable(this.table, v))
+      : [cleanObjectForTable(this.table, snakeValues)];
+    const res = await this.query.insert(cleanedValues, options);
+    if (res.data) {
+      return {
+        data: convertKeysToCamel(res.data),
+        error: res.error
+      };
+    }
+    return res;
+  }
+
+  async update(values: any, options?: any) {
+    const snakeValues = convertKeysToSnake(values);
+    const cleanedValues = cleanObjectForTable(this.table, snakeValues);
+    const res = await this.query.update(cleanedValues, options);
+    if (res.data) {
+      return {
+        data: convertKeysToCamel(res.data),
+        error: res.error
+      };
+    }
+    return res;
+  }
+
+  async delete(options?: any) {
+    const res = await this.query.delete(options);
+    if (res.data) {
+      return {
+        data: convertKeysToCamel(res.data),
+        error: res.error
+      };
+    }
+    return res;
+  }
+
+  async upsert(values: any, options?: any) {
+    const snakeValues = convertKeysToSnake(values);
+    const cleanedValues = Array.isArray(snakeValues)
+      ? snakeValues.map((v: any) => cleanObjectForTable(this.table, v))
+      : cleanObjectForTable(this.table, snakeValues);
+    const res = await this.query.upsert(cleanedValues, options);
+    if (res.data) {
+      return {
+        data: convertKeysToCamel(res.data),
+        error: res.error
+      };
+    }
+    return res;
+  }
+
+  async then(onfulfilled?: (value: any) => any) {
+    const res = await this.query;
+    const response = {
+      data: res.data ? convertKeysToCamel(res.data) : null,
+      error: res.error
+    };
+    if (onfulfilled) {
+      return Promise.resolve(onfulfilled(response));
+    }
+    return Promise.resolve(response);
+  }
+}
+
+class SupabaseClientWrapper {
+  private client: any;
+  auth: any;
+  storage: any;
+
+  constructor(client: any) {
+    this.client = client;
+    this.auth = client.auth;
+    this.storage = client.storage;
+  }
+
+  from(table: string) {
+    const actualTable = table === 'users' ? 'profiles' : table;
+    return new QueryBuilderWrapper(this.client.from(actualTable), actualTable);
+  }
+
+  channel(name: string) {
+    return this.client.channel(name);
+  }
+
+  rpc(fn: string, args?: any) {
+    return this.client.rpc(fn, args);
+  }
+}
+
+export const supabase = hasRealKeys ? new SupabaseClientWrapper(realSupabase!) as any : mockSupabase;
 
 export const getSupabaseConnectionError = async (): Promise<string | null> => {
   if (!hasRealKeys || !realSupabase) {

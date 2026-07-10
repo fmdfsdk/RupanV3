@@ -316,3 +316,133 @@ $$ language plpgsql security definer;
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- 9. Order Price Verification Trigger
+-- Computes and validates order subtotal and shipping fee database-side to prevent price manipulation
+create or replace function public.validate_order_total()
+returns trigger as $$
+declare
+  item jsonb;
+  prod_id text;
+  prod_qty integer;
+  actual_price numeric(12,2);
+  calc_subtotal numeric(12,2) := 0;
+  shipping numeric(10,2);
+  settings_record record;
+begin
+  -- Get settings for shipping fees (inside vs outside Dhaka)
+  select * into settings_record from public.settings where id = 1;
+  
+  -- Calculate subtotal by querying the database for each item's actual price and stock
+  for item in select * from jsonb_array_elements(new.items) loop
+    prod_id := item->>'productId';
+    prod_qty := (item->>'quantity')::integer;
+    
+    declare
+      current_stock integer;
+    begin
+      select coalesce(discount_price, price), stock into actual_price, current_stock 
+      from public.products 
+      where id = prod_id;
+      
+      if not found then
+        raise exception 'Product with ID % not found', prod_id;
+      end if;
+      
+      if current_stock < prod_qty then
+        raise exception 'Insufficient stock for product ID %. Available: %, requested: %', prod_id, current_stock, prod_qty;
+      end if;
+      
+      -- Deduct stock
+      update public.products 
+      set stock = stock - prod_qty 
+      where id = prod_id;
+    end;
+    
+    calc_subtotal := calc_subtotal + (actual_price * prod_qty);
+  end loop;
+  
+  -- Set correct shipping fee based on area and settings
+  if settings_record is not null then
+    if calc_subtotal >= settings_record.free_shipping_min_order then
+      shipping := 0;
+    elsif new.area = 'Inside Dhaka' then
+      shipping := settings_record.inside_dhaka_shipping;
+    else
+      shipping := settings_record.outside_dhaka_shipping;
+    end if;
+  else
+    shipping := new.shipping_fee;
+  end if;
+  
+  -- Prevent subtotal price manipulation
+  if abs(new.subtotal - calc_subtotal) > 1.00 then
+    raise exception 'Subtotal mismatch: expected %, got %', calc_subtotal, new.subtotal;
+  end if;
+  
+  -- Prevent shipping fee manipulation
+  if abs(new.shipping_fee - shipping) > 1.00 then
+    raise exception 'Shipping fee mismatch: expected %, got %', shipping, new.shipping_fee;
+  end if;
+  
+  -- Prevent discount forgery (maximum discount of 35% allowed)
+  if (new.subtotal + new.shipping_fee - new.total) > (new.subtotal * 0.35) then
+    raise exception 'Discount cannot exceed 35%% of the subtotal';
+  end if;
+  
+  -- Prevent negative totals or invalid totals
+  if new.total < 0 then
+    raise exception 'Order total cannot be negative';
+  end if;
+  
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create or replace trigger on_order_created
+  before insert on public.orders
+  for each row execute procedure public.validate_order_total();
+
+-- ==========================================
+-- 10. SEARCH & CATALOG PERFORMANCE INDEXES
+-- ==========================================
+
+-- Standard performance indexes for catalog filtering
+CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
+CREATE INDEX IF NOT EXISTS idx_products_status ON public.products(status);
+CREATE INDEX IF NOT EXISTS idx_products_gender ON public.products(gender);
+CREATE INDEX IF NOT EXISTS idx_products_is_featured ON public.products(is_featured) WHERE is_featured = true;
+CREATE INDEX IF NOT EXISTS idx_products_is_trending ON public.products(is_trending) WHERE is_trending = true;
+CREATE INDEX IF NOT EXISTS idx_products_is_new ON public.products(is_new) WHERE is_new = true;
+CREATE INDEX IF NOT EXISTS idx_products_is_best_seller ON public.products(is_best_seller) WHERE is_best_seller = true;
+CREATE INDEX IF NOT EXISTS idx_products_is_flash_sale ON public.products(is_flash_sale) WHERE is_flash_sale = true;
+CREATE INDEX IF NOT EXISTS idx_products_created_at ON public.products(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_price ON public.products(price);
+CREATE INDEX IF NOT EXISTS idx_products_stock ON public.products(stock);
+
+-- GIN index for search on name, category, and description
+CREATE INDEX IF NOT EXISTS idx_products_search ON public.products USING gin(
+  to_tsvector('english', coalesce(name, '') || ' ' || coalesce(category, '') || ' ' || coalesce(sub_category, '') || ' ' || coalesce(description, ''))
+);
+
+-- Search products function with search ranking (RPC call support)
+CREATE OR REPLACE FUNCTION public.search_products(search_query text, match_limit int DEFAULT 20)
+RETURNS SETOF public.products AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM public.products
+  WHERE 
+    status = 'published' AND
+    to_tsvector('english', coalesce(name, '') || ' ' || coalesce(category, '') || ' ' || coalesce(sub_category, '') || ' ' || coalesce(description, '')) 
+    @@ plainto_tsquery('english', search_query)
+  ORDER BY 
+    ts_rank(
+      to_tsvector('english', coalesce(name, '') || ' ' || coalesce(category, '') || ' ' || coalesce(sub_category, '') || ' ' || coalesce(description, '')),
+      plainto_tsquery('english', search_query)
+    ) DESC,
+    created_at DESC
+  LIMIT match_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+

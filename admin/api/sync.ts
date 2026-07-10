@@ -80,12 +80,53 @@ function extractSubCategory(name: string, category: string): string {
 
 export default async function handler(req: any, res: any) {
   // Configure CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = ['https://myrupan.com', 'https://admin.myrupan.com'];
+  const isLocal = origin && (origin.includes('localhost') || origin.includes('127.0.0.1'));
+  
+  if (origin && (allowedOrigins.includes(origin) || isLocal)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', 'https://admin.myrupan.com');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Authentication check to secure the endpoint
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: Missing or invalid token.' });
+  }
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
+  if (authError || !user) {
+    return res.status(401).json({ success: false, error: `Unauthorized: ${authError?.message || 'Invalid user session.'}` });
+  }
+  
+  // Check if the user is authorized (role in profiles)
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .single();
+    
+  if (profileError || !profile) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Profile not found.' });
+  }
+  
+  if (!profile.is_active) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Account is deactivated.' });
+  }
+  
+  const authorizedRoles = ['Super Admin', 'Admin', 'Manager', 'Editor'];
+  if (!authorizedRoles.includes(profile.role)) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Insufficient privileges.' });
   }
 
   const { source = 'mohasagor', page = '1' } = req.query;
@@ -279,7 +320,7 @@ export default async function handler(req: any, res: any) {
         upsertBuffer.push(productRow);
       } catch (err: any) {
         failedCount++;
-        errors.push(`Error processing item ID ${item?.id || 'unknown'}: ${err.message}`);
+        errors.push(`Error processing item ID ${rawItem?.id || 'unknown'}: ${err.message}`);
       }
     }
 

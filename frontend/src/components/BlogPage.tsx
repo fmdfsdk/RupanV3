@@ -1,26 +1,20 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useEffect } from 'react';
 import { Clock, Calendar, ArrowLeft, BookOpen, MessageSquare, Heart, Share2 } from 'lucide-react';
-import { BLOGS as MOCK_BLOGS } from '../data';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useStore } from '../store/useStore';
 import { BlogPost } from '../types';
 
-interface BlogPageProps {
-  blogId: string | null;
-  blogs?: BlogPost[];
-}
+export default function BlogPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const BLOGS = useStore((state) => state.dbBlogs);
 
-export default function BlogPage({ blogId, blogs }: BlogPageProps) {
-  const BLOGS = blogs || MOCK_BLOGS;
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [blogId]);
+  }, [id]);
 
   // Find active blog post
-  const activePost = blogId ? BLOGS.find((b) => b.id === blogId) : null;
+  const activePost = id ? BLOGS.find((b) => b.id === id) : null;
 
   // Handle share link
   const handleShare = () => {
@@ -37,8 +31,7 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
         {/* Back Link */}
         <button
           onClick={() => {
-            window.history.pushState(null, '', '/blog');
-            window.dispatchEvent(new Event('popstate'));
+            navigate('/blog');
           }}
           className="flex items-center gap-2 text-xs md:text-sm font-bold text-gray-400 hover:text-brand-primary transition-colors cursor-pointer group"
         >
@@ -49,7 +42,7 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
         {/* Hero Header */}
         <div className="space-y-4 text-center md:text-left">
           <span className="inline-block bg-blue-50 text-brand-primary font-bold text-[10px] md:text-xs px-3.5 py-1.5 rounded-full uppercase tracking-widest">
-            Shop Mart Style Journal
+            Style Journal
           </span>
           <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-black text-brand-text leading-tight uppercase">
             {activePost.title}
@@ -98,7 +91,7 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
                 )}
                 {index === 1 && (
                   <span className="block my-4 text-gray-500 bg-gray-50 p-4 rounded-xl border border-gray-100 italic">
-                    "Style is a deeply personal representation of identity. At Shop Mart, we do not just weave threads; we craft individual canvas designs that speak premium volume."
+                    "Style is a deeply personal representation of identity. We do not just weave threads; we craft individual canvas designs that speak premium volume."
                   </span>
                 )}
               </p>
@@ -131,9 +124,9 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {otherPosts.map((guide) => (
-              <a
+              <Link
                 key={guide.id}
-                href={`/blog/${guide.id}`}
+                to={`/blog/${guide.id}`}
                 className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row cursor-pointer"
               >
                 <img
@@ -154,7 +147,7 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
                     Read Article
                   </span>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -174,9 +167,9 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
         </span>
         <div className="space-y-1">
           <span className="text-xs font-bold text-brand-primary uppercase tracking-widest block">
-            Shop Mart Style Journal
+            Style Journal
           </span>
-          <h1 className="font-display text-3xl md:text-4xl font-extrabold text-brand-text uppercase">
+          <h1 className="font-display text-3xl md:text-4xl font-extrabold text-[#111] uppercase">
             Style Guides & Fashion Journal
           </h1>
         </div>
@@ -188,9 +181,9 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
       {/* Blogs list Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {BLOGS.map((post) => (
-          <a
+          <Link
             key={post.id}
-            href={`/blog/${post.id}`}
+            to={`/blog/${post.id}`}
             className="group bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
           >
             <div className="aspect-16/10 overflow-hidden bg-gray-50 relative">
@@ -224,7 +217,7 @@ export default function BlogPage({ blogId, blogs }: BlogPageProps) {
                 <span>→</span>
               </span>
             </div>
-          </a>
+          </Link>
         ))}
       </div>
 
