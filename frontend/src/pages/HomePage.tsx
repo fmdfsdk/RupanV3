@@ -17,6 +17,7 @@ export default function HomePage() {
   
   // Load store states and actions
   const PRODUCTS = useStore((state) => state.dbProducts);
+  const catalogIndex = useStore((state) => state.productCatalogIndex);
   const BLOGS = useStore((state) => state.dbBlogs);
   const dbBanners = useStore((state) => state.dbBanners);
   const dbSettings = useStore((state) => state.dbSettings);
@@ -142,6 +143,10 @@ export default function HomePage() {
         best_sellers: []
       };
 
+      // Combined search pool: local 1000 + catalog index (deduped)
+      const allIndexedIds = new Set(PRODUCTS.map(p => p.id));
+      const extendedPool = [...PRODUCTS, ...catalogIndex.filter(p => !allIndexedIds.has(p.id))];
+
       for (const type of types) {
         const ids = featuredProductIds[type] || [];
         if (ids.length === 0) continue;
@@ -149,36 +154,31 @@ export default function HomePage() {
         const list: Product[] = [];
         for (const id of ids) {
           const searchId = id.trim().toLowerCase();
-          const numMatch = searchId.match(/\d+$/);
-          const searchNum = numMatch ? parseInt(numMatch[0], 10) : null;
 
-          // 1. Try local cache
-          const foundLocal = PRODUCTS.find(p => {
+          // Search extended pool (local + catalog index)
+          const found = extendedPool.find(p => {
             const pId = String(p.id).toLowerCase();
             const pSlug = String(p.slug || '').toLowerCase();
-            if (pId === searchId || pSlug === searchId) return true;
-            
-            if (searchNum !== null) {
-              const pNumMatch = pId.match(/\d+$/);
-              if (pNumMatch) {
-                const pNum = parseInt(pNumMatch[0], 10);
-                if (pNum === searchNum || pNum === searchNum - 3000 || pNum === searchNum + 3000) {
-                  return true;
-                }
-              }
-            }
-            return false;
+            return pId === searchId || pSlug === searchId || pId.endsWith('-' + searchId);
           });
 
-          if (foundLocal) {
-            list.push(foundLocal);
+          if (found) {
+            // If in local 1000, use directly. If only in index, fetch full from DB.
+            if (allIndexedIds.has(found.id)) {
+              list.push(found);
+            } else if (isSupabaseOnline) {
+              try {
+                const full = await productService.fetchProductByIdOrSlug(found.id);
+                list.push(full || found);
+              } catch (_) { list.push(found); }
+            } else {
+              list.push(found);
+            }
           } else if (isSupabaseOnline) {
-            // 2. Fetch from database directly to bypass frontend 1000 limit
+            // Last resort: fetch directly from DB
             try {
               const dbProduct = await productService.fetchProductByIdOrSlug(id);
-              if (dbProduct) {
-                list.push(dbProduct);
-              }
+              if (dbProduct) list.push(dbProduct);
             } catch (e) {
               console.error("Error fetching featured product:", id, e);
             }
@@ -198,7 +198,7 @@ export default function HomePage() {
     if (PRODUCTS.length > 0) {
       resolveFeaturedProducts();
     }
-  }, [dbSettings, PRODUCTS, isSupabaseOnline]);
+  }, [dbSettings, PRODUCTS, catalogIndex, isSupabaseOnline]);
 
   // Helper to load customized homepage product lists
   const getHomepageProducts = (type: 'trending' | 'new_arrivals' | 'best_sellers', fallbackFilter: (p: Product) => boolean, limit = 6) => {

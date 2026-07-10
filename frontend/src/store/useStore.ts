@@ -12,6 +12,8 @@ import { generateEventId, initializeTelemetry, trackAddToCart, trackPurchase } f
 interface StoreState {
   isSupabaseOnline: boolean;
   dbProducts: Product[];
+  // Full catalog index (all product IDs + minimal fields) — used for search & ID resolution
+  productCatalogIndex: Product[];
   dbReviews: Review[];
   dbBlogs: BlogPost[];
   dbBanners: any[];
@@ -73,10 +75,13 @@ interface StoreState {
   // Setters & UI Actions
   setIsSupabaseOnline: (online: boolean) => void;
   setDbProducts: (products: Product[]) => void;
+  setProductCatalogIndex: (index: Product[]) => void;
   setDbReviews: (reviews: Review[]) => void;
   setDbBlogs: (blogs: BlogPost[]) => void;
   setDbBanners: (banners: any[]) => void;
   setDbSettings: (settings: any) => void;
+  // Fetch a single product from DB on-demand (for product detail page / featured items out of local 1000)
+  fetchProductByIdFromDB: (idOrSlug: string) => Promise<Product | null>;
   setCurrentUser: (user: any) => void;
   setCart: (cart: CartItem[]) => void;
   setWishlist: (wishlist: Product[]) => void;
@@ -137,6 +142,13 @@ export const useStore = create<StoreState>((set, get) => ({
       try { return JSON.parse(cached); } catch (e) {}
     }
     return MOCK_PRODUCTS;
+  })(),
+  productCatalogIndex: (() => {
+    const cached = localStorage.getItem('rup_catalog_index');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return [];
   })(),
   dbReviews: (() => {
     const cached = localStorage.getItem('rup_db_reviews');
@@ -243,6 +255,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   setIsSupabaseOnline: (online) => set({ isSupabaseOnline: online }),
   setDbProducts: (products) => set({ dbProducts: products }),
+  setProductCatalogIndex: (index) => set({ productCatalogIndex: index }),
   setDbReviews: (reviews) => set({ dbReviews: reviews }),
   setDbBlogs: (blogs) => set({ dbBlogs: blogs }),
   setDbBanners: (banners) => set({ dbBanners: banners }),
@@ -316,40 +329,36 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!isSupabaseOnline) return;
 
     try {
-      // Load products
+      // TIER 1: Load first 1000 products fast (newest first) for immediate browsing
       const pData = await productService.fetchProducts();
       if (pData && pData.length > 0) {
         set({ dbProducts: pData });
         localStorage.setItem('rup_db_products', JSON.stringify(pData));
       }
 
-      // Load reviews
-      const rData = await reviewService.fetchReviews();
+      // Load reviews, blogs, banners, settings in parallel for speed
+      const [rData, blData, bData, sData] = await Promise.all([
+        reviewService.fetchReviews(),
+        blogService.fetchBlogs(),
+        bannerService.fetchBanners(),
+        settingsService.fetchSettings()
+      ]);
+
       if (rData) {
         set({ dbReviews: rData });
         localStorage.setItem('rup_db_reviews', JSON.stringify(rData));
       }
-
-      // Load blogs
-      const blData = await blogService.fetchBlogs();
       if (blData) {
         set({ dbBlogs: blData });
         localStorage.setItem('rup_db_blogs', JSON.stringify(blData));
       }
-
-      // Load banners
-      const bData = await bannerService.fetchBanners();
       if (bData) {
         set({ dbBanners: bData });
         localStorage.setItem('rup_db_banners', JSON.stringify(bData));
       }
-
-      // Load settings
-      const sData = await settingsService.fetchSettings();
       if (sData) {
         set({ dbSettings: sData });
         localStorage.setItem('rup_db_settings', JSON.stringify(sData));
-
         initializeTelemetry({
           metaPixelId: sData.meta_pixel_id,
           metaTestEventCode: sData.meta_test_event_code,
@@ -357,8 +366,29 @@ export const useStore = create<StoreState>((set, get) => ({
           googleAnalyticsId: sData.google_analytics_id
         });
       }
+
+      // TIER 2: Background — fetch full catalog index (all products, minimal fields)
+      // This runs AFTER initial data is loaded so it doesn't block the UI
+      productService.fetchProductCatalogIndex().then((indexData) => {
+        if (indexData && indexData.length > 0) {
+          set({ productCatalogIndex: indexData as Product[] });
+          localStorage.setItem('rup_catalog_index', JSON.stringify(indexData));
+        }
+      }).catch((e) => console.error('Catalog index load failed:', e));
+
     } catch (e) {
       console.error("Error loading Supabase storefront data:", e);
+    }
+  },
+
+  // Fetch a single product from the database on-demand (for product detail page or featured items)
+  fetchProductByIdFromDB: async (idOrSlug: string) => {
+    try {
+      const product = await productService.fetchProductByIdOrSlug(idOrSlug);
+      return product;
+    } catch (e) {
+      console.error('Failed to fetch product by id from DB:', idOrSlug, e);
+      return null;
     }
   },
 

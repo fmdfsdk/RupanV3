@@ -3,36 +3,56 @@ import { Product } from '../types';
 
 export const productService = {
   /**
-   * Fetches all published products from Supabase.
-   * Optimizes columns query for lightweight load.
+   * Fetches first 1000 published products (full fields) for the initial browsing experience.
+   * Fast: single query, used to render shop/homepage on first load.
    */
   async fetchProducts(): Promise<Product[]> {
-    const columns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at';
-    
-    try {
-      // Query 3 pages in parallel to retrieve up to 3000 products, bypassing default 1000 max_rows PostgREST limits
-      const promises = [
-        supabase.from('products').select(columns).eq('status', 'published').range(0, 999),
-        supabase.from('products').select(columns).eq('status', 'published').range(1000, 1999),
-        supabase.from('products').select(columns).eq('status', 'published').range(2000, 2999)
-      ];
-      
-      const results = await Promise.all(promises);
-      
-      let allProducts: Product[] = [];
-      for (const res of results) {
-        if (res.error) {
-          throw res.error;
-        }
-        if (res.data && Array.isArray(res.data)) {
-          allProducts = allProducts.concat(res.data);
-        }
-      }
-      return allProducts;
-    } catch (error: any) {
+    const columns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug';
+    const { data, error } = await supabase
+      .from('products')
+      .select(columns)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) {
       throw new Error(`Failed to fetch products: ${error.message}`);
     }
+    return data || [];
   },
+
+  /**
+   * Fetches the complete lightweight catalog index (ALL products, minimal fields).
+   * Used to power search, product ID resolution, and featured product matching.
+   * Runs in parallel background chunks after initial load.
+   */
+  async fetchProductCatalogIndex(): Promise<Product[]> {
+    const columns = 'id, name, slug, category, images, price, discount_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale';
+    try {
+      // Fetch up to 5000 products in parallel using range queries
+      const promises = [];
+      for (let start = 0; start < 5000; start += 1000) {
+        promises.push(
+          supabase.from('products').select(columns).eq('status', 'published').range(start, start + 999)
+        );
+      }
+      const results = await Promise.all(promises);
+      let allItems: any[] = [];
+      for (const res of results) {
+        if (res.data && Array.isArray(res.data)) {
+          allItems = allItems.concat(res.data);
+          // If the page returned fewer than 1000, we've hit the end
+          if (res.data.length < 1000) break;
+        }
+      }
+      return allItems as Product[];
+    } catch (error: any) {
+      console.error('Failed to fetch catalog index:', error.message);
+      return [];
+    }
+  },
+
+
 
   /**
    * Fetches published products matching server-side filters and pagination range.

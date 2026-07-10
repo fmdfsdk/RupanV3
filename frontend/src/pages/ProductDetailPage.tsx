@@ -11,6 +11,7 @@ export default function ProductDetailPage() {
   
   const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);
   const products = useStore((state) => state.dbProducts);
+  const catalogIndex = useStore((state) => state.productCatalogIndex);
   const wishlist = useStore((state) => state.wishlist);
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const addToCart = useStore((state) => state.addToCart);
@@ -28,58 +29,55 @@ export default function ProductDetailPage() {
       if (!id) return;
       setLoading(true);
 
-      const getProductSlug = (name: string) => {
-        return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      };
-
-      // 1. Try to find in already loaded store products (offline/sync cache)
       const searchId = id.trim().toLowerCase();
-      const numMatch = searchId.match(/\d+$/);
-      const searchNum = numMatch ? parseInt(numMatch[0], 10) : null;
 
-      const foundLocal = products.find(p => {
+      // Smart matcher: checks exact ID, slug, or numeric suffix match
+      const smartMatch = (list: Product[]) => list.find(p => {
         const pId = String(p.id).toLowerCase();
         const pSlug = String(p.slug || '').toLowerCase();
-        
-        if (pId === searchId || getProductSlug(p.name) === searchId || pSlug === searchId) {
-          return true;
-        }
-
-        if (searchNum !== null) {
-          const pNumMatch = pId.match(/\d+$/);
-          if (pNumMatch) {
-            const pNum = parseInt(pNumMatch[0], 10);
-            if (pNum === searchNum || pNum === searchNum - 3000 || pNum === searchNum + 3000) {
-              return true;
-            }
-          }
-        }
-        return false;
+        const pName = p.name ? p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
+        return pId === searchId || pSlug === searchId || pName === searchId;
       });
 
-      if (foundLocal) {
-        // If online, fetch full details from DB just in case
+      // STEP 1: Search in the local 1000 products (full data, instant)
+      const inLocal = smartMatch(products);
+      if (inLocal) {
+        // Always fetch full detail from DB to get description, sizes, colors etc.
         if (isSupabaseOnline) {
           try {
-            const data = await productService.fetchProductByIdOrSlug(foundLocal.id);
-            if (data) {
-              setProduct(data);
-              setLoading(false);
-              return;
-            }
-          } catch (e) {}
+            const full = await productService.fetchProductByIdOrSlug(inLocal.id);
+            if (full) { setProduct(full); setLoading(false); return; }
+          } catch (_) {}
         }
-        setProduct(foundLocal);
+        setProduct(inLocal);
         setLoading(false);
         return;
       }
 
-      // 2. Fetch directly from DB by ID or Slug if not in local cache
+      // STEP 2: Search in the full catalog index (all product IDs, lightweight)
+      const inIndex = smartMatch(catalogIndex);
+      if (inIndex) {
+        if (isSupabaseOnline) {
+          try {
+            const full = await productService.fetchProductByIdOrSlug(inIndex.id);
+            if (full) { setProduct(full); setLoading(false); return; }
+          } catch (_) {}
+        }
+        // Use the index entry as a minimal fallback (has image, name, price)
+        setProduct(inIndex);
+        setLoading(false);
+        return;
+      }
+
+      // STEP 3: Guaranteed last resort — fetch directly from the database by ID/slug.
+      // This ALWAYS works, no matter the product range.
       if (isSupabaseOnline) {
         try {
           const data = await productService.fetchProductByIdOrSlug(id);
           if (data) {
             setProduct(data);
+            setLoading(false);
+            return;
           }
         } catch (e) {
           console.error("Error loading product details:", e);
