@@ -11,6 +11,7 @@ import QuickViewModal from './components/QuickViewModal';
 import SizeGuideModal from './components/SizeGuideModal';
 import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
+import MobileBottomMenu from './components/MobileBottomMenu';
 
 // Lazy load pages for elite code-splitting
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -172,6 +173,9 @@ function AppLayout() {
 
       {/* FOOTER */}
       <Footer onPageChange={handlePageChange} />
+
+      {/* Mobile Sticky Bottom Menu Bar */}
+      <MobileBottomMenu />
 
       {/* Floating Helpers */}
       <WhatsAppButton />

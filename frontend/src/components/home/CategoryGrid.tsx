@@ -6,6 +6,28 @@ interface CategoryGridProps {
   navigate: (path: string) => void;
 }
 
+const mapCategoryToDbId = (name: string): string => {
+  const mapping: { [key: string]: string } = {
+    'Women Fashions': "women's fashion",
+    'Watches': 'watch',
+    'Toys Products': 'kids zone',
+    'Shoes': "men's fashion",
+    'Power Sanders': 'gadgets & electronics',
+    'Men Fashions': "men's fashion",
+    'Shirts & Polos': "men's fashion",
+    'Kitchen Items': 'home & lifestyle',
+    'Home & Living': 'home & lifestyle',
+    'Health Care': 'beauty',
+    'Grocery': 'foods',
+    'Fitness': 'fitness',
+    'Electronics': 'gadgets & electronics',
+    'Beauty': 'beauty',
+    'Baby & Kids': 'kids zone',
+    'Accessories': 'watch'
+  };
+  return mapping[name] || name.toLowerCase();
+};
+
 export default function CategoryGrid({
   setSelectedCategory,
   setSelectedGender,
@@ -44,19 +66,21 @@ export default function CategoryGrid({
         </button>
       </div>
 
-      {/* Grid of 16 categories */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+      {/* Grid of 16 WooCommerce-style circular categories */}
+      <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-6">
         {categoriesList.map((cat) => (
           <button
             key={cat.name}
             onClick={() => {
-              setSelectedCategory(cat.name);
+              const mappedId = mapCategoryToDbId(cat.name);
+              setSelectedCategory(mappedId);
               setSelectedGender('All');
-              navigate('/shop');
+              navigate(`/shop?category=${encodeURIComponent(mappedId)}`);
             }}
-            className="group bg-white border border-gray-100 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-2xs hover:shadow-md transition-all duration-300 cursor-pointer animate-in fade-in"
+            className="group flex flex-col items-center justify-center text-center cursor-pointer border-0 bg-transparent p-0 transition-all select-none"
           >
-            <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center">
+            {/* Circular bubble container */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-gray-200/80 shadow-2xs group-hover:border-[#ff5c00] group-hover:shadow-md transition-all duration-300 overflow-hidden flex items-center justify-center bg-white">
               <img 
                 src={cat.image} 
                 alt={cat.name} 
@@ -64,7 +88,8 @@ export default function CategoryGrid({
                 referrerPolicy="no-referrer" 
               />
             </div>
-            <span className="text-[11px] font-extrabold text-gray-800 group-hover:text-[#ff5c00] transition-colors mt-2.5 line-clamp-1 uppercase tracking-tight">
+            {/* Label name */}
+            <span className="text-[10px] sm:text-[11px] font-bold text-gray-700 group-hover:text-[#ff5c00] transition-colors mt-3 uppercase tracking-tight leading-snug max-w-[90px] line-clamp-2">
               {cat.name}
             </span>
           </button>

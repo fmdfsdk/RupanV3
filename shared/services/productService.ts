@@ -145,7 +145,7 @@ export const productService = {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .or(`id.eq."${idOrSlug}",slug.eq."${idOrSlug}"`)
+      .or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`)
       .maybeSingle();
 
     if (error) {
@@ -159,13 +159,38 @@ export const productService = {
    */
   async searchProducts(query: string, limit: number = 20): Promise<Product[]> {
     if (!query || !query.trim()) return [];
+    
+    // 1. Fetch via search_products RPC (Full-text name/description match)
     const { data, error } = await supabase.rpc('search_products', {
       search_query: query.trim(),
       match_limit: limit
     });
+    
     if (error) {
       throw new Error(`Failed to search products: ${error.message}`);
     }
-    return data || [];
+
+    const results = data || [];
+
+    // 2. If results length is less than limit, fetch matching products by SKU directly
+    if (results.length < limit) {
+      const { data: skuData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('status', 'published')
+        .ilike('sku', `%${query.trim()}%`)
+        .limit(limit - results.length);
+
+      if (skuData && skuData.length > 0) {
+        const existingIds = new Set(results.map(p => p.id));
+        for (const p of skuData) {
+          if (!existingIds.has(p.id)) {
+            results.push(p);
+          }
+        }
+      }
+    }
+
+    return results;
   }
 };

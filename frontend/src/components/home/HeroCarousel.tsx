@@ -28,7 +28,7 @@ export default function HeroCarousel({
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12 pt-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Left Sliding Hero Carousel */}
-        <div className="col-span-1 lg:col-span-3 relative rounded-2xl overflow-hidden h-[340px] sm:h-[420px] shadow-sm select-none group">
+        <div className="col-span-1 lg:col-span-3 relative rounded-lg overflow-hidden h-[340px] sm:h-[420px] shadow-sm select-none group">
           <div className="absolute inset-0 transition-all duration-700 ease-in-out">
             <img 
               src={heroBanners[heroSlide].bgUrl} 
@@ -84,20 +84,20 @@ export default function HeroCarousel({
           {/* Arrow Controls */}
           <button 
             onClick={() => setHeroSlide((prev) => (prev - 1 + heroBanners.length) % heroBanners.length)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-pointer text-lg font-bold"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 z-20 cursor-pointer text-lg font-bold"
           >
             ‹
           </button>
           <button 
             onClick={() => setHeroSlide((prev) => (prev + 1) % heroBanners.length)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-pointer text-lg font-bold"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 z-20 cursor-pointer text-lg font-bold"
           >
             ›
           </button>
         </div>
 
         {/* Right Promo Banner */}
-        <div className="hidden lg:flex bg-gradient-to-b from-[#ff8c00] to-[#ff5c00] rounded-2xl p-6 flex-col justify-between text-white relative overflow-hidden h-[340px] sm:h-[420px] shadow-sm">
+        <div className="hidden lg:flex bg-gradient-to-b from-[#ff8c00] to-[#ff5c00] rounded-lg p-6 flex-col justify-between text-white relative overflow-hidden h-[340px] sm:h-[420px] shadow-sm">
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div className="space-y-1">
               <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-sm">Our New Product!</span>

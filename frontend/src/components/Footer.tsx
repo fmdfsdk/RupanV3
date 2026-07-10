@@ -161,7 +161,7 @@ function BrandLogo({ type }: BrandLogoProps) {
 
 export default function Footer({ onPageChange }: FooterProps) {
   return (
-    <footer className="bg-white text-gray-700 pt-16 border-t border-gray-200 font-sans">
+    <footer className="bg-white text-gray-700 pt-16 pb-16 sm:pb-0 border-t border-gray-200 font-sans">
       <div className="w-full max-w-[1750px] mx-auto px-4 md:px-12 lg:px-16">
         
         {/* Main Footer Content Grid */}

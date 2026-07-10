@@ -28,7 +28,7 @@ export default function FlashSale({
 
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12">
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-xs">
         <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#ff5c00]/10 flex items-center justify-center text-[#ff5c00] animate-pulse">
@@ -45,15 +45,15 @@ export default function FlashSale({
           {/* Countdown Clock */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 mr-1.5 hidden sm:inline">Ends In:</span>
-            <div className="bg-[#ff5c00] text-white font-mono text-sm font-black px-3 py-1.5 rounded-md min-w-[38px] text-center shadow-xs">
+            <div className="bg-[#1e1e1e] text-white font-mono text-sm font-black px-3 py-1.5 rounded-sm min-w-[38px] text-center shadow-xs">
               {String(Math.floor(secondsRemaining / 3600)).padStart(2, '0')}
             </div>
             <span className="text-xs font-bold text-gray-400">:</span>
-            <div className="bg-[#ff5c00] text-white font-mono text-sm font-black px-3 py-1.5 rounded-md min-w-[38px] text-center shadow-xs">
+            <div className="bg-[#1e1e1e] text-white font-mono text-sm font-black px-3 py-1.5 rounded-sm min-w-[38px] text-center shadow-xs">
               {String(Math.floor((secondsRemaining % 3600) / 60)).padStart(2, '0')}
             </div>
             <span className="text-xs font-bold text-gray-400">:</span>
-            <div className="bg-[#ff5c00] text-white font-mono text-sm font-black px-3 py-1.5 rounded-md min-w-[38px] text-center shadow-xs">
+            <div className="bg-[#1e1e1e] text-white font-mono text-sm font-black px-3 py-1.5 rounded-sm min-w-[38px] text-center shadow-xs">
               {String(secondsRemaining % 60).padStart(2, '0')}
             </div>
           </div>
