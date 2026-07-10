@@ -26,6 +26,21 @@ export default function OffersPage() {
     navigate('/checkout');
   };
 
+  const dbCoupons = useStore((state) => state.dbCoupons) || [];
+
+  const displayCoupons = dbCoupons.length > 0
+    ? dbCoupons.map(c => ({
+        code: c.code,
+        title: c.type === 'percentage' ? `Flat ${c.value}% OFF` : c.type === 'free_shipping' ? 'Free Shipping' : `Flat ৳${c.value} Discount`,
+        desc: `Valid on orders above ৳${c.min_order || c.minOrder || 0}. ${c.expiry_date || c.expiryDate ? `Valid until: ${c.expiry_date || c.expiryDate}` : 'Limited time offer.'}`,
+        badge: c.type === 'percentage' ? 'PERCENTAGE DISCOUNT' : c.type === 'free_shipping' ? 'FREE DELIVERY' : 'FLAT DISCOUNT'
+      }))
+    : [
+        { code: 'EID20', title: 'Flat ৳200 Discount', desc: 'Valid on ordering above ৳1,500. Perfect for Eid outfits and Panjabi sets.', badge: 'FESTIVAL COUPON' },
+        { code: 'FREEBD', title: 'Free Home Delivery', desc: 'Get zero shipping costs nationwide on purchasing above ৳2,500.', badge: 'FREE SHIPPING' },
+        { code: 'MART15', title: 'Flat 15% OFF', desc: 'Valid on entire Coordinated Couple Collection matches.', badge: 'COUPLE DEAL' }
+      ];
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 space-y-12 text-left animate-in fade-in duration-300">
       <div className="text-center space-y-2">
@@ -38,11 +53,7 @@ export default function OffersPage() {
 
       {/* Promo Codes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { code: 'EID20', title: 'Flat ৳200 Discount', desc: 'Valid on ordering above ৳1,500. Perfect for Eid outfits and Panjabi sets.', badge: 'FESTIVAL COUPON' },
-          { code: 'FREEBD', title: 'Free Home Delivery', desc: 'Get zero shipping costs nationwide on purchasing above ৳2,500.', badge: 'FREE SHIPPING' },
-          { code: 'MART15', title: 'Flat 15% OFF', desc: 'Valid on entire Coordinated Couple Collection matches.', badge: 'COUPLE DEAL' }
-        ].map(coupon => (
+        {displayCoupons.map(coupon => (
           <div key={coupon.code} className="bg-gradient-to-br from-orange-50 via-white to-amber-50/30 p-6 rounded-2xl border border-orange-100 flex flex-col justify-between shadow-2xs space-y-4">
             <div className="space-y-1.5">
               <span className="text-[9px] font-black uppercase text-[#ff5c00] tracking-wider bg-orange-100 px-2 py-0.5 rounded-sm inline-block">

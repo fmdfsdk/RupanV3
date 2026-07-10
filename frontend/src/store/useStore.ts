@@ -80,6 +80,8 @@ interface StoreState {
   setDbBlogs: (blogs: BlogPost[]) => void;
   setDbBanners: (banners: any[]) => void;
   setDbSettings: (settings: any) => void;
+  dbCoupons: any[];
+  setDbCoupons: (coupons: any[]) => void;
   // Fetch a single product from DB on-demand (for product detail page / featured items out of local 1000)
   fetchProductByIdFromDB: (idOrSlug: string) => Promise<Product | null>;
   setCurrentUser: (user: any) => void;
@@ -178,6 +180,13 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     return null;
   })(),
+  dbCoupons: (() => {
+    const cached = localStorage.getItem('rup_db_coupons');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return [];
+  })(),
   cart: (() => {
     const cached = localStorage.getItem('rup_cart');
     return cached ? JSON.parse(cached) : [];
@@ -260,6 +269,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setDbBlogs: (blogs) => set({ dbBlogs: blogs }),
   setDbBanners: (banners) => set({ dbBanners: banners }),
   setDbSettings: (settings) => set({ dbSettings: settings }),
+  setDbCoupons: (coupons) => set({ dbCoupons: coupons }),
   setCurrentUser: async (user) => {
     set({ currentUser: user });
     if (user && get().isSupabaseOnline) {
@@ -337,11 +347,12 @@ export const useStore = create<StoreState>((set, get) => ({
       }
 
       // Load reviews, blogs, banners, settings in parallel for speed
-      const [rData, blData, bData, sData] = await Promise.all([
+      const [rData, blData, bData, sData, cResult] = await Promise.all([
         reviewService.fetchReviews(),
         blogService.fetchBlogs(),
         bannerService.fetchBanners(),
-        settingsService.fetchSettings()
+        settingsService.fetchSettings(),
+        supabase.from('coupons').select('*').eq('is_active', true)
       ]);
 
       if (rData) {
@@ -355,6 +366,10 @@ export const useStore = create<StoreState>((set, get) => ({
       if (bData) {
         set({ dbBanners: bData });
         localStorage.setItem('rup_db_banners', JSON.stringify(bData));
+      }
+      if (cResult && cResult.data) {
+        set({ dbCoupons: cResult.data });
+        localStorage.setItem('rup_db_coupons', JSON.stringify(cResult.data));
       }
       if (sData) {
         set({ dbSettings: sData });
@@ -445,16 +460,58 @@ export const useStore = create<StoreState>((set, get) => ({
 
   applyCoupon: (code) => {
     const cleanCode = code.trim().toUpperCase();
-    if (cleanCode === 'RUPAN20') {
-      set({ appliedCoupon: { code: 'RUPAN20', discount: 20 } });
-      return true;
-    } else if (cleanCode === 'EIDMUBARAK') {
-      set({ appliedCoupon: { code: 'EIDMUBARAK', discount: 15 } });
-      return true;
-    } else if (cleanCode === 'FREE60') {
-      set({ appliedCoupon: { code: 'FREE60', discount: 100 } });
+    const { dbCoupons } = get();
+    
+    // Find coupon in database list first
+    const coupon = dbCoupons.find(c => c.code === cleanCode && (c.isActive || c.is_active));
+    if (coupon) {
+      const expiry = coupon.expiryDate || coupon.expiry_date;
+      if (expiry) {
+        const expiryDate = new Date(expiry);
+        const now = new Date();
+        if (expiryDate < now) return false;
+      }
+      
+      const usageLimit = coupon.usageLimit || coupon.usage_limit;
+      const usedCount = coupon.usedCount || coupon.used_count || 0;
+      if (usageLimit && usedCount >= usageLimit) return false;
+      
+      const minOrder = coupon.minOrder || coupon.min_order || 0;
+      
+      set({ 
+        appliedCoupon: { 
+          code: coupon.code, 
+          discount: Number(coupon.value), 
+          type: coupon.type, 
+          minOrder: Number(minOrder) 
+        } 
+      });
       return true;
     }
+    
+    // Fallback to local hardcoded mock coupons
+    const mockCoupons = [
+      { code: 'EID20', value: 200, type: 'fixed', minOrder: 1500 },
+      { code: 'FREEBD', value: 100, type: 'free_shipping', minOrder: 2500 },
+      { code: 'MART15', value: 15, type: 'percentage', minOrder: 1000 },
+      { code: 'RUPAN20', value: 20, type: 'percentage', minOrder: 1500 },
+      { code: 'EIDMUBARAK', value: 15, type: 'percentage', minOrder: 1000 },
+      { code: 'FREE60', value: 60, type: 'fixed', minOrder: 2000 }
+    ];
+    
+    const mock = mockCoupons.find(c => c.code === cleanCode);
+    if (mock) {
+      set({ 
+        appliedCoupon: { 
+          code: mock.code, 
+          discount: mock.value, 
+          type: mock.type, 
+          minOrder: mock.minOrder 
+        } 
+      });
+      return true;
+    }
+    
     return false;
   },
 
@@ -481,10 +538,16 @@ export const useStore = create<StoreState>((set, get) => ({
     const { appliedCoupon } = get();
     let discount = 0;
     if (appliedCoupon) {
-      if (appliedCoupon.code === 'FREE60') {
-        discount = 60;
-      } else {
-        discount = Math.round((subtotal * appliedCoupon.discount) / 100);
+      const minOrder = appliedCoupon.minOrder || 0;
+      if (subtotal >= minOrder) {
+        if (appliedCoupon.type === 'fixed') {
+          discount = Math.min(appliedCoupon.discount, subtotal);
+        } else if (appliedCoupon.type === 'free_shipping') {
+          discount = shippingFee;
+        } else {
+          // default percentage
+          discount = Math.round((subtotal * appliedCoupon.discount) / 100);
+        }
       }
     }
 

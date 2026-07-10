@@ -27,6 +27,7 @@ import ReviewsTab from './tabs/ReviewsTab';
 import SettingsTab from './tabs/SettingsTab';
 import SeoMarketingTab from './tabs/SeoMarketingTab';
 import SyncTab from './tabs/SyncTab';
+import MarginsTab from './tabs/MarginsTab';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -1498,6 +1499,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('margins'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'margins' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Percent className="w-4 h-4" />
+              <span>Margin Manager</span>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('marketing'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'marketing' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -1680,6 +1691,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   runSync={runSync}
                 />
               )}
+
+              {/* TAB 12: PROFIT MARGIN MANAGER */}
+              {activeTab === 'margins' && (
+                <MarginsTab
+                  products={products}
+                  setProducts={setProducts}
+                  dbSettings={settings}
+                  setDbSettings={setSettings}
+                  isSupabaseOnline={isSupabaseOnline}
+                />
+              )}
             </>
           )}
         </div>
@@ -1836,6 +1858,45 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                     onChange={(e) => setProductForm({ ...productForm, discountPrice: parseInt(e.target.value) || undefined })}
                     className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <label>Reseller Cost (৳) (Optional)</label>
+                  <input 
+                    type="number" 
+                    value={productForm.purchasePrice || ''}
+                    onChange={(e) => setProductForm({ ...productForm, purchasePrice: parseInt(e.target.value) || undefined })}
+                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label>Profit Margin Markup (%)</label>
+                  <div className="flex gap-1.5">
+                    <input 
+                      type="number" 
+                      placeholder="Enter % to calc price"
+                      value={
+                        productForm.purchasePrice && (productForm.discountPrice || productForm.price)
+                          ? Math.round((((productForm.discountPrice || productForm.price) - productForm.purchasePrice) / productForm.purchasePrice) * 100)
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const m = parseInt(e.target.value) || 0;
+                        const cost = productForm.purchasePrice || 0;
+                        if (cost > 0) {
+                          const sell = Math.round(cost * (1 + m / 100));
+                          setProductForm({
+                            ...productForm,
+                            price: sell,
+                            discountPrice: undefined // Reset discount if setting markup
+                          });
+                        }
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
+                    />
+                    <span className="bg-gray-100 border border-gray-200 text-gray-500 font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center text-xs">%</span>
+                  </div>
                 </div>
 
                 <div className="space-y-1">

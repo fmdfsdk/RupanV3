@@ -43,7 +43,14 @@ export default function CartPage() {
 
   const getDiscountAmount = () => {
     if (!appliedCoupon) return 0;
-    if (appliedCoupon.code === 'FREE60') return 60;
+    const minOrder = appliedCoupon.minOrder || 0;
+    if (getSubtotal() < minOrder) return 0;
+
+    if (appliedCoupon.type === 'fixed') {
+      return Math.min(appliedCoupon.discount, getSubtotal());
+    } else if (appliedCoupon.type === 'free_shipping') {
+      return getShippingFee();
+    }
     return Math.round((getSubtotal() * appliedCoupon.discount) / 100);
   };
 
