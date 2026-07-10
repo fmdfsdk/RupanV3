@@ -50,9 +50,12 @@ export default function ProductDetail({
     ? product.images 
     : ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600'];
 
+  const productColors = Array.isArray(product.colors) ? product.colors : [];
+  const productSizes = Array.isArray(product.sizes) ? product.sizes : [];
+
   const [activeImage, setActiveImage] = useState<string>(productImages[0]);
-  const [selectedColor, setSelectedColor] = useState<string>(product.colors[0]?.name || '');
-  const [selectedSize, setSelectedSize] = useState<string>(product.sizes[0] || 'M');
+  const [selectedColor, setSelectedColor] = useState<string>(productColors[0]?.name || '');
+  const [selectedSize, setSelectedSize] = useState<string>(productSizes[0] || 'M');
   const [quantity, setQuantity] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
   const [addedFeedback, setAddedFeedback] = useState<boolean>(false);
@@ -84,8 +87,8 @@ export default function ProductDetail({
   // Sync state if product changes
   useEffect(() => {
     setActiveImage(productImages[0]);
-    setSelectedColor(product.colors[0]?.name || '');
-    setSelectedSize(product.sizes[0] || 'Standard');
+    setSelectedColor(productColors[0]?.name || '');
+    setSelectedSize(productSizes[0] || 'Standard');
     setQuantity(1);
     if (product.id) {
       addRecentlyViewedId(product.id);
@@ -306,13 +309,13 @@ export default function ProductDetail({
           </div>
 
           {/* Color Selection Swatches */}
-          {product.colors && product.colors.length > 0 && (
+          {productColors.length > 0 && (
             <div className="space-y-2 pt-1">
               <span className="text-xs uppercase font-extrabold text-gray-400 block tracking-wider">
                 Color: <strong className="text-gray-900">{selectedColor}</strong>
               </span>
               <div className="flex items-center gap-2.5">
-                {product.colors.map((c) => (
+                {productColors.map((c) => (
                   <button
                     key={c.name}
                     onClick={() => setSelectedColor(c.name)}
@@ -329,7 +332,7 @@ export default function ProductDetail({
           )}
 
           {/* Sizing selection */}
-          {product.sizes && product.sizes.length > 0 && (
+          {productSizes.length > 0 && (
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wide">
                 <span className="text-gray-400">Select Size</span>
@@ -342,7 +345,7 @@ export default function ProductDetail({
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {product.sizes.map((sz) => (
+                {productSizes.map((sz) => (
                   <button
                     key={sz}
                     onClick={() => setSelectedSize(sz)}

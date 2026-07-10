@@ -377,8 +377,8 @@ export const useStore = create<StoreState>((set, get) => ({
     } else {
       newCart.push({
         product,
-        selectedSize: size || product.sizes[0] || 'M',
-        selectedColor: color || product.colors[0]?.name || 'Default',
+        selectedSize: size || (product.sizes && product.sizes[0]) || 'M',
+        selectedColor: color || (product.colors && product.colors[0]?.name) || 'Default',
         quantity: qty
       });
     }

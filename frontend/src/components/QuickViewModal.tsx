@@ -26,16 +26,19 @@ export default function QuickViewModal({
   isWishlisted,
   onOpenSizeGuide
 }: QuickViewModalProps) {
-  const [selectedImage, setSelectedImage] = useState(product?.images[0] || '');
-  const [selectedColor, setSelectedColor] = useState(product?.colors[0]?.name || '');
-  const [selectedSize, setSelectedSize] = useState(product?.sizes[0] || '');
+  const productColors = Array.isArray(product?.colors) ? product.colors : [];
+  const productSizes = Array.isArray(product?.sizes) ? product.sizes : [];
+
+  const [selectedImage, setSelectedImage] = useState(product?.images?.[0] || '');
+  const [selectedColor, setSelectedColor] = useState(productColors[0]?.name || '');
+  const [selectedSize, setSelectedSize] = useState(productSizes[0] || '');
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     if (product) {
-      setSelectedImage(product.images[0] || '');
-      setSelectedColor(product.colors[0]?.name || '');
-      setSelectedSize(product.sizes[0] || '');
+      setSelectedImage(product.images?.[0] || '');
+      setSelectedColor(productColors[0]?.name || '');
+      setSelectedSize(productSizes[0] || '');
       setQuantity(1);
     }
   }, [product]);
@@ -155,58 +158,62 @@ export default function QuickViewModal({
           </p>
 
           {/* Color swatches selector */}
-          <div className="mb-4">
-            <span className="block text-xs font-bold text-gray-700 uppercase mb-2 tracking-wider">
-              Selected Color: <strong className="text-brand-primary font-semibold">{selectedColor}</strong>
-            </span>
-            <div className="flex items-center gap-2">
-              {product.colors.map((color) => (
-                <button
-                  key={color.name}
-                  onClick={() => setSelectedColor(color.name)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all ${
-                    selectedColor === color.name
-                      ? 'border-brand-primary bg-blue-50/30 text-brand-primary font-bold ring-2 ring-brand-primary/20'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-400'
-                  }`}
-                >
-                  <span className={`w-3 h-3 rounded-full ${color.class}`} />
-                  {color.name}
-                </button>
-              ))}
+          {productColors.length > 0 && (
+            <div className="mb-4">
+              <span className="block text-xs font-bold text-gray-700 uppercase mb-2 tracking-wider">
+                Selected Color: <strong className="text-brand-primary font-semibold">{selectedColor}</strong>
+              </span>
+              <div className="flex items-center gap-2">
+                {productColors.map((color) => (
+                  <button
+                    key={color.name}
+                    onClick={() => setSelectedColor(color.name)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all ${
+                      selectedColor === color.name
+                        ? 'border-brand-primary bg-blue-50/30 text-brand-primary font-bold ring-2 ring-brand-primary/20'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className={`w-3 h-3 rounded-full ${color.class}`} />
+                    {color.name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Size Select & Size Guide Link */}
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                Select Size: <strong className="text-brand-primary font-semibold">{selectedSize}</strong>
-              </span>
-              <button
-                onClick={() => onOpenSizeGuide(product.category)}
-                className="flex items-center gap-1 text-xs font-semibold text-brand-accent hover:text-amber-600 transition-colors cursor-pointer"
-              >
-                <Ruler className="w-3.5 h-3.5" />
-                Size Guide
-              </button>
-            </div>
-            <div className="flex gap-2">
-              {product.sizes.map((size) => (
+          {productSizes.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Select Size: <strong className="text-brand-primary font-semibold">{selectedSize}</strong>
+                </span>
                 <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`w-11 h-11 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
-                    selectedSize === size
-                      ? 'bg-brand-primary text-white shadow-md'
-                      : 'border border-gray-200 text-gray-500 hover:border-brand-primary hover:text-brand-primary'
-                  }`}
+                  onClick={() => onOpenSizeGuide(product.category)}
+                  className="flex items-center gap-1 text-xs font-semibold text-brand-accent hover:text-amber-600 transition-colors cursor-pointer"
                 >
-                  {size}
+                  <Ruler className="w-3.5 h-3.5" />
+                  Size Guide
                 </button>
-              ))}
+              </div>
+              <div className="flex gap-2">
+                {productSizes.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`w-11 h-11 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                      selectedSize === size
+                        ? 'bg-brand-primary text-white shadow-md'
+                        : 'border border-gray-200 text-gray-500 hover:border-brand-primary hover:text-brand-primary'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Quantity Selector & Stock Indicator */}
           <div className="flex items-center justify-between mb-6 pb-5 border-b border-gray-100">
