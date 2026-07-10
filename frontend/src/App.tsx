@@ -31,7 +31,6 @@ const PolicyPage = lazy(() => import('./pages/PolicyPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const BlogPage = lazy(() => import('./components/BlogPage'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 export default function App() {
   return (
@@ -85,7 +84,7 @@ function AppLayout() {
     if (pageId === 'home' || pageId === '/') {
       navigate('/');
     } else if (pageId === 'admin') {
-      navigate('/admin');
+      navigate('/account');
     } else if (pageId === 'faq' || pageId === 'faqs') {
       navigate('/faq');
     } else if (pageId === 'blog' || pageId === 'blogs') {
@@ -165,9 +164,7 @@ function AppLayout() {
               <Route path="/blog/:id" element={<BlogPage />} />
               <Route path="/blogs" element={<BlogPage />} />
               <Route path="/product-search" element={<SearchPage />} />
-              {/* ADMIN DASHBOARD */}
-              <Route path="/admin" element={<AdminPanel onClose={() => navigate('/')} />} />
-              <Route path="/admin-dashboard" element={<AdminPanel onClose={() => navigate('/')} />} />
+
             </Routes>
           </Suspense>
         </ErrorBoundary>

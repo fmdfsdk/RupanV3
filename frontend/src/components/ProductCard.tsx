@@ -142,13 +142,17 @@ export default function ProductCard({
       {/* Product Details Section */}
       <div className="p-3.5 flex-1 flex flex-col justify-between bg-white text-left">
         <div>
-          {/* Product Title */}
           <h4 
             onClick={handleProductClick}
             className="font-sans font-medium text-[13px] text-gray-900 hover:text-[#ff5c00] cursor-pointer line-clamp-2 min-h-[36px] mb-1 leading-snug transition-colors"
           >
             {product.name}
           </h4>
+          {product.sku && (
+            <div className="text-[10px] font-mono text-gray-400 mb-1.5 leading-none">
+              Code: <span className="font-bold text-gray-600">{product.sku}</span>
+            </div>
+          )}
 
           {/* Pricing Row */}
           <div className="flex items-baseline gap-1.5 mb-1.5">

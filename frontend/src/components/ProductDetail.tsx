@@ -311,9 +311,9 @@ export default function ProductDetail({
                 Out of Stock
               </span>
             )}
-            <span className="bg-orange-50 text-orange-600 border border-orange-100 px-2.5 py-1.5 rounded-sm flex items-center">
-              Brand: {product.brand || 'No Brand'}
-            </span>
+             <span className="bg-orange-50 text-orange-600 border border-orange-100 px-2.5 py-1.5 rounded-sm flex items-center">
+               Brand: {product.brand ? product.brand.replace(/reseller/gi, '').trim() || 'Rupan' : 'Rupan'}
+             </span>
           </div>
 
           {/* Color Selection Swatches */}

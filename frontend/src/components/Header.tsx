@@ -224,11 +224,11 @@ export default function Header({
               )}
             </button>
 
-            {/* Admin Panel Link */}
+            {/* Customer Dashboard Link */}
             <button 
-              onClick={() => onPageChange('admin')}
+              onClick={() => onPageChange('account')}
               className="hidden sm:flex p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer items-center gap-1.5"
-              title="Admin Panel"
+              title="My Account"
             >
               <User className="w-5.5 h-5.5" />
             </button>

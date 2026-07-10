@@ -11,7 +11,7 @@ export default function ShopPage() {
   const navigate = useNavigate();
 
   // Local Pagination & result states
-  const [pageSize] = useState<number>(12);
+  const [pageSize] = useState<number>(24);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -596,7 +596,7 @@ export default function ShopPage() {
           {/* Product Count Indicator & Sorting */}
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between text-xs text-gray-500 py-1">
             <div>
-              Showing <strong>{isLoading ? '...' : filteredProducts.length}</strong> of <strong>{totalCount}</strong> premium items
+              Showing <strong>{isLoading ? '...' : filteredProducts.length}</strong> of <strong>{totalCount}</strong> items
             </div>
 
             <div className="flex items-center gap-4 shrink-0">

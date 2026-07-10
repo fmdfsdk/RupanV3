@@ -302,7 +302,7 @@ export default async function handler(req: any, res: any) {
           name: item.name,
           slug: item.slug || `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${item.id}`,
           sku: item.product_code ? `${source.toUpperCase()}-${item.product_code}` : `${source.toUpperCase()}-${item.id}`,
-          brand: item.brand || 'Rupan Reseller',
+          brand: item.brand || 'Rupan',
           category: categoryId,
           sub_category: extractSubCategory(item.name, categoryName),
           tags: tags,

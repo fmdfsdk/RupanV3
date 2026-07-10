@@ -873,7 +873,8 @@ class QueryBuilderWrapper {
     const res = await this.query;
     const response = {
       data: res.data ? convertKeysToCamel(res.data) : null,
-      error: res.error
+      error: res.error,
+      count: res.count
     };
     if (onfulfilled) {
       return Promise.resolve(onfulfilled(response));
