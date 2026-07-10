@@ -38,6 +38,140 @@ function serveIndexHtml(res: VercelResponse) {
   }
 }
 
+/**
+ * Dynamically injects SEO Meta Tags and Marketing/Tracking Scripts (GTM, GA4, Meta Pixel)
+ * into the landing page HTML.
+ */
+function injectMarketingAndSEO(html: string, page: any, settings: any, metadata: any): string {
+  const seoEnabled = metadata.seoEnabled !== false;
+  const marketingEnabled = metadata.marketingEnabled !== false;
+
+  let headInjections = '';
+  let bodyInjections = '';
+
+  // 1. Inject SEO Tools if enabled
+  if (seoEnabled) {
+    const title = page.seo_title || page.title || 'Rupan';
+    const description = page.seo_description || 'Rupan - Premium Bangladeshi Fashion Brand';
+    
+    headInjections += `
+    <!-- Dynamic SEO Meta Tags -->
+    <title>${title}</title>
+    <meta name="description" content="${description}" />
+    <meta property="og:title" content="${title}" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    `;
+  }
+
+  // 2. Inject Marketing / Ad Tracking Tools if enabled and settings exist
+  if (marketingEnabled && settings) {
+    const gtmId = settings.google_tag_manager_id;
+    const gaId = settings.google_analytics_id;
+    const pixelId = settings.meta_pixel_id;
+
+    // Google Tag Manager (GTM)
+    if (gtmId) {
+      headInjections += `
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','${gtmId}');</script>
+    <!-- End Google Tag Manager -->
+      `;
+
+      bodyInjections += `
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${gtmId}"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+      `;
+    }
+
+    // Google Analytics 4 (GA4)
+    if (gaId) {
+      headInjections += `
+    <!-- Google Analytics (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${gaId}');
+    </script>
+      `;
+    }
+
+    // Meta Pixel
+    if (pixelId) {
+      headInjections += `
+    <!-- Meta Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '${pixelId}');
+      fbq('track', 'PageView');
+    </script>
+    <!-- End Meta Pixel Code -->
+      `;
+
+      bodyInjections += `
+    <!-- Meta Pixel noscript -->
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
+    /></noscript>
+      `;
+    }
+
+    // Future-proof generic custom header / footer scripts from settings
+    // If you add header_script / footer_script columns to settings in the future, they are automatically injected here!
+    if (settings.header_script) {
+      headInjections += `\n<!-- Settings Custom Header Script -->\n${settings.header_script}\n`;
+    }
+    if (settings.footer_script) {
+      bodyInjections += `\n<!-- Settings Custom Footer Script -->\n${settings.footer_script}\n`;
+    }
+  }
+
+  // Inject into HTML content
+  let modifiedHtml = html;
+
+  // Insert head injections
+  if (headInjections) {
+    const headTagIndex = modifiedHtml.search(/<head>/i);
+    if (headTagIndex !== -1) {
+      // Insert right after <head> tag
+      modifiedHtml = modifiedHtml.slice(0, headTagIndex + 6) + headInjections + modifiedHtml.slice(headTagIndex + 6);
+    } else {
+      // No head tag found, prepended to beginning
+      modifiedHtml = headInjections + modifiedHtml;
+    }
+  }
+
+  // Insert body injections
+  if (bodyInjections) {
+    const bodyTagIndex = modifiedHtml.search(/<body>/i);
+    if (bodyTagIndex !== -1) {
+      // Insert right after <body> tag
+      modifiedHtml = modifiedHtml.slice(0, bodyTagIndex + 6) + bodyInjections + modifiedHtml.slice(bodyTagIndex + 6);
+    } else {
+      // No body tag found, appended to end
+      modifiedHtml = modifiedHtml + bodyInjections;
+    }
+  }
+
+  return modifiedHtml;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Get the original URL path (Vercel passes it in req.url)
   // vercel.json rewrites pass the full original URL as ?__path= 
@@ -116,14 +250,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (pageRow) {
     if (pageRow.category === '__landing_page__') {
-      // ✅ Serve the custom HTML/CSS/JS page DIRECTLY — no React wrapper needed
-      const html = pageRow.content || '';
+      // Extract layout/marketing/SEO metadata comments
+      const rawContent = pageRow.content || '';
+      let metadata: any = { seoEnabled: true, marketingEnabled: true };
+      const metadataMatch = rawContent.match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+      
+      if (metadataMatch) {
+        try {
+          metadata = JSON.parse(metadataMatch[1]);
+        } catch (e) {
+          console.error("Failed to parse page metadata:", e);
+        }
+      }
+
+      // Fetch global settings for Marketing integration keys
+      let settings: any = null;
+      try {
+        const { data: settingsRow } = await supabase
+          .from('settings')
+          .select('*')
+          .maybeSingle();
+        settings = settingsRow;
+      } catch (err) {
+        console.error("Failed to fetch settings for marketing integration:", err);
+      }
+
+      // Clean metadata comments from raw HTML
+      const cleanedHTML = rawContent
+        .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+        .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+
+      // Inject GTM, GA4, Meta Pixel scripts and meta tags
+      const finalHtml = injectMarketingAndSEO(cleanedHTML, pageRow, settings, metadata);
+
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
-      return res.status(200).send(html);
+      return res.status(200).send(finalHtml);
     } else {
       // Regular blog post — serve index.html and let React's BlogPage render it
-      // The React app will find it in the store after Supabase loads
       return serveIndexHtml(res);
     }
   }

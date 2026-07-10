@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, Eye, Globe, Code, Save, X, 
   Layout, Monitor, Smartphone, ExternalLink, Copy,
-  ChevronRight, Loader2, CheckCircle
+  ChevronRight, Loader2, CheckCircle, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface LandingPage {
   id: string;         // Full URL path e.g. /eid-sale
   title: string;
-  content: string;    // Raw HTML/CSS/JS
+  content: string;    // Raw HTML/CSS/JS with metadata block
   status: 'published' | 'draft';
+  seo_enabled: boolean;
+  marketing_enabled: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -64,22 +66,39 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   const [previewMode, setPreviewMode] = useState<'editor' | 'preview' | 'split'>('editor');
   const [deviceView, setDeviceView] = useState<'desktop' | 'mobile'>('desktop');
   const [editingPage, setEditingPage] = useState<LandingPage | null>(null);
+  const [settings, setSettings] = useState<any>(null);
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
   const [formPath, setFormPath] = useState('');
   const [formContent, setFormContent] = useState(DEFAULT_TEMPLATE);
   const [formStatus, setFormStatus] = useState<'published' | 'draft'>('published');
+  const [formSeoEnabled, setFormSeoEnabled] = useState(true);
+  const [formMarketingEnabled, setFormMarketingEnabled] = useState(true);
+
+  // Script Preview Drawer state
+  const [showScriptPreview, setShowScriptPreview] = useState(false);
+  const [copiedScript, setCopiedScript] = useState(false);
 
   const previewRef = useRef<HTMLIFrameElement>(null);
   const codeRef = useRef<HTMLTextAreaElement>(null);
-
   const [saveMsg, setSaveMsg] = useState('');
 
-  // Fetch pages from the blogs table (with a special marker in category)
+  // Fetch pages and global settings
   useEffect(() => {
     fetchPages();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase.from('settings').select('*').maybeSingle();
+      if (error) throw error;
+      setSettings(data);
+    } catch (err: any) {
+      console.error('Failed to fetch settings:', err.message);
+    }
+  };
 
   const fetchPages = async () => {
     setLoading(true);
@@ -92,14 +111,31 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
 
       if (error) throw error;
 
-      const mapped: LandingPage[] = (data || []).map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        content: r.content,
-        status: r.status || 'published',
-        created_at: r.created_at,
-        updated_at: r.updated_at
-      }));
+      const mapped: LandingPage[] = (data || []).map((r: any) => {
+        let seoEnabled = true;
+        let marketingEnabled = true;
+        
+        // Parse metadata block if exists
+        const match = (r.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[1]);
+            seoEnabled = parsed.seoEnabled !== false;
+            marketingEnabled = parsed.marketingEnabled !== false;
+          } catch (e) {}
+        }
+
+        return {
+          id: r.id,
+          title: r.title,
+          content: r.content,
+          status: r.status || 'published',
+          seo_enabled: seoEnabled,
+          marketing_enabled: marketingEnabled,
+          created_at: r.created_at,
+          updated_at: r.updated_at
+        };
+      });
       setPages(mapped);
     } catch (err: any) {
       console.error('Failed to fetch landing pages:', err.message);
@@ -114,6 +150,8 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
     setFormPath('/my-landing-page');
     setFormContent(DEFAULT_TEMPLATE);
     setFormStatus('published');
+    setFormSeoEnabled(true);
+    setFormMarketingEnabled(true);
     setPreviewMode('editor');
     setEditorOpen(true);
   };
@@ -122,8 +160,16 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
     setEditingPage(page);
     setFormTitle(page.title);
     setFormPath(page.id);
-    setFormContent(page.content);
+    
+    // Strip layout and metadata comments when editing
+    const cleanedHTML = (page.content || '')
+      .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+      .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+    
+    setFormContent(cleanedHTML);
     setFormStatus(page.status);
+    setFormSeoEnabled(page.seo_enabled);
+    setFormMarketingEnabled(page.marketing_enabled);
     setPreviewMode('editor');
     setEditorOpen(true);
   };
@@ -139,10 +185,23 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
 
     setSaving(true);
     try {
+      // Serialize configuration metadata into a header comment block
+      const metadata = {
+        layout: 'blank',
+        seoEnabled: formSeoEnabled,
+        marketingEnabled: formMarketingEnabled
+      };
+      
+      const cleanedHTML = formContent
+        .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+        .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+        
+      const finalContent = `<!-- metadata: ${JSON.stringify(metadata)} -->\n${cleanedHTML}`;
+
       const payload = {
         id: path,
         title: formTitle.trim(),
-        content: formContent,
+        content: finalContent,
         category: '__landing_page__',
         status: formStatus,
         excerpt: '',
@@ -155,7 +214,15 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
       if (editingPage) {
         const { error } = await supabase.from('blogs').update(payload).eq('id', editingPage.id);
         if (error) throw error;
-        setPages(prev => prev.map(p => p.id === editingPage.id ? { ...p, ...payload } : p));
+        setPages(prev => prev.map(p => p.id === editingPage.id ? { 
+          ...p, 
+          id: path,
+          title: formTitle.trim(),
+          content: finalContent,
+          status: formStatus,
+          seo_enabled: formSeoEnabled,
+          marketing_enabled: formMarketingEnabled
+        } : p));
         setSaveMsg('Landing page updated!');
       } else {
         // Check for duplicate
@@ -166,7 +233,14 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
         }
         const { error } = await supabase.from('blogs').insert([payload]);
         if (error) throw error;
-        const newPage: LandingPage = { id: path, title: formTitle, content: formContent, status: formStatus };
+        const newPage: LandingPage = { 
+          id: path, 
+          title: formTitle.trim(), 
+          content: finalContent, 
+          status: formStatus,
+          seo_enabled: formSeoEnabled,
+          marketing_enabled: formMarketingEnabled
+        };
         setPages(prev => [newPage, ...prev]);
         setSaveMsg('Landing page created!');
       }
@@ -200,6 +274,50 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
       setFormContent(newVal);
       setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + 2; }, 0);
     }
+  };
+
+  // Generate code snippet to preview what scripts are injected
+  const getMarketingScriptPreview = () => {
+    if (!settings) return '<!-- Settings not loaded yet -->';
+    const gtmId = settings.google_tag_manager_id;
+    const gaId = settings.google_analytics_id;
+    const pixelId = settings.meta_pixel_id;
+
+    let code = `<!-- INJECTED IN HEAD -->\n`;
+    if (formSeoEnabled) {
+      code += `<!-- Meta tags for title, description, and OpenGraph tags -->\n`;
+    }
+    if (gtmId) {
+      code += `<!-- GTM Script -->\n<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});...})(window,document,'script','dataLayer','${gtmId}');</script>\n`;
+    }
+    if (gaId) {
+      code += `<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script>\n<script>gtag('config', '${gaId}');</script>\n`;
+    }
+    if (pixelId) {
+      code += `<!-- Meta Pixel -->\n<script>fbq('init', '${pixelId}'); fbq('track', 'PageView');</script>\n`;
+    }
+    if (settings.header_script) {
+      code += `<!-- Custom Header Script -->\n${settings.header_script}\n`;
+    }
+    
+    code += `\n<!-- INJECTED IN BODY -->\n`;
+    if (gtmId) {
+      code += `<!-- GTM Noscript iframe -->\n<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${gtmId}" ...></iframe></noscript>\n`;
+    }
+    if (pixelId) {
+      code += `<!-- Meta Pixel Noscript image -->\n<noscript><img src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1" .../></noscript>\n`;
+    }
+    if (settings.footer_script) {
+      code += `<!-- Custom Footer Script -->\n${settings.footer_script}\n`;
+    }
+
+    return code;
+  };
+
+  const copyScriptToClipboard = () => {
+    navigator.clipboard.writeText(getMarketingScriptPreview());
+    setCopiedScript(true);
+    setTimeout(() => setCopiedScript(false), 2000);
   };
 
   const liveUrl = (path: string) => `${storeDomain}${path}`;
@@ -236,6 +354,37 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
                 />
               </div>
             </div>
+          </div>
+
+          {/* Configuration Checkboxes */}
+          <div className="flex items-center gap-4 bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-xl text-[11px] font-bold text-gray-600">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formSeoEnabled}
+                onChange={e => setFormSeoEnabled(e.target.checked)}
+                className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-3.5 h-3.5"
+              />
+              <span>Enable SEO Tools</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formMarketingEnabled}
+                onChange={e => setFormMarketingEnabled(e.target.checked)}
+                className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-3.5 h-3.5"
+              />
+              <span>Enable Marketing Tools</span>
+            </label>
+            {formMarketingEnabled && (
+              <button
+                onClick={() => setShowScriptPreview(!showScriptPreview)}
+                className="text-brand-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <Code className="w-3.5 h-3.5" />
+                <span>Injected Script Preview</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -287,6 +436,39 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
             )}
           </div>
         </div>
+
+        {/* Script preview collapsible drawer */}
+        {showScriptPreview && formMarketingEnabled && (
+          <div className="bg-gray-900 text-gray-100 p-4 border-b border-gray-800 flex flex-col shrink-0 max-h-60 overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-gray-300 uppercase tracking-widest flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-brand-primary" />
+                Dynamic Script Injection Preview
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyScriptToClipboard}
+                  className="bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {copiedScript ? 'Copied!' : 'Copy Code'}
+                </button>
+                <button
+                  onClick={() => setShowScriptPreview(false)}
+                  className="text-gray-400 hover:text-gray-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400 mb-2">
+              Rupan will automatically inject the following tags into your page head/body. Any update to meta pixels or tracking codes in Settings will automatically be reflected here instantly.
+            </p>
+            <pre className="text-[10px] font-mono bg-gray-950 p-3 rounded-lg overflow-x-auto text-green-400">
+              {getMarketingScriptPreview()}
+            </pre>
+          </div>
+        )}
 
         {/* Editor + Preview */}
         <div className={`flex-1 flex min-h-0 ${previewMode === 'split' ? 'flex-row' : 'flex-col'}`}>
@@ -394,6 +576,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
                 <th className="p-4">Title</th>
                 <th className="p-4">URL Path</th>
                 <th className="p-4 text-center">Status</th>
+                <th className="p-4 text-center">SEO / Marketing</th>
                 <th className="p-4 text-center">Code Size</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
@@ -429,6 +612,16 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
                       {page.status}
                     </span>
                   </td>
+                  <td className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className={`text-[9px] px-1.5 py-0.5 font-bold rounded ${page.seo_enabled ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-gray-100 text-gray-400'}`}>
+                        SEO
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.5 font-bold rounded ${page.marketing_enabled ? 'bg-teal-50 text-teal-600 border border-teal-100' : 'bg-gray-100 text-gray-400'}`}>
+                        MKT
+                      </span>
+                    </div>
+                  </td>
                   <td className="p-4 text-center text-gray-500 font-mono text-[11px]">
                     {(page.content?.length / 1024).toFixed(1)} KB
                   </td>
@@ -463,7 +656,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
               ))}
               {pages.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-12 text-center">
+                  <td colSpan={6} className="p-12 text-center">
                     <Layout className="w-10 h-10 text-gray-200 mx-auto mb-3" />
                     <p className="text-sm font-bold text-gray-400">No landing pages yet</p>
                     <p className="text-xs text-gray-300 mt-1">Click "New Landing Page" to create your first custom page</p>
