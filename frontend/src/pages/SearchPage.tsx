@@ -126,7 +126,12 @@ export default function SearchPage() {
                   />
                   <div>
                     <h5 className="font-bold text-xs text-zinc-900 leading-snug line-clamp-1">{item.name}</h5>
-                    <span className="text-[10px] text-[#ff5c00] font-bold uppercase tracking-wider block mt-0.5">{item.category}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-[#ff5c00] font-bold uppercase tracking-wider">{item.category}</span>
+                      {item.sku && (
+                        <span className="text-[10px] text-gray-400 font-mono">({item.sku})</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

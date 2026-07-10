@@ -245,10 +245,17 @@ export default function ProductDetail({
           
           {/* Title & Share */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between gap-4">
-              <h1 className="font-sans text-2xl md:text-3xl font-black text-gray-900 leading-tight">
-                {product.name}
-              </h1>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="font-sans text-2xl md:text-3xl font-black text-gray-900 leading-tight">
+                  {product.name}
+                </h1>
+                {product.sku && (
+                  <span className="text-xs font-mono text-gray-400 block mt-1">
+                    Product Code: <strong className="text-gray-600 font-extrabold">{product.sku}</strong>
+                  </span>
+                )}
+              </div>
               <div className="shrink-0 flex items-center gap-2">
                 <button
                   onClick={handleShare}

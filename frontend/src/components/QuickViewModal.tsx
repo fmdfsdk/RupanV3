@@ -128,9 +128,14 @@ export default function QuickViewModal({
           </div>
 
           {/* Title */}
-          <h2 className="font-display text-xl md:text-2xl font-bold text-brand-text mb-3 leading-tight">
+          <h2 className="font-display text-xl md:text-2xl font-bold text-brand-text mb-1 leading-tight">
             {product.name}
           </h2>
+          {product.sku && (
+            <span className="text-[11px] font-mono text-gray-400 block mb-3">
+              Product Code: <strong className="text-gray-600 font-extrabold">{product.sku}</strong>
+            </span>
+          )}
 
           {/* Price */}
           <div className="flex items-baseline gap-3 mb-5 p-3 rounded-xl bg-gray-50/70 border border-gray-100">

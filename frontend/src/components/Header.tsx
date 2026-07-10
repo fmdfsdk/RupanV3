@@ -186,8 +186,11 @@ export default function Header({
                     />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-xs text-gray-900 leading-snug truncate">{item.name}</h5>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-[#ff5c00] font-bold uppercase tracking-wider">{item.category}</span>
+                        {item.sku && (
+                          <span className="text-[10px] text-gray-400 font-mono font-medium">({item.sku})</span>
+                        )}
                         <span className="text-[10px] text-gray-400 font-semibold">{item.discount_price ? item.discount_price : item.price}৳</span>
                       </div>
                     </div>
