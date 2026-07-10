@@ -15,12 +15,21 @@ export default function BlogPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [id, location.pathname]);
 
-  // Find active blog post (match either location pathname or parameterized ID, immune to slash/hyphen prefixes)
+  const cleanIdPattern = (path: string) => {
+    return path
+      .toLowerCase()
+      .replace(/^\//, '')
+      .replace(/^(blog|offer|product|landing|blogs|offers|products)\//, '')
+      .replace(/^blog-/, '')
+      .replace(/(^-|-$)/g, '');
+  };
+
+  // Find active blog post (match either location pathname or parameterized ID, immune to slash/hyphen/prefix variations)
   const activePost = BLOGS.find((b) => {
-    const cleanDbId = b.id.replace(/^\//, '').replace(/^blog\//, '').replace(/^blog-/, '');
-    const cleanTargetId = id ? id.replace(/^\//, '').replace(/^blog\//, '').replace(/^blog-/, '') : '';
-    const cleanPathname = location.pathname.replace(/^\//, '').replace(/^blog\//, '').replace(/^blog-/, '');
-    return cleanDbId === cleanTargetId || cleanDbId === cleanPathname || b.id === location.pathname || b.id === id || b.id === `/blog/${id}`;
+    const cleanDb = cleanIdPattern(b.id);
+    const cleanTarget = id ? cleanIdPattern(id) : '';
+    const cleanPath = cleanIdPattern(location.pathname);
+    return cleanDb === cleanTarget || cleanDb === cleanPath || b.id === location.pathname || b.id === id || b.id === `/blog/${id}`;
   });
 
   // Parse metadata block

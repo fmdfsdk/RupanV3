@@ -148,14 +148,19 @@ function AppLayout() {
   };
 
   const BLOGS = useStore((state) => state.dbBlogs) || [];
+  
+  const cleanIdPattern = (path: string) => {
+    return path
+      .toLowerCase()
+      .replace(/^\//, '')
+      .replace(/^(blog|offer|product|landing|blogs|offers|products)\//, '')
+      .replace(/^blog-/, '')
+      .replace(/(^-|-$)/g, '');
+  };
+
   const isBlankLayoutBlog = (() => {
     const activeBlog = BLOGS.find((b) => {
-      if (b.id === location.pathname) return true;
-      const match = location.pathname.match(/^\/blog\/([^/]+)$/);
-      if (match) {
-        return b.id === match[1] || b.id === `/blog/${match[1]}`;
-      }
-      return false;
+      return cleanIdPattern(b.id) === cleanIdPattern(location.pathname) || b.id === location.pathname;
     });
 
     if (!activeBlog) return false;
@@ -270,8 +275,19 @@ function CatchAllRoute() {
   const BLOGS = useStore((state) => state.dbBlogs) || [];
   const location = useLocation();
   
-  // Find blog/landing page by exact path matching
-  const matchingBlog = BLOGS.find(b => b.id === location.pathname);
+  const cleanIdPattern = (path: string) => {
+    return path
+      .toLowerCase()
+      .replace(/^\//, '')
+      .replace(/^(blog|offer|product|landing|blogs|offers|products)\//, '')
+      .replace(/^blog-/, '')
+      .replace(/(^-|-$)/g, '');
+  };
+
+  // Find blog/landing page by exact path matching (or prefix-immune slug match)
+  const matchingBlog = BLOGS.find((b) => {
+    return cleanIdPattern(b.id) === cleanIdPattern(location.pathname) || b.id === location.pathname;
+  });
   
   if (matchingBlog) {
     return <BlogPage />;
