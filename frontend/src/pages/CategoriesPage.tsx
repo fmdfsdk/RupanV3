@@ -12,11 +12,11 @@ export default function CategoriesPage() {
   const categories = homeConfig?.featured_categories && homeConfig.featured_categories.length > 0
     ? homeConfig.featured_categories
     : [
-        { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
-        { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },
-        { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10' },
-        { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
-        { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
+        { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20', mappedId: "men's fashion" },
+        { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10', mappedId: "women's fashion" },
+        { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10', mappedId: "couple collection" },
+        { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10', mappedId: "kids zone" },
+        { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50', mappedId: "watch" }
       ];
 
   // ItemList JSON-LD for all categories
@@ -57,8 +57,9 @@ export default function CategoriesPage() {
           <div 
             key={cat.name} 
             onClick={() => {
-              setSelectedCategory(cat.name);
-              navigate(`/shop?category=${encodeURIComponent(cat.name)}`);
+              const targetCat = cat.mappedId || cat.name;
+              setSelectedCategory(targetCat);
+              navigate(`/shop?category=${encodeURIComponent(targetCat)}`);
             }}
             className={`bg-gradient-to-br ${cat.bg || 'from-gray-50 to-zinc-50'} p-8 rounded-2xl border border-gray-100 shadow-2xs hover:shadow-xs hover:border-orange-200 transition-all cursor-pointer flex flex-col justify-between min-h-[180px] group`}
           >

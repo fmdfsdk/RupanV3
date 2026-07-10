@@ -321,11 +321,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         });
         const hConfig = sData.homepageConfig || sData.homepage_config || {};
         const defaultFeaturedCategories = [
-          { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
-          { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },
-          { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10' },
-          { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
-          { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
+          { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20', mappedId: "men's fashion" },
+          { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10', mappedId: "women's fashion" },
+          { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10', mappedId: "couple collection" },
+          { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10', mappedId: "kids zone" },
+          { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50', mappedId: "watch" }
         ];
         const defaultHomepageCategories = [
           { name: 'Women Fashions', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=150&auto=format&fit=crop', mappedId: "women's fashion" },
@@ -953,6 +953,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         publish_date: ''
       });
     }
+    setBannerModalOpen(true);
   };
 
   const openCouponForm = (coupon: Coupon | null = null) => {

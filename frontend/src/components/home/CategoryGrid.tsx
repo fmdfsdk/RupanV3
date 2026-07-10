@@ -60,6 +60,8 @@ export default function CategoryGrid({
     ? homeConfig.homepage_categories
     : defaultCategoriesList;
 
+  const isSquare = homeConfig?.category_style === 'square';
+
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12">
       <div className="flex items-center justify-between mb-8 pb-3 border-b border-gray-100">
@@ -87,8 +89,10 @@ export default function CategoryGrid({
             }}
             className="group flex flex-col items-center justify-center text-center cursor-pointer border-0 bg-transparent p-0 transition-all select-none"
           >
-            {/* Circular bubble container */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-gray-200/80 shadow-2xs group-hover:border-[#ff5c00] group-hover:shadow-md transition-all duration-300 overflow-hidden flex items-center justify-center bg-white">
+            {/* Circular or Square bubble container */}
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 border border-gray-200/80 shadow-2xs group-hover:border-[#ff5c00] group-hover:shadow-md transition-all duration-300 overflow-hidden flex items-center justify-center bg-white ${
+              isSquare ? 'rounded-2xl' : 'rounded-full'
+            }`}>
               <img 
                 src={cat.image} 
                 alt={cat.name} 

@@ -211,6 +211,18 @@ export default function HomePage() {
 
   const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
 
+  const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
+  const promo = homeConfig?.promo_banner || {
+    badge: 'Store Promo',
+    title: 'BIG SALE',
+    discount: 'UP TO 70% OFF',
+    description: 'Fashion • Electronics • Beauty • Home • Grocery',
+    image1: 'https://images.unsplash.com/photo-1565026057447-bc90a3dca487?q=80&w=400&auto=format&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?q=80&w=400&auto=format&fit=crop',
+    cta_category: 'All',
+    bg_color: '#ff5c00'
+  };
+
   return (
     <div className="bg-gray-50/50 pb-16 space-y-14">
       {isDebugMode && (
@@ -259,32 +271,42 @@ export default function HomePage() {
 
       {/* Big Sale Promo */}
       <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12">
-        <div className="bg-[#ff5c00] rounded-2xl overflow-hidden shadow-md p-6 md:p-8 flex flex-col md:flex-row items-center justify-between text-white relative">
+        <div 
+          className="rounded-2xl overflow-hidden shadow-md p-6 md:p-8 flex flex-col md:flex-row items-center justify-between text-white relative"
+          style={{ backgroundColor: promo.bg_color || '#ff5c00' }}
+        >
           <div className="absolute inset-0 bg-black/5 mix-blend-multiply pointer-events-none" />
-          <div className="hidden md:block w-1/4 max-w-[170px] pointer-events-none">
-            <img src="https://images.unsplash.com/photo-1565026057447-bc90a3dca487?q=80&w=400&auto=format&fit=crop" alt="Bag Luggage Combo" className="w-full object-contain" referrerPolicy="no-referrer" />
-          </div>
+          {promo.image1 && (
+            <div className="hidden md:block w-1/4 max-w-[170px] pointer-events-none">
+              <img src={promo.image1} alt="Promo Left" className="w-full object-contain" referrerPolicy="no-referrer" />
+            </div>
+          )}
 
           <div className="flex-1 text-center space-y-3.5 px-4 relative z-10">
-            <span className="text-[10px] font-black uppercase tracking-widest bg-white/25 px-3.5 py-1 rounded-full">Store Promo</span>
-            <h2 className="font-sans font-black text-3xl md:text-5xl uppercase tracking-tighter leading-none">BIG SALE</h2>
-            <div className="inline-block bg-black text-white text-[11px] font-black px-4.5 py-1.5 rounded-full tracking-wide">
-              UP TO 70% OFF
-            </div>
+            {promo.badge && <span className="text-[10px] font-black uppercase tracking-widest bg-white/25 px-3.5 py-1 rounded-full">{promo.badge}</span>}
+            <h2 className="font-sans font-black text-3xl md:text-5xl uppercase tracking-tighter leading-none">{promo.title}</h2>
+            {promo.discount && (
+              <div className="inline-block bg-black text-white text-[11px] font-black px-4.5 py-1.5 rounded-full tracking-wide">
+                {promo.discount}
+              </div>
+            )}
             <p className="text-[10px] sm:text-xs font-bold text-white/90 tracking-wide uppercase">
-              Fashion • Electronics • Beauty • Home • Grocery
+              {promo.description}
             </p>
             <button 
-              onClick={() => { setSelectedCategory('All'); navigate('/shop'); }} 
-              className="bg-white text-[#ff5c00] hover:bg-gray-100 font-extrabold text-xs px-8 py-3 rounded-full uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
+              onClick={() => { setSelectedCategory(promo.cta_category || 'All'); navigate(`/shop?category=${encodeURIComponent(promo.cta_category || 'All')}`); }} 
+              className="bg-white hover:bg-gray-100 font-extrabold text-xs px-8 py-3 rounded-full uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
+              style={{ color: promo.bg_color || '#ff5c00' }}
             >
               SHOP NOW
             </button>
           </div>
 
-          <div className="hidden md:block w-1/4 max-w-[170px] pointer-events-none">
-            <img src="https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?q=80&w=400&auto=format&fit=crop" alt="Home Blender Appliances" className="w-full object-contain" referrerPolicy="no-referrer" />
-          </div>
+          {promo.image2 && (
+            <div className="hidden md:block w-1/4 max-w-[170px] pointer-events-none">
+              <img src={promo.image2} alt="Promo Right" className="w-full object-contain" referrerPolicy="no-referrer" />
+            </div>
+          )}
         </div>
       </section>
 
