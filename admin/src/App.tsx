@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminPanel from './components/AdminPanel';
 import { supabase, checkSupabaseConnection, getSupabaseConnectionError } from './lib/supabase';
 import { Lock, Mail, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -175,10 +176,12 @@ export default function App() {
   // Show Admin Panel if logged in and authorized
   if (session && isAuthorized) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Render standalone dashboard, passing logout trigger */}
-        <AdminPanel onClose={handleLogout} isSupabaseOnline={isSupabaseOnline} />
-      </div>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-gray-50">
+          {/* Render standalone dashboard, passing logout trigger */}
+          <AdminPanel onClose={handleLogout} isSupabaseOnline={isSupabaseOnline} />
+        </div>
+      </ErrorBoundary>
     );
   }
 

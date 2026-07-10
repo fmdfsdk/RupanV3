@@ -265,9 +265,13 @@ export default async function handler(req: any, res: any) {
           ? Math.round(purchasePrice * (1 + markup / 100))
           : regularPrice;
 
-        const discountPrice = markup > 0 && regularPrice > purchasePrice
+        let discountPrice = markup > 0 && regularPrice > purchasePrice
           ? Math.round(regularPrice) // if marked up, make original retail price the "discounted from" reference if higher
           : undefined;
+
+        if (discountPrice !== undefined && discountPrice <= price) {
+          discountPrice = undefined;
+        }
 
         // Generate clean tags
         const tags = [item.category || 'Reseller'];
