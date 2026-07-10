@@ -9,7 +9,6 @@ export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);
   const products = useStore((state) => state.dbProducts);
   const catalogIndex = useStore((state) => state.productCatalogIndex);
   const wishlist = useStore((state) => state.wishlist);
@@ -24,43 +23,34 @@ export default function ProductDetailPage() {
     navigate('/checkout');
   };
 
-  // Smart local matcher — checks exact ID, slug, computed name slug, or numeric suffix
-  const smartMatch = (list: Product[], searchId: string) => list.find(p => {
-    const pId = String(p.id).toLowerCase();
-    const pSlug = String(p.slug || '').toLowerCase();
-    const pName = p.name ? p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
-    return pId === searchId || pSlug === searchId || pName === searchId || pId.endsWith('-' + searchId);
-  });
-
-  // Extract the trailing numeric ID from a slug like "men-s-ban-collar-cotton-shirt-4083" → "4083"
-  const extractNumericId = (slug: string): string | null => {
-    const match = slug.match(/-(\d+)$/);
-    return match ? match[1] : null;
-  };
-
   useEffect(() => {
     if (!id) return;
 
-    const searchId = id.trim().toLowerCase();
-    // Extract numeric suffix from new slug format (e.g. "men-s-ban-collar-cotton-shirt-4083" → "4083")
-    const numericSuffix = extractNumericId(searchId);
+    const slug = id.trim().toLowerCase();
+    // Extract the numeric code from the end of the slug (e.g. "shirt-4083" → "4083")
+    const numMatch = slug.match(/-(\d+)$/);
+    const numericId = numMatch ? numMatch[1] : null;
+
     let cancelled = false;
 
     const resolve = async () => {
       setLoading(true);
       setProduct(null);
 
-      // STEP 1: Check local 1000 products (instant — no network needed)
-      // If URL has numeric suffix, try to find by that number first (very fast)
-      let inLocal = numericSuffix
-        ? products.find(p => String(p.id).endsWith('-' + numericSuffix))
-        : undefined;
-      if (!inLocal) inLocal = smartMatch(products, searchId);
+      // Helper: find by numeric code or exact ID in any list
+      const findIn = (list: Product[]) => {
+        if (numericId) {
+          return list.find(p => String(p.id).endsWith('-' + numericId));
+        }
+        return list.find(p => String(p.id).toLowerCase() === slug);
+      };
 
+      // STEP 1: Check local 1000 products (instant)
+      const inLocal = findIn(products);
       if (inLocal && !cancelled) {
         setProduct(inLocal);
         setLoading(false);
-        // Silently upgrade to full DB data in background
+        // Silently upgrade to full data from DB in background
         try {
           const full = await productService.fetchProductByIdOrSlug(inLocal.id);
           if (full && !cancelled) setProduct(full);
@@ -68,12 +58,8 @@ export default function ProductDetailPage() {
         return;
       }
 
-      // STEP 2: Check full catalog index (all product IDs, loaded in background)
-      let inIndex = numericSuffix
-        ? catalogIndex.find(p => String(p.id).endsWith('-' + numericSuffix))
-        : undefined;
-      if (!inIndex) inIndex = smartMatch(catalogIndex, searchId);
-
+      // STEP 2: Check full catalog index
+      const inIndex = findIn(catalogIndex);
       if (inIndex && !cancelled) {
         setProduct(inIndex);
         setLoading(false);
@@ -84,31 +70,24 @@ export default function ProductDetailPage() {
         return;
       }
 
-      // STEP 3: Direct DB fetch — guaranteed to work for:
-      //   - Brand new customers with no cache (shared links)
-      //   - Products not in first 1000 or catalog index
-      //   - Numeric suffix slug: try "mohasagor-{num}" directly → instant match
+      // STEP 3: Guaranteed DB fetch — works for brand new customers & shared links
       try {
-        const lookupId = numericSuffix ? `mohasagor-${numericSuffix}` : id;
-        let data = await productService.fetchProductByIdOrSlug(lookupId);
-        // Fallback: try the full slug as-is
-        if (!data && numericSuffix) {
-          data = await productService.fetchProductByIdOrSlug(id);
-        }
+        // numericId gives us a direct mohasagor-{num} lookup — very fast
+        const lookupId = numericId ? `mohasagor-${numericId}` : id;
+        const data = await productService.fetchProductByIdOrSlug(lookupId);
         if (data && !cancelled) {
           setProduct(data);
           setLoading(false);
           return;
         }
       } catch (e) {
-        console.error('Direct DB fetch failed for product:', id, e);
+        console.error('Product fetch failed:', id, e);
       }
 
       if (!cancelled) setLoading(false);
     };
 
     resolve();
-
     return () => { cancelled = true; };
   }, [id, products, catalogIndex]);
 
