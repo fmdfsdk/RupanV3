@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Private / Non-indexable pages
+Disallow: /cart
+Disallow: /checkout
+Disallow: /account
+Disallow: /my-account
+Disallow: /order-success
+Disallow: /product-search
+Disallow: /register
+
+# Sitemap location
+Sitemap: https://www.myrupan.com/sitemap.xml
