@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { useNavigate } from 'react-router-dom';
 import { productService } from '../services/productService';
-import { getOptimizedImageUrl } from '../utils/image';
+import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -115,7 +115,7 @@ export default function SearchPage() {
                     setInputValue(item.name);
                     setSearchPageQuery(item.name);
                     setShowSuggestions(false);
-                    navigate(`/product/${item.slug || item.id}`);
+                    navigate(`/product/${getProductSlug(item.name, item.id)}`);
                   }}
                   className="p-3.5 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
                 >

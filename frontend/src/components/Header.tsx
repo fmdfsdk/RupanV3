@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Search, Menu, X, Heart, User, Sparkles, HelpCircle, Flame, Grid, MapPin, BookOpen } from 'lucide-react';
 import { productService } from '../services/productService';
-import { getOptimizedImageUrl } from '../utils/image';
+import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 
 interface HeaderProps {
   activePage: string;
@@ -175,7 +175,7 @@ export default function Header({
                     onClick={() => {
                       setLocalSearch('');
                       setShowSuggestions(false);
-                      navigate(`/product/${item.slug || item.id}`);
+                      navigate(`/product/${getProductSlug(item.name, item.id)}`);
                     }}
                     className="p-3 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
                   >

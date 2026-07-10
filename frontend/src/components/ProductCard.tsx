@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Heart, Eye, Star } from 'lucide-react';
 import { Product } from '../types';
-import { getOptimizedImageUrl } from '../utils/image';
+import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 
 interface ProductCardProps {
   key?: string | number;
@@ -48,7 +48,7 @@ export default function ProductCard({
   };
 
   const handleProductClick = () => {
-    const slug = product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = getProductSlug(product.name, product.id);
     window.history.pushState(null, '', `/product/${slug}`);
     window.dispatchEvent(new Event('popstate'));
     window.scrollTo({ top: 0, behavior: 'smooth' });

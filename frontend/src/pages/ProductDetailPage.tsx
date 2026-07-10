@@ -24,71 +24,93 @@ export default function ProductDetailPage() {
     navigate('/checkout');
   };
 
+  // Smart local matcher — checks exact ID, slug, computed name slug, or numeric suffix
+  const smartMatch = (list: Product[], searchId: string) => list.find(p => {
+    const pId = String(p.id).toLowerCase();
+    const pSlug = String(p.slug || '').toLowerCase();
+    const pName = p.name ? p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
+    return pId === searchId || pSlug === searchId || pName === searchId || pId.endsWith('-' + searchId);
+  });
+
+  // Extract the trailing numeric ID from a slug like "men-s-ban-collar-cotton-shirt-4083" → "4083"
+  const extractNumericId = (slug: string): string | null => {
+    const match = slug.match(/-(\d+)$/);
+    return match ? match[1] : null;
+  };
+
   useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) return;
+    if (!id) return;
+
+    const searchId = id.trim().toLowerCase();
+    // Extract numeric suffix from new slug format (e.g. "men-s-ban-collar-cotton-shirt-4083" → "4083")
+    const numericSuffix = extractNumericId(searchId);
+    let cancelled = false;
+
+    const resolve = async () => {
       setLoading(true);
+      setProduct(null);
 
-      const searchId = id.trim().toLowerCase();
+      // STEP 1: Check local 1000 products (instant — no network needed)
+      // If URL has numeric suffix, try to find by that number first (very fast)
+      let inLocal = numericSuffix
+        ? products.find(p => String(p.id).endsWith('-' + numericSuffix))
+        : undefined;
+      if (!inLocal) inLocal = smartMatch(products, searchId);
 
-      // Smart matcher: checks exact ID, slug, or numeric suffix match
-      const smartMatch = (list: Product[]) => list.find(p => {
-        const pId = String(p.id).toLowerCase();
-        const pSlug = String(p.slug || '').toLowerCase();
-        const pName = p.name ? p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
-        return pId === searchId || pSlug === searchId || pName === searchId;
-      });
-
-      // STEP 1: Search in the local 1000 products (full data, instant)
-      const inLocal = smartMatch(products);
-      if (inLocal) {
-        // Always fetch full detail from DB to get description, sizes, colors etc.
-        if (isSupabaseOnline) {
-          try {
-            const full = await productService.fetchProductByIdOrSlug(inLocal.id);
-            if (full) { setProduct(full); setLoading(false); return; }
-          } catch (_) {}
-        }
+      if (inLocal && !cancelled) {
         setProduct(inLocal);
         setLoading(false);
+        // Silently upgrade to full DB data in background
+        try {
+          const full = await productService.fetchProductByIdOrSlug(inLocal.id);
+          if (full && !cancelled) setProduct(full);
+        } catch (_) {}
         return;
       }
 
-      // STEP 2: Search in the full catalog index (all product IDs, lightweight)
-      const inIndex = smartMatch(catalogIndex);
-      if (inIndex) {
-        if (isSupabaseOnline) {
-          try {
-            const full = await productService.fetchProductByIdOrSlug(inIndex.id);
-            if (full) { setProduct(full); setLoading(false); return; }
-          } catch (_) {}
-        }
-        // Use the index entry as a minimal fallback (has image, name, price)
+      // STEP 2: Check full catalog index (all product IDs, loaded in background)
+      let inIndex = numericSuffix
+        ? catalogIndex.find(p => String(p.id).endsWith('-' + numericSuffix))
+        : undefined;
+      if (!inIndex) inIndex = smartMatch(catalogIndex, searchId);
+
+      if (inIndex && !cancelled) {
         setProduct(inIndex);
         setLoading(false);
+        try {
+          const full = await productService.fetchProductByIdOrSlug(inIndex.id);
+          if (full && !cancelled) setProduct(full);
+        } catch (_) {}
         return;
       }
 
-      // STEP 3: Guaranteed last resort — fetch directly from the database by ID/slug.
-      // This ALWAYS works, no matter the product range.
-      if (isSupabaseOnline) {
-        try {
-          const data = await productService.fetchProductByIdOrSlug(id);
-          if (data) {
-            setProduct(data);
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error("Error loading product details:", e);
+      // STEP 3: Direct DB fetch — guaranteed to work for:
+      //   - Brand new customers with no cache (shared links)
+      //   - Products not in first 1000 or catalog index
+      //   - Numeric suffix slug: try "mohasagor-{num}" directly → instant match
+      try {
+        const lookupId = numericSuffix ? `mohasagor-${numericSuffix}` : id;
+        let data = await productService.fetchProductByIdOrSlug(lookupId);
+        // Fallback: try the full slug as-is
+        if (!data && numericSuffix) {
+          data = await productService.fetchProductByIdOrSlug(id);
         }
+        if (data && !cancelled) {
+          setProduct(data);
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Direct DB fetch failed for product:', id, e);
       }
 
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
 
-    fetchProduct();
-  }, [id, products, isSupabaseOnline]);
+    resolve();
+
+    return () => { cancelled = true; };
+  }, [id, products, catalogIndex]);
 
   // Inject dynamic SEO Meta Tags and JSON-LD Structured Schema
   useEffect(() => {

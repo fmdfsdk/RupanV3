@@ -12,7 +12,7 @@ import { Product, Review } from '../types';
 import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS } from '../data';
 import ProductCard from './ProductCard';
 import { useStore } from '../store/useStore';
-import { getOptimizedImageUrl } from '../utils/image';
+import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 import { formatDescriptionToHtml } from '../lib/formatter';
 
 interface ProductDetailProps {
@@ -28,9 +28,6 @@ interface ProductDetailProps {
   onNavigate?: (page: string, category?: string) => void;
 }
 
-const getProductSlug = (name: string) => {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-};
 
 export default function ProductDetail({
   productId,
@@ -46,7 +43,7 @@ export default function ProductDetail({
 }: ProductDetailProps) {
   const PRODUCTS = products || MOCK_PRODUCTS;
   const REVIEWS = reviews || MOCK_REVIEWS;
-  const product = selectedProduct || PRODUCTS.find((p) => p.id === productId || p.slug === productId || getProductSlug(p.name) === productId) || PRODUCTS[0];
+  const product = selectedProduct || PRODUCTS.find((p) => p.id === productId || p.slug === productId || getProductSlug(p.name, p.id) === productId || getProductSlug(p.name, p.id).replace(/-\d+$/, '') === productId) || PRODUCTS[0];
 
   const productImages = Array.isArray(product.images) && product.images.length > 0 
     ? product.images 
@@ -586,7 +583,7 @@ export default function ProductDetail({
               key={p.id}
               product={p}
               onQuickView={(prod) => {
-                const slug = getProductSlug(prod.name);
+                const slug = getProductSlug(prod.name, prod.id);
                 window.history.pushState(null, '', `/product/${slug}`);
                 window.dispatchEvent(new Event('popstate'));
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -620,7 +617,7 @@ export default function ProductDetail({
                   key={p.id}
                   product={p}
                   onQuickView={(prod) => {
-                    const slug = getProductSlug(prod.name);
+                    const slug = getProductSlug(prod.name, prod.id);
                     window.history.pushState(null, '', `/product/${slug}`);
                     window.dispatchEvent(new Event('popstate'));
                     window.scrollTo({ top: 0, behavior: 'smooth' });
