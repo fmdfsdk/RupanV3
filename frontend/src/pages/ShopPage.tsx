@@ -201,8 +201,11 @@ export default function ShopPage() {
       const isOnline = useStore.getState().isSupabaseOnline;
       if (!isOnline) {
         const clientFiltered = getFilteredProducts();
-        setFilteredProducts(clientFiltered.slice((urlPage - 1) * pageSize, urlPage * pageSize));
-        setTotalCount(clientFiltered.length);
+        const sliced = clientFiltered.slice(0, urlPage * pageSize);
+        if (active) {
+          setFilteredProducts(sliced);
+          setTotalCount(clientFiltered.length);
+        }
         setIsLoading(false);
         return;
       }
@@ -224,7 +227,15 @@ export default function ShopPage() {
           limit: pageSize
         });
         if (active) {
-          setFilteredProducts(products);
+          if (urlPage === 1) {
+            setFilteredProducts(products);
+          } else {
+            setFilteredProducts(prev => {
+              const existingIds = new Set(prev.map(p => p.id));
+              const newProducts = products.filter(p => !existingIds.has(p.id));
+              return [...prev, ...newProducts];
+            });
+          }
           setTotalCount(count);
         }
       } catch (err) {
@@ -680,54 +691,19 @@ export default function ShopPage() {
                 ))}
               </div>
 
-              {/* Pagination Controls */}
-              {totalCount > pageSize && (
-                <div className="flex items-center justify-center gap-2 pt-6">
+              {/* Load More Button */}
+              {filteredProducts.length < totalCount && (
+                <div className="flex justify-center pt-8">
                   <button
-                    disabled={urlPage === 1}
                     onClick={() => {
                       const params = new URLSearchParams(searchParams);
-                      params.set('page', String(Math.max(urlPage - 1, 1)));
+                      params.set('page', String(urlPage + 1));
                       setSearchParams(params);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="bg-white border border-gray-200 px-3 py-1.5 rounded-md text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    disabled={isLoading}
+                    className="bg-[#ff5c00] hover:bg-[#e04f00] text-white disabled:bg-gray-400 font-extrabold text-xs px-8 py-3.5 rounded-full uppercase tracking-wider transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
                   >
-                    Previous
-                  </button>
-                  {Array.from({ length: Math.ceil(totalCount / pageSize) }).map((_, idx) => {
-                    const pageNum = idx + 1;
-                    const isActive = pageNum === urlPage;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => {
-                          const params = new URLSearchParams(searchParams);
-                          params.set('page', String(pageNum));
-                          setSearchParams(params);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                          isActive 
-                            ? 'bg-[#ff5c00] text-white shadow-xs' 
-                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  <button
-                    disabled={urlPage === Math.ceil(totalCount / pageSize)}
-                    onClick={() => {
-                      const params = new URLSearchParams(searchParams);
-                      params.set('page', String(Math.min(urlPage + 1, Math.ceil(totalCount / pageSize))));
-                      setSearchParams(params);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="bg-white border border-gray-200 px-3 py-1.5 rounded-md text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                  >
-                    Next
+                    {isLoading ? 'Loading...' : 'Load More Products'}
                   </button>
                 </div>
               )}

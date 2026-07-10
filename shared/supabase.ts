@@ -531,6 +531,8 @@ class MockQueryBuilder {
         data = data.filter(filter);
       }
 
+      const totalCount = data.length;
+
       // Apply order
       if (this.orderField) {
         const f = this.orderField;
@@ -549,7 +551,7 @@ class MockQueryBuilder {
         data = data.slice(0, this.limitCount);
       }
 
-      result = { data, error: null };
+      result = { data, count: totalCount, error: null };
     }
 
     if (onfulfilled) {
