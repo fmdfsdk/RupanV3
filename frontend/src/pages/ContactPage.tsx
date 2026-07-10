@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { Phone, MessageCircle, MapPin } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useSEO } from '../hooks/useSEO';
 
 export default function ContactPage() {
   const dbSettings = useStore((state) => state.dbSettings);
+
+  useSEO({
+    title: 'যোগাযোগ করুন | Rupan সাপোর্ট',
+    description: 'Rupan-এর কাস্টমার সাপোর্ট টিমের সঙ্গে যোগাযোগ করুন। ফোন, WhatsApp বা ইমেইলে আমাদের সাথে কথা বলুন। আমরা সবসময় সাহায্য করতে প্রস্তুত।',
+    canonical: '/contact-us',
+    ogType: 'website',
+  });
   
   const [contactName, setContactName] = useState<string>('');
   const [contactEmail, setContactEmail] = useState<string>('');

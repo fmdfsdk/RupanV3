@@ -3,6 +3,7 @@ import { Clock, Calendar, ArrowLeft, BookOpen, MessageSquare, Heart, Share2 } fr
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { BlogPost } from '../types';
+import { useSEO, buildBlogPostingSchema } from '../hooks/useSEO';
 
 export default function BlogPage() {
   const { id } = useParams();
@@ -15,6 +16,35 @@ export default function BlogPage() {
 
   // Find active blog post
   const activePost = id ? BLOGS.find((b) => b.id === id) : null;
+
+  // SEO — must be called unconditionally at top level (React Rules of Hooks)
+  const blogSeoTitle = activePost
+    ? (activePost.seoTitle || `${activePost.title} | Rupan Blog`)
+    : 'Style Guides & Fashion Journal | Rupan Blog';
+  const blogSeoDesc = activePost
+    ? (activePost.seoDescription || activePost.excerpt || activePost.title)
+    : "Rupan-এর মাস্টার ডিজাইনারদের তৈরি প্রিমিয়াম স্টাইল গাইড, ট্র্যাডিশনাল ফ্যাব্রিক কেয়ার গাইড ও ফ্যাশন ইনসাইট।";
+
+  useSEO({
+    title: blogSeoTitle,
+    description: blogSeoDesc,
+    canonical: activePost ? `/blog/${activePost.id}` : '/blog',
+    ogImage: activePost?.image,
+    ogType: activePost ? 'article' : 'website',
+    publishedTime: activePost?.date,
+    author: 'Rupan Editorial',
+    jsonLd: activePost
+      ? [buildBlogPostingSchema({
+          id: activePost.id,
+          title: activePost.title,
+          excerpt: activePost.excerpt,
+          content: activePost.content,
+          image: activePost.image,
+          date: activePost.date,
+          category: activePost.category,
+        })]
+      : undefined,
+  });
 
   // Handle share link
   const handleShare = () => {

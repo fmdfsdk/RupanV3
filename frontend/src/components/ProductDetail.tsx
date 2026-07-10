@@ -8,6 +8,7 @@ import {
   Star, Heart, ShoppingBag, Truck, RotateCcw, ShieldCheck, 
   MessageCircle, ArrowLeft, Plus, Minus, CheckCircle, Share2, Search
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS } from '../data';
 import ProductCard from './ProductCard';
 import { Product, Review } from '../types';
@@ -158,28 +159,31 @@ export default function ProductDetail({
 
   return (
     <div className="w-full max-w-[1750px] mx-auto px-4 md:px-12 lg:px-16 py-10 space-y-12">
-      {/* Breadcrumb Navigation */}
+      {/* Breadcrumb Navigation — uses <Link> for crawlability, onClick kept for SPA UX */}
       <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-gray-500">
-        <button 
-          onClick={() => onNavigate && onNavigate('home')} 
-          className="hover:text-brand-primary transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
+        <Link
+          to="/"
+          onClick={() => onNavigate && onNavigate('home')}
+          className="hover:text-brand-primary transition-colors cursor-pointer"
         >
           Home
-        </button>
+        </Link>
         <span>/</span>
-        <button 
-          onClick={() => onNavigate && onNavigate('shop', 'All')} 
-          className="hover:text-brand-primary transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
+        <Link
+          to="/shop"
+          onClick={() => onNavigate && onNavigate('shop', 'All')}
+          className="hover:text-brand-primary transition-colors cursor-pointer"
         >
           Shop
-        </button>
+        </Link>
         <span>/</span>
-        <button 
-          onClick={() => onNavigate && onNavigate('shop', product.category)} 
-          className="hover:text-brand-primary transition-colors uppercase cursor-pointer border-none bg-transparent p-0 outline-none font-semibold text-gray-700"
+        <Link
+          to={`/shop?category=${encodeURIComponent(product.category || '')}`}
+          onClick={() => onNavigate && onNavigate('shop', product.category)}
+          className="hover:text-brand-primary transition-colors uppercase cursor-pointer font-semibold text-gray-700"
         >
           {product.category}
-        </button>
+        </Link>
         <span>/</span>
         <span className="text-brand-text truncate max-w-xs font-semibold">{product.name}</span>
       </div>

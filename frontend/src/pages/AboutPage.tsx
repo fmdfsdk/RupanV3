@@ -1,6 +1,14 @@
 import React from 'react';
+import { useSEO, buildLocalBusinessSchema } from '../hooks/useSEO';
 
 export default function AboutPage() {
+  useSEO({
+    title: 'আমাদের সম্পর্কে | Rupan — বাংলাদেশের প্রিমিয়াম ফ্যাশন ব্র্যান্ড',
+    description: 'Rupan — বাংলাদেশের প্রিমিয়াম লাইফস্টাইল ফ্যাশন ব্র্যান্ড। উন্নত কারুকাজ, দীর্ঘস্থায়ী ফ্যাব্রিক এবং সমসাময়িক ডিজাইনের নিখুঁত সমন্বয়।',
+    canonical: '/about-us',
+    ogType: 'website',
+    jsonLd: [buildLocalBusinessSchema()],
+  });
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 space-y-16 text-left animate-in fade-in duration-300">
       {/* Elegant Hero Section */}

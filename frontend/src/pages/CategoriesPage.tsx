@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 export default function CategoriesPage() {
   const navigate = useNavigate();
@@ -17,6 +18,28 @@ export default function CategoriesPage() {
         { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
         { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
       ];
+
+  // ItemList JSON-LD for all categories
+  const categoryItemList = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Rupan Product Categories',
+    url: 'https://www.myrupan.com/categories',
+    itemListElement: categories.map((cat: any, i: number) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: cat.name,
+      url: `https://www.myrupan.com/shop?category=${encodeURIComponent(cat.name)}`,
+    })),
+  };
+
+  useSEO({
+    title: 'প্রডাক্ট ক্যাটাগরি | Rupan — সম্পূর্ণ কালেকশন',
+    description: 'Rupan-এর সব প্রডাক্ট ক্যাটাগরি একনজরে দেখুন — পুরুষ, মহিলা, কাপল, কিডস ও আনুষাঙ্গিক পণ্যের বিশাল কালেকশন।',
+    canonical: '/categories',
+    ogType: 'website',
+    jsonLd: [categoryItemList],
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 space-y-10 text-left animate-in fade-in duration-300">

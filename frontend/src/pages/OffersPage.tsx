@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 export default function OffersPage() {
   const navigate = useNavigate();
@@ -10,6 +11,13 @@ export default function OffersPage() {
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const addToCart = useStore((state) => state.addToCart);
   const setQuickViewProduct = useStore((state) => state.setQuickViewProduct);
+
+  useSEO({
+    title: 'অফার ও ডিল | Rupan — বিশেষ ডিসকাউন্ট এবং কুপন',
+    description: 'Rupan-এর সর্বশেষ অফার, ফ্ল্যাশ সেল ও ডিসকাউন্ট কুপন দেখুন। সীমিত সময়ের জন্য সেরা দামে প্রিমিয়াম পাঞ্জাবি, শার্ট ও আরও অনেক কিছু অর্ডার করুন।',
+    canonical: '/offers',
+    ogType: 'website',
+  });
 
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null);
 

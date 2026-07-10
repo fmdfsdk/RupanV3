@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { getOptimizedImageUrl } from '../utils/image';
 import ProductImage from '../components/ProductImage';
+import { useSEO } from '../hooks/useSEO';
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -13,6 +14,14 @@ export default function CartPage() {
   const appliedCoupon = useStore((state) => state.appliedCoupon);
   const dbSettings = useStore((state) => state.dbSettings);
   const addToast = useStore((state) => state.addToast);
+
+  // Cart must never be indexed by search engines
+  useSEO({
+    title: 'আমার কার্ট | Rupan',
+    description: 'আপনার শপিং কার্ট দেখুন এবং চেকআউট করুন।',
+    canonical: '/cart',
+    robots: 'noindex, nofollow',
+  });
 
   const [couponCode, setCouponCode] = useState<string>('');
 

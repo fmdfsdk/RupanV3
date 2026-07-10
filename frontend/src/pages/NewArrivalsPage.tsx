@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 export default function NewArrivalsPage() {
   const navigate = useNavigate();
@@ -10,6 +11,13 @@ export default function NewArrivalsPage() {
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const addToCart = useStore((state) => state.addToCart);
   const setQuickViewProduct = useStore((state) => state.setQuickViewProduct);
+
+  useSEO({
+    title: 'নতুন কালেকশন | Rupan New Arrivals',
+    description: 'Rupan-এর সর্বশেষ নতুন প্রডাক্ট দেখুন। প্রিমিয়াম পাঞ্জাবি, শার্ট, টি-শার্ট ও কাপল ড্রেস থেকে শুরু করে সব ধরনের নতুন আড়াল নিয়ে আসুন।',
+    canonical: '/new-arrivals',
+    ogType: 'website',
+  });
 
   const handleBuyNow = (product: any, size: string, color: string) => {
     addToCart(product, size, color, 1);

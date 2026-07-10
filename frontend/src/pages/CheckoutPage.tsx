@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getOptimizedImageUrl } from '../utils/image';
 import ProductImage from '../components/ProductImage';
 import { orderService } from '../services/orderService';
+import { useSEO } from '../hooks/useSEO';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -16,6 +17,14 @@ export default function CheckoutPage() {
   const appliedCoupon = useStore((state) => state.appliedCoupon);
   const dbSettings = useStore((state) => state.dbSettings);
   const addToast = useStore((state) => state.addToast);
+
+  // Checkout must never be indexed by search engines
+  useSEO({
+    title: 'চেকআউট | Rupan',
+    description: 'আপনার অর্ডার সম্পন্ন করুন।',
+    canonical: '/checkout',
+    robots: 'noindex, nofollow',
+  });
 
   const [savedAddresses, setSavedAddresses] = useState<{ name: string; phone: string; address: string; area: string }[]>([]);
   

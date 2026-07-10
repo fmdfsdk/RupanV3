@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { productService } from '../services/productService';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 import ProductImage from '../components/ProductImage';
+import { useSEO } from '../hooks/useSEO';
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -14,6 +15,14 @@ export default function SearchPage() {
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const addToCart = useStore((state) => state.addToCart);
   const setQuickViewProduct = useStore((state) => state.setQuickViewProduct);
+
+  // Search result pages must not be indexed (thin/duplicate content)
+  useSEO({
+    title: 'পণ্য খুঁজুন | Rupan',
+    description: 'Rupan-এর হাজারো পণ্যের মধ্যে আপনার পছন্দের পণ্য খুঁজুন।',
+    canonical: '/product-search',
+    robots: 'noindex, follow',
+  });
 
   const [inputValue, setInputValue] = useState<string>('');
   const [searchPageQuery, setSearchPageQuery] = useState<string>('');
