@@ -1,7 +1,8 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { checkSupabaseConnection } from './lib/supabase';
+import { trackPageView, generateEventId, initializeTelemetry } from './lib/telemetry';
 
 // Components
 import Header from './components/Header';
@@ -43,6 +44,38 @@ export default function App() {
 
 function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const dbSettings = useStore((state) => state.dbSettings);
+
+  // Initialize Telemetry immediately on mount from cache if possible
+  useEffect(() => {
+    const cachedSettings = localStorage.getItem('rup_db_settings');
+    if (cachedSettings) {
+      try {
+        const sData = JSON.parse(cachedSettings);
+        initializeTelemetry({
+          metaPixelId: sData.meta_pixel_id || sData.metaPixelId,
+          metaTestEventCode: sData.meta_test_event_code || sData.metaTestEventCode,
+          googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId,
+          googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId
+        });
+      } catch (e) {
+        console.error('Error parsing cached settings for telemetry:', e);
+      }
+    }
+  }, []);
+
+  // Track page views on route changes
+  useEffect(() => {
+    if (dbSettings) {
+      const eventId = generateEventId('pageview');
+      trackPageView(
+        location.pathname + location.search,
+        eventId,
+        dbSettings.metaTestEventCode
+      );
+    }
+  }, [location, dbSettings]);
 
   // Load Zustand state & actions
   const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);

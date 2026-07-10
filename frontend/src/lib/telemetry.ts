@@ -140,8 +140,9 @@ const fireEvent = (
 
   // 2. Google Analytics page view/custom event trigger
   if (isGAConfigured && w.gtag) {
-    w.gtag('event', eventName, payload);
-    console.log(`[Telemetry] Fired GA4 Event: ${eventName}`, payload);
+    const gaEventName = eventName === 'PageView' ? 'page_view' : eventName;
+    w.gtag('event', gaEventName, payload);
+    console.log(`[Telemetry] Fired GA4 Event: ${gaEventName}`, payload);
   }
 
   // 3. Google Tag Manager Custom Events trigger
