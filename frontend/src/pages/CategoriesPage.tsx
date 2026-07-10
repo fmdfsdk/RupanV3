@@ -7,8 +7,9 @@ export default function CategoriesPage() {
   const dbSettings = useStore((state) => state.dbSettings);
   const setSelectedCategory = useStore((state) => state.setSelectedCategory);
 
-  const categories = dbSettings?.homepage_config?.featured_categories && dbSettings.homepage_config.featured_categories.length > 0
-    ? dbSettings.homepage_config.featured_categories
+  const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
+  const categories = homeConfig?.featured_categories && homeConfig.featured_categories.length > 0
+    ? homeConfig.featured_categories
     : [
         { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
         { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },

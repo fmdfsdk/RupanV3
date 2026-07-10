@@ -294,8 +294,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId || '',
           googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId || ''
         });
-        if (sData.homepage_config) {
-          setHomepageConfig(sData.homepage_config);
+        const hConfig = sData.homepageConfig || sData.homepage_config;
+        if (hConfig) {
+          setHomepageConfig(hConfig);
         }
       }
 

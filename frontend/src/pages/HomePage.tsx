@@ -118,7 +118,8 @@ export default function HomePage() {
 
   // Helper to load customized homepage product lists
   const getHomepageProducts = (type: 'trending' | 'new_arrivals' | 'best_sellers', fallbackFilter: (p: Product) => boolean, limit = 6) => {
-    const configIds = dbSettings?.homepage_config?.featured_product_ids?.[type] || [];
+    const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
+    const configIds = homeConfig?.featured_product_ids?.[type] || [];
     if (configIds.length > 0) {
       const matches = configIds
         .map((id: string) => PRODUCTS.find(p => p.id === id || p.slug === id))
@@ -135,7 +136,8 @@ export default function HomePage() {
   };
 
   const getHomepageNewArrivals = () => {
-    const configIds = dbSettings?.homepage_config?.featured_product_ids?.new_arrivals || [];
+    const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
+    const configIds = homeConfig?.featured_product_ids?.new_arrivals || [];
     if (configIds.length > 0) {
       const matches = configIds
         .map((id: string) => PRODUCTS.find(p => p.id === id || p.slug === id))

@@ -132,7 +132,7 @@ export default function HomepageTab({
                                 [type]: idsList.filter((item: string) => item !== id)
                               }
                             };
-                            const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', 1);
+                            const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', 1);
                             if (!error) {
                               setHomepageConfig(updatedConfig);
                             }
@@ -161,7 +161,7 @@ export default function HomepageTab({
                           [type]: [...idsList, newId]
                         }
                       };
-                      const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', 1);
+                      const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', 1);
                       if (!error) {
                         setHomepageConfig(updatedConfig);
                         input.value = '';
@@ -270,7 +270,7 @@ export default function HomepageTab({
           <button
             type="button"
             onClick={async () => {
-              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', 1);
+              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', 1);
               if (!error) {
                 alert("Homepage category configurations saved successfully!");
               } else {
