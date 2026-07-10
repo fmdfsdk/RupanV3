@@ -207,14 +207,14 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   // Reset pagination page on search/filter changes
   useEffect(() => {
     setProductsPage(1);
-  }, [searchQuery, filterCategory, filterStatus]);
+  }, [searchQuery, filterCategory, filterStatus, activeTab]);
 
   // Load paginated products page
   useEffect(() => {
-    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus);
-  }, [productsPage, searchQuery, filterCategory, filterStatus]);
+    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus, activeTab === 'my-products');
+  }, [productsPage, searchQuery, filterCategory, filterStatus, activeTab]);
 
-  const fetchProductsPage = async (page: number, search: string, category: string, status: string) => {
+  const fetchProductsPage = async (page: number, search: string, category: string, status: string, onlyManual: boolean = false) => {
     try {
       if (!isSupabaseOnline) {
         // --- OFFLINE MOCK MODE ---
@@ -236,7 +236,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                                 idStr.toLowerCase().includes(search.toLowerCase());
           const matchesCategory = category === 'All' || p.category === category;
           const matchesStatus = status === 'All' || p.status === status;
-          return matchesSearch && matchesCategory && matchesStatus;
+          const matchesManual = !onlyManual || (!p.source_id && !p.sourceId);
+          return matchesSearch && matchesCategory && matchesStatus && matchesManual;
         });
         
         setTotalProductsCount(filtered.length);
@@ -255,6 +256,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       }
       if (category !== 'All') {
         dbQuery = dbQuery.eq('category', category);
+      }
+      if (onlyManual) {
+        dbQuery = dbQuery.is('source_id', null);
       }
       
       // Search query (fuzzy search on name/sku/id)
@@ -1403,6 +1407,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('my-products'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'my-products' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <UserCheck className="w-4 h-4" />
+                <span>My Products</span>
+              </div>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('orders'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'orders' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -1575,6 +1591,28 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   openProductForm={openProductForm}
                   handleDuplicateProduct={handleDuplicateProduct}
                   handleDeleteProduct={handleDeleteProduct}
+                />
+              )}
+
+              {/* TAB 2.5: MY PRODUCTS CATALOG */}
+              {activeTab === 'my-products' && (
+                <ProductsTab
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  filterCategory={filterCategory}
+                  setFilterCategory={setFilterCategory}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  availableCategories={availableCategories}
+                  filteredProducts={filteredProducts}
+                  totalProductsCount={totalProductsCount}
+                  productsPage={productsPage}
+                  setProductsPage={setProductsPage}
+                  pageSize={pageSize}
+                  openProductForm={openProductForm}
+                  handleDuplicateProduct={handleDuplicateProduct}
+                  handleDeleteProduct={handleDeleteProduct}
+                  isManualOnly={true}
                 />
               )}
 

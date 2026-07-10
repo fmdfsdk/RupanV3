@@ -18,6 +18,7 @@ interface ProductsTabProps {
   openProductForm: (p: Product | null) => void;
   handleDuplicateProduct: (p: Product) => void;
   handleDeleteProduct: (id: string) => void;
+  isManualOnly?: boolean;
 }
 
 export default function ProductsTab({
@@ -35,14 +36,21 @@ export default function ProductsTab({
   pageSize,
   openProductForm,
   handleDuplicateProduct,
-  handleDeleteProduct
+  handleDeleteProduct,
+  isManualOnly = false
 }: ProductsTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">Products Inventory</h1>
-          <p className="text-xs text-gray-500">Dynamically add, edit, duplicate, and configure store SKUs.</p>
+          <h1 className="text-2xl font-black tracking-tight">
+            {isManualOnly ? "My Added Products" : "Products Inventory"}
+          </h1>
+          <p className="text-xs text-gray-500">
+            {isManualOnly 
+              ? "Manage your manually created boutique designs and custom inventory." 
+              : "Dynamically add, edit, duplicate, and configure store SKUs."}
+          </p>
         </div>
         <button
           onClick={() => openProductForm(null)}
