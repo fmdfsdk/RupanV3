@@ -5,9 +5,9 @@
 
 import { Product, Order } from '../types';
 
-let isPixelLoaded = false;
-let isGTMConfigured = false;
-let isGAConfigured = false;
+let isPixelLoaded = typeof window !== 'undefined' && !!(window as any).isPixelLoaded;
+let isGTMConfigured = typeof window !== 'undefined' && !!(window as any).isGTMConfigured;
+let isGAConfigured = typeof window !== 'undefined' && !!(window as any).isGAConfigured;
 
 interface TelemetryConfig {
   metaPixelId?: string;
