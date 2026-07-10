@@ -840,58 +840,34 @@ class QueryBuilderWrapper {
     return promise as any;
   }
 
-  async insert(values: any[], options?: any) {
+  insert(values: any[], options?: any) {
     const snakeValues = convertKeysToSnake(values);
     const cleanedValues = Array.isArray(snakeValues)
       ? snakeValues.map((v: any) => cleanObjectForTable(this.table, v))
       : [cleanObjectForTable(this.table, snakeValues)];
-    const res = await this.query.insert(cleanedValues, options);
-    if (res.data) {
-      return {
-        data: convertKeysToCamel(res.data),
-        error: res.error
-      };
-    }
-    return res;
+    this.query = this.query.insert(cleanedValues, options);
+    return this;
   }
 
-  async update(values: any, options?: any) {
+  update(values: any, options?: any) {
     const snakeValues = convertKeysToSnake(values);
     const cleanedValues = cleanObjectForTable(this.table, snakeValues);
-    const res = await this.query.update(cleanedValues, options);
-    if (res.data) {
-      return {
-        data: convertKeysToCamel(res.data),
-        error: res.error
-      };
-    }
-    return res;
+    this.query = this.query.update(cleanedValues, options);
+    return this;
   }
 
-  async delete(options?: any) {
-    const res = await this.query.delete(options);
-    if (res.data) {
-      return {
-        data: convertKeysToCamel(res.data),
-        error: res.error
-      };
-    }
-    return res;
+  delete(options?: any) {
+    this.query = this.query.delete(options);
+    return this;
   }
 
-  async upsert(values: any, options?: any) {
+  upsert(values: any, options?: any) {
     const snakeValues = convertKeysToSnake(values);
     const cleanedValues = Array.isArray(snakeValues)
       ? snakeValues.map((v: any) => cleanObjectForTable(this.table, v))
       : cleanObjectForTable(this.table, snakeValues);
-    const res = await this.query.upsert(cleanedValues, options);
-    if (res.data) {
-      return {
-        data: convertKeysToCamel(res.data),
-        error: res.error
-      };
-    }
-    return res;
+    this.query = this.query.upsert(cleanedValues, options);
+    return this;
   }
 
   async then(onfulfilled?: (value: any) => any) {
