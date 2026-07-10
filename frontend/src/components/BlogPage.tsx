@@ -53,8 +53,17 @@ export default function BlogPage() {
   };
 
   if (activePost) {
-    // Render Single Blog Post Detail
+    const isBlankLayout = activePost.content?.startsWith('<!-- layout: blank -->') || activePost.content?.startsWith('<!-- layout:blank -->');
     const otherPosts = BLOGS.filter((b) => b.id !== activePost.id).slice(0, 2);
+
+    if (isBlankLayout) {
+      return (
+        <div 
+          className="w-full min-h-screen font-sans p-0 m-0"
+          dangerouslySetInnerHTML={{ __html: activePost.content }}
+        />
+      );
+    }
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-10 animate-in fade-in duration-300">
@@ -94,39 +103,27 @@ export default function BlogPage() {
         </div>
 
         {/* Main Cover Image */}
-        <div className="aspect-16/9 rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm relative">
-          <img
-            src={activePost.image}
-            alt={activePost.title}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
+        {activePost.image && (
+          <div className="aspect-16/9 rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm relative">
+            <img
+              src={activePost.image}
+              alt={activePost.title}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        )}
 
         {/* Content body */}
         <article className="prose max-w-none font-sans text-sm md:text-base text-gray-600 leading-relaxed space-y-6">
-          <p className="font-bold text-brand-primary text-base md:text-lg italic border-l-4 border-brand-accent pl-4 py-1 bg-gray-50/50 rounded-r-xl">
-            "{activePost.excerpt}"
-          </p>
+          {activePost.excerpt && (
+            <p className="font-bold text-brand-primary text-base md:text-lg italic border-l-4 border-brand-accent pl-4 py-1 bg-gray-50/50 rounded-r-xl">
+              "{activePost.excerpt}"
+            </p>
+          )}
           
-          {/* Detailed structured content simulation */}
-          {activePost.content.split('. ').map((paragraph, index) => {
-            if (!paragraph.trim()) return null;
-            return (
-              <p key={index} className="mb-4">
-                {paragraph}. {index % 3 === 0 && index !== 0 && (
-                  <span className="block font-display text-sm font-extrabold uppercase text-brand-primary mt-6 mb-2 tracking-wide">
-                    Elevating Traditional South Asian Design
-                  </span>
-                )}
-                {index === 1 && (
-                  <span className="block my-4 text-gray-500 bg-gray-50 p-4 rounded-xl border border-gray-100 italic">
-                    "Style is a deeply personal representation of identity. We do not just weave threads; we craft individual canvas designs that speak premium volume."
-                  </span>
-                )}
-              </p>
-            );
-          })}
+          {/* Detailed structured content using HTML */}
+          <div dangerouslySetInnerHTML={{ __html: activePost.content }} />
         </article>
 
         {/* Action Share widgets */}

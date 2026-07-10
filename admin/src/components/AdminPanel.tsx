@@ -134,6 +134,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     seoTitle: '',
     seoDescription: ''
   });
+  const [blogLayoutMode, setBlogLayoutMode] = useState<'standard' | 'blank'>('standard');
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
 
   // Selected Order Detail View
@@ -1058,6 +1059,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const openBlogForm = (blog: BlogPost | null = null) => {
     if (blog) {
       setEditingBlog(blog);
+      const isBlank = (blog.content || '').startsWith('<!-- layout: blank -->');
+      setBlogLayoutMode(isBlank ? 'blank' : 'standard');
       setBlogForm({
         id: blog.id,
         title: blog.title,
@@ -1072,6 +1075,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       });
     } else {
       setEditingBlog(null);
+      setBlogLayoutMode('standard');
       setBlogForm({
         id: '',
         title: '',
@@ -1103,11 +1107,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       ? blogForm.id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
       : blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+    // Prepend or strip the layout mode tag from content
+    let finalContent = (blogForm.content || '').replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '');
+    if (blogLayoutMode === 'blank') {
+      finalContent = `<!-- layout: blank -->\n${finalContent}`;
+    }
+
     const payload = {
       id: finalId,
       title: blogForm.title,
       excerpt: blogForm.excerpt,
-      content: blogForm.content,
+      content: finalContent,
       image: blogForm.image,
       read_time: blogForm.readTime,
       category: blogForm.category,
@@ -1120,7 +1130,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       id: finalId,
       title: blogForm.title,
       excerpt: blogForm.excerpt,
-      content: blogForm.content,
+      content: finalContent,
       image: blogForm.image,
       date: editingBlog ? editingBlog.date : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       readTime: blogForm.readTime,
@@ -2680,6 +2690,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="uppercase font-bold text-zinc-600 block mb-0.5">Page Layout Mode</label>
+                    <select
+                      value={blogLayoutMode}
+                      onChange={(e) => setBlogLayoutMode(e.target.value as 'standard' | 'blank')}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                    >
+                      <option value="standard">Standard Article (Includes Header, Footer, Cover Image)</option>
+                      <option value="blank">Blank Canvas (Custom HTML Landing Page - Hides Header/Footer)</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Media Preview Card */}
@@ -2911,16 +2933,27 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
                 {/* Save & Cancel Row */}
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                  {editingBlog && (
+                    <a 
+                      href={`/blog/${blogForm.id}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="mr-auto bg-blue-50 text-brand-primary border border-blue-100 hover:bg-blue-100/50 font-bold px-5 py-3 rounded-xl transition-all flex items-center gap-1.5 text-xs uppercase tracking-wider cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Live Preview</span>
+                    </a>
+                  )}
                   <button 
                     type="button"
                     onClick={() => setBlogModalOpen(false)}
-                    className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                    className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer text-xs uppercase tracking-wider"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+                    className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md text-xs uppercase tracking-wider"
                   >
                     {editingBlog ? "Save Article" : "Publish Article"}
                   </button>

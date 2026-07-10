@@ -147,20 +147,31 @@ function AppLayout() {
     navigate('/checkout');
   };
 
-  return (
-    <div className="flex flex-col min-h-screen bg-white">
-      {/* HEADER BAR */}
-      <Header
-        activePage="home" // controlled by React Router paths now
-        onPageChange={handlePageChange}
-        cartCount={cartCount}
-        cartTotal={cartTotal}
-        wishlistCount={wishlist.length}
-        onOpenSearch={() => navigate('/product-search')}
-        currentUser={currentUser}
-      />
+  const BLOGS = useStore((state) => state.dbBlogs) || [];
+  const isBlankLayoutBlog = (() => {
+    const match = location.pathname.match(/^\/blog\/([^/]+)$/);
+    if (!match) return false;
+    const blogId = match[1];
+    const activeBlog = BLOGS.find((b) => b.id === blogId);
+    return !!(activeBlog?.content?.startsWith('<!-- layout: blank -->') || activeBlog?.content?.startsWith('<!-- layout:blank -->'));
+  })();
 
-      <main className="flex-1 pb-16 md:pb-0">
+  return (
+    <div className={`flex flex-col min-h-screen bg-white ${isBlankLayoutBlog ? 'p-0 m-0 overflow-x-hidden' : ''}`}>
+      {/* HEADER BAR */}
+      {!isBlankLayoutBlog && (
+        <Header
+          activePage="home" // controlled by React Router paths now
+          onPageChange={handlePageChange}
+          cartCount={cartCount}
+          cartTotal={cartTotal}
+          wishlistCount={wishlist.length}
+          onOpenSearch={() => navigate('/product-search')}
+          currentUser={currentUser}
+        />
+      )}
+
+      <main className={`flex-1 ${isBlankLayoutBlog ? 'pb-0' : 'pb-16 md:pb-0'}`}>
         <ErrorBoundary>
           <Suspense
             fallback={
@@ -205,13 +216,13 @@ function AppLayout() {
       </main>
 
       {/* FOOTER */}
-      <Footer onPageChange={handlePageChange} />
+      {!isBlankLayoutBlog && <Footer onPageChange={handlePageChange} />}
 
       {/* Mobile Sticky Bottom Menu Bar */}
-      <MobileBottomMenu />
+      {!isBlankLayoutBlog && <MobileBottomMenu />}
 
       {/* Floating Helpers */}
-      <WhatsAppButton />
+      {!isBlankLayoutBlog && <WhatsAppButton />}
 
       {/* Quick View Modal */}
       <QuickViewModal
