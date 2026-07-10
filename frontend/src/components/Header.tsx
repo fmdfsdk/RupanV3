@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Search, Menu, X, Heart, User, Sparkles, HelpCircle, Flame, Grid, MapPin, BookOpen } from 'lucide-react';
 import { productService } from '../services/productService';
+import { getOptimizedImageUrl } from '../utils/image';
 
 interface HeaderProps {
   activePage: string;
@@ -179,7 +180,7 @@ export default function Header({
                     className="p-3 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
                   >
                     <img 
-                      src={item.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=100'} 
+                      src={getOptimizedImageUrl(item.images?.[0], 100)} 
                       alt={item.name} 
                       className="w-8 h-10 object-cover rounded border border-gray-100 flex-shrink-0"
                     />

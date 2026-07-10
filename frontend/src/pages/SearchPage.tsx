@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { useNavigate } from 'react-router-dom';
 import { productService } from '../services/productService';
+import { getOptimizedImageUrl } from '../utils/image';
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -119,7 +120,7 @@ export default function SearchPage() {
                   className="p-3.5 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
                 >
                   <img 
-                    src={item.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=100'} 
+                    src={getOptimizedImageUrl(item.images?.[0], 100)} 
                     alt={item.name} 
                     className="w-9 h-11 object-cover rounded-md border border-gray-100"
                   />

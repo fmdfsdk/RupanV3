@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Heart, Eye, Star } from 'lucide-react';
 import { Product } from '../types';
+import { getOptimizedImageUrl } from '../utils/image';
 
 interface ProductCardProps {
   key?: string | number;
@@ -66,7 +67,7 @@ export default function ProductCard({
         className="relative aspect-square bg-white flex items-center justify-center p-3.5 cursor-pointer border-b border-gray-100 overflow-hidden"
       >
         <img
-          src={product.images[0] || undefined}
+          src={getOptimizedImageUrl(product.images[0], 400)}
           alt={product.name}
           className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
           referrerPolicy="no-referrer"

@@ -12,6 +12,7 @@ import { Product, Review } from '../types';
 import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS } from '../data';
 import ProductCard from './ProductCard';
 import { useStore } from '../store/useStore';
+import { getOptimizedImageUrl } from '../utils/image';
 
 interface ProductDetailProps {
   productId: string;
@@ -206,7 +207,7 @@ export default function ProductDetail({
             </button>
             
             <img
-              src={activeImage || undefined}
+              src={getOptimizedImageUrl(activeImage, 800)}
               alt={product.name}
               style={{
                 transition: 'transform 0.08s ease-out, transform-origin 0.08s ease-out',
@@ -228,7 +229,7 @@ export default function ProductDetail({
                 }`}
               >
                 <img
-                  src={img || undefined}
+                  src={getOptimizedImageUrl(img, 150)}
                   alt={`${product.name} Thumbnail ${i + 1}`}
                   className="w-full h-full object-contain p-1"
                   referrerPolicy="no-referrer"
