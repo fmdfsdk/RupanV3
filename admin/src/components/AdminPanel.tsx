@@ -133,6 +133,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     seoTitle: '',
     seoDescription: ''
   });
+  const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
 
   // Selected Order Detail View
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -2517,120 +2518,141 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               <div className="lg:col-span-8 flex flex-col space-y-4">
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col flex-1 min-h-[480px]">
                   <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-3">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400">Simultaneous Dual Editor</h3>
-                    <div className="flex space-x-2 text-[10px] font-bold">
-                      <span className="bg-[#ff5c00]/10 text-[#ff5c00] px-2.5 py-1 rounded">Rich Text Panel</span>
-                      <span className="text-zinc-400 py-1">⇔</span>
-                      <span className="bg-zinc-800 text-green-400 px-2.5 py-1 rounded">HTML Source Panel</span>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400">Editorial Content Composer</h3>
+                    
+                    {/* Tab Switcher Button Group */}
+                    <div className="flex bg-gray-250 p-0.5 rounded-xl border border-gray-150">
+                      <button
+                        type="button"
+                        onClick={() => setEditorMode('visual')}
+                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                          editorMode === 'visual'
+                            ? 'bg-white text-zinc-800 shadow-sm border border-gray-200'
+                            : 'text-gray-400 hover:text-zinc-700'
+                        }`}
+                      >
+                        Visual Rich Text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditorMode('html')}
+                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                          editorMode === 'html'
+                            ? 'bg-zinc-950 text-green-400 shadow-sm'
+                            : 'text-gray-400 hover:text-zinc-700'
+                        }`}
+                      >
+                        HTML Source Code
+                      </button>
                     </div>
                   </div>
 
-                  {/* Split Pane Container */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                  {/* Single Toggled Pane Container */}
+                  <div className="flex-1 flex flex-col min-h-[300px]">
                     
-                    {/* Visual Editor Pane */}
-                    <div className="flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white min-h-[300px]">
-                      {/* Rich Text Toolbar */}
-                      <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('bold', false)}
-                          className="px-2 py-1 font-bold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                          title="Bold"
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('italic', false)}
-                          className="px-2 py-1 italic rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                          title="Italic"
-                        >
-                          I
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('underline', false)}
-                          className="px-2 py-1 underline rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                          title="Underline"
-                        >
-                          U
-                        </button>
-                        <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('formatBlock', false, '<h2>')}
-                          className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                          title="Heading 2"
-                        >
-                          H2
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('formatBlock', false, '<h3>')}
-                          className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                          title="Heading 3"
-                        >
-                          H3
-                        </button>
-                        <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('insertUnorderedList', false)}
-                          className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
-                          title="Unordered List"
-                        >
-                          • List
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand('insertOrderedList', false)}
-                          className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
-                          title="Ordered List"
-                        >
-                          1. List
-                        </button>
+                    {editorMode === 'visual' ? (
+                      /* Visual Editor Pane */
+                      <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
+                        {/* Rich Text Toolbar */}
+                        <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('bold', false)}
+                            className="px-2 py-1 font-bold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                            title="Bold"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('italic', false)}
+                            className="px-2 py-1 italic rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                            title="Italic"
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('underline', false)}
+                            className="px-2 py-1 underline rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                            title="Underline"
+                          >
+                            U
+                          </button>
+                          <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('formatBlock', false, '<h2>')}
+                            className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                            title="Heading 2"
+                          >
+                            H2
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('formatBlock', false, '<h3>')}
+                            className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                            title="Heading 3"
+                          >
+                            H3
+                          </button>
+                          <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('insertUnorderedList', false)}
+                            className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
+                            title="Unordered List"
+                          >
+                            • List
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => document.execCommand('insertOrderedList', false)}
+                            className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
+                            title="Ordered List"
+                          >
+                            1. List
+                          </button>
+                        </div>
+                        
+                        {/* contentEditable Visual Box */}
+                        <div
+                          contentEditable
+                          suppressContentEditableWarning
+                          onFocus={() => { (window as any).focusedEditor = 'visual'; }}
+                          onBlur={() => { (window as any).focusedEditor = null; }}
+                          onInput={(e) => {
+                            const html = e.currentTarget.innerHTML;
+                            setBlogForm({ ...blogForm, content: html });
+                          }}
+                          ref={(el) => {
+                            if (el && (window as any).focusedEditor !== 'visual') {
+                              el.innerHTML = blogForm.content;
+                            }
+                          }}
+                          className="p-5 flex-1 overflow-y-auto text-xs focus:outline-none leading-relaxed prose max-w-none text-zinc-800 min-h-[320px]"
+                        />
                       </div>
-                      
-                      {/* contentEditable Visual Box */}
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        onFocus={() => { (window as any).focusedEditor = 'visual'; }}
-                        onBlur={() => { (window as any).focusedEditor = null; }}
-                        onInput={(e) => {
-                          const html = e.currentTarget.innerHTML;
-                          setBlogForm({ ...blogForm, content: html });
-                        }}
-                        ref={(el) => {
-                          if (el && (window as any).focusedEditor !== 'visual') {
-                            el.innerHTML = blogForm.content;
-                          }
-                        }}
-                        className="p-4 flex-1 overflow-y-auto text-xs focus:outline-none leading-relaxed prose max-w-none text-zinc-800"
-                        style={{ minHeight: '260px' }}
-                      />
-                    </div>
-
-                    {/* HTML Source Code Pane */}
-                    <div className="flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-zinc-950 min-h-[300px]">
-                      <div className="bg-zinc-900 border-b border-zinc-800 p-2.5 text-zinc-400 font-mono text-[9px] uppercase tracking-wider flex items-center justify-between">
-                        <span>raw html markup source</span>
-                        <span className="text-zinc-600 font-sans text-[8px] font-bold">direct input/paste enabled</span>
+                    ) : (
+                      /* HTML Source Code Pane */
+                      <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-zinc-950">
+                        <div className="bg-zinc-900 border-b border-zinc-800 p-2.5 text-zinc-400 font-mono text-[9px] uppercase tracking-wider flex items-center justify-between">
+                          <span>raw html markup source</span>
+                          <span className="text-zinc-600 font-sans text-[8px] font-bold">direct input/paste enabled</span>
+                        </div>
+                        <textarea
+                          value={blogForm.content}
+                          onFocus={() => { (window as any).focusedEditor = 'html'; }}
+                          onBlur={() => { (window as any).focusedEditor = null; }}
+                          onChange={(e) => {
+                            const text = e.target.value;
+                            setBlogForm({ ...blogForm, content: text });
+                          }}
+                          placeholder="<p>Paste or write raw HTML markup tags here...</p>"
+                          className="p-5 flex-1 font-mono text-xs bg-zinc-950 text-green-400 focus:outline-none resize-none overflow-y-auto border-none leading-normal min-h-[320px] h-full"
+                        />
                       </div>
-                      <textarea
-                        value={blogForm.content}
-                        onFocus={() => { (window as any).focusedEditor = 'html'; }}
-                        onBlur={() => { (window as any).focusedEditor = null; }}
-                        onChange={(e) => {
-                          const text = e.target.value;
-                          setBlogForm({ ...blogForm, content: text });
-                        }}
-                        placeholder="<p>Paste or write raw HTML markup tags here...</p>"
-                        className="p-4 flex-1 font-mono text-xs bg-zinc-950 text-green-400 focus:outline-none resize-none overflow-y-auto border-none leading-normal h-full"
-                        style={{ minHeight: '260px' }}
-                      />
-                    </div>
+                    )}
 
                   </div>
                 </div>
