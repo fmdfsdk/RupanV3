@@ -33,7 +33,30 @@ export default function ProductDetailPage() {
       };
 
       // 1. Try to find in already loaded store products (offline/sync cache)
-      const foundLocal = products.find(p => p.id === id || getProductSlug(p.name) === id || p.slug === id);
+      const searchId = id.trim().toLowerCase();
+      const numMatch = searchId.match(/\d+$/);
+      const searchNum = numMatch ? parseInt(numMatch[0], 10) : null;
+
+      const foundLocal = products.find(p => {
+        const pId = String(p.id).toLowerCase();
+        const pSlug = String(p.slug || '').toLowerCase();
+        
+        if (pId === searchId || getProductSlug(p.name) === searchId || pSlug === searchId) {
+          return true;
+        }
+
+        if (searchNum !== null) {
+          const pNumMatch = pId.match(/\d+$/);
+          if (pNumMatch) {
+            const pNum = parseInt(pNumMatch[0], 10);
+            if (pNum === searchNum || pNum === searchNum - 3000 || pNum === searchNum + 3000) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+
       if (foundLocal) {
         // If online, fetch full details from DB just in case
         if (isSupabaseOnline) {

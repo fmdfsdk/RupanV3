@@ -142,16 +142,62 @@ export const productService = {
    * Fetches a single product details by ID or Slug.
    */
   async fetchProductByIdOrSlug(idOrSlug: string): Promise<Product | null> {
+    const cleanId = idOrSlug.trim();
+    
+    // 1. Try exact match first
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`)
+      .or(`id.eq.${cleanId},slug.eq.${cleanId}`)
       .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to fetch product detail: ${error.message}`);
     }
-    return data;
+    
+    if (data) return data;
+
+    // 2. If exact match fails, apply 3000 offset tolerance mapping
+    const numMatch = cleanId.match(/\d+$/);
+    if (numMatch) {
+      const searchNum = parseInt(numMatch[0], 10);
+      const prefixMatch = cleanId.match(/^[a-zA-Z]+/);
+      const prefix = prefixMatch ? prefixMatch[0].toLowerCase() : 'mohasagor';
+      
+      const offsets = [-3000, 3000];
+      for (const offset of offsets) {
+        const altNum = searchNum + offset;
+        if (altNum > 0) {
+          const altId = `${prefix}-${altNum}`;
+          const { data: altData } = await supabase
+            .from('products')
+            .select('*')
+            .or(`id.eq.${altId},id.eq.${altNum}`)
+            .maybeSingle();
+            
+          if (altData) return altData;
+        }
+      }
+      
+      // If prefix was just numbers (no prefix), try fallback with 'mohasagor-' prefix and offset
+      if (!prefixMatch) {
+        for (const offset of offsets) {
+          const altNum = searchNum + offset;
+          if (altNum > 0) {
+            const altId = `mohasagor-${altNum}`;
+            const { data: altData } = await supabase
+              .from('products')
+              .select('*')
+              .eq('id', altId)
+              .maybeSingle();
+              
+            if (altData) return altData;
+          }
+        }
+      }
+    }
+
+    return null;
   },
 
   /**
