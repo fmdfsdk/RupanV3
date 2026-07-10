@@ -61,6 +61,7 @@ export default function App() {
 
   const loadUserProfile = async (userId: string, email?: string) => {
     try {
+      console.log("loadUserProfile initiated for userId:", userId, "email:", email, "isSupabaseOnline:", isSupabaseOnline);
       if (isSupabaseOnline) {
         // Query profile from Supabase
         const { data: profileData, error } = await supabase
@@ -68,6 +69,8 @@ export default function App() {
           .select('*')
           .eq('id', userId)
           .single();
+
+        console.log("Raw profile data loaded from DB:", profileData, "Query Error:", error);
 
         if (error || !profileData) {
           console.warn("Could not find user profile in DB, creating customer profile...", error);
@@ -82,20 +85,24 @@ export default function App() {
           
           await supabase.from('profiles').insert([newProfile]);
           setProfile(newProfile);
+          console.log("Fallback customer profile set:", newProfile);
         } else {
           setProfile(profileData);
+          console.log("Profile state successfully set:", profileData);
         }
       } else {
         // Mock fallback profile load
         const usersTable = (supabase as any).auth?.localDB?.getTable('users') || [];
         const mockUser = usersTable.find((u: any) => u.id === userId || u.email === email);
-        setProfile(mockUser || {
+        const fallback = mockUser || {
           id: userId,
           email: email || 'admin@rupan.com',
           full_name: 'Sajjad Rupan (Demo)',
           role: 'Super Admin',
           is_active: true
-        });
+        };
+        setProfile(fallback);
+        console.log("Mock profile set:", fallback);
       }
     } catch (e) {
       console.error("Error loading user profile:", e);
@@ -155,6 +162,15 @@ export default function App() {
   const isAuthorized = profile && [
     'Super Admin', 'Admin', 'Manager', 'Editor', 'Support', 'Delivery Manager'
   ].includes(profile.role) && (profile.isActive !== undefined ? profile.isActive : profile.is_active);
+
+  console.log("Auth gating check:", {
+    sessionExists: !!session,
+    profileExists: !!profile,
+    profileRole: profile?.role,
+    profileIsActiveCamel: profile?.isActive,
+    profileIsActiveSnake: profile?.is_active,
+    isAuthorized
+  });
 
   // Show Admin Panel if logged in and authorized
   if (session && isAuthorized) {
