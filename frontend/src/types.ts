@@ -137,6 +137,8 @@ export interface WebsiteSettings {
   outsideDhakaShipping: number;
   freeShippingMinOrder: number;
   theme: string;
+  id?: any;
+  homepageConfig?: any;
   metaPixelId?: string;
   metaTestEventCode?: string;
   googleTagManagerId?: string;

@@ -279,6 +279,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (uData) setUsers(uData);
       if (sData) {
         setSettings({
+          id: sData.id,
           logoText: sData.logo_text || sData.logoText || 'RUPAN',
           logoAccent: sData.logo_accent || sData.logoAccent || '.',
           tagline: sData.tagline || 'Style That Speaks.',
@@ -370,7 +371,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         googleAnalyticsId: settings.googleAnalyticsId
       };
       
-      const { error } = await supabase.from('settings').update(payload).eq('id', 1);
+      const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
       if (!error) {
         alert("Website configurations updated successfully!");
       } else {
@@ -1346,6 +1347,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   setHomepageConfig={setHomepageConfig}
                   openBannerForm={openBannerForm}
                   handleDeleteBanner={handleDeleteBanner}
+                  settingsId={settings.id}
                 />
               )}
 

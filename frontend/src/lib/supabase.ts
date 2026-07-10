@@ -145,6 +145,7 @@ class LocalDatabase {
     // 6. Settings
     if (!localStorage.getItem('rup_db_settings')) {
       const initialSettings = {
+        id: 1,
         logoText: 'RUPAN',
         logoAccent: '.',
         tagline: 'Style That Speaks.',
@@ -154,7 +155,21 @@ class LocalDatabase {
         insideDhakaShipping: 60,
         outsideDhakaShipping: 120,
         freeShippingMinOrder: 3000,
-        theme: 'sleek'
+        theme: 'sleek',
+        homepageConfig: {
+          featured_categories: [
+            { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
+            { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },
+            { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10' },
+            { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
+            { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
+          ],
+          featured_product_ids: {
+            trending: [],
+            new_arrivals: [],
+            best_sellers: []
+          }
+        }
       };
       localStorage.setItem('rup_db_settings', JSON.stringify(initialSettings));
     }
@@ -450,7 +465,7 @@ class MockQueryBuilder {
   }
 
   eq(column: string, value: any) {
-    this.filters.push((item: any) => item[column] === value);
+    this.filters.push((item: any) => item[column] == value);
     return this;
   }
 

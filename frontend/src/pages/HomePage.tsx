@@ -167,8 +167,25 @@ export default function HomePage() {
     return PRODUCTS.slice(0, 18);
   };
 
+  const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
+
   return (
     <div className="bg-gray-50/50 pb-16 space-y-14">
+      {isDebugMode && (
+        <div className="bg-red-50 p-4 border-y border-red-200 text-xs font-mono text-red-800 text-left max-w-6xl mx-auto rounded-xl space-y-1.5 shadow-xs">
+          <div className="font-bold text-sm text-red-900 border-b border-red-100 pb-1.5 mb-1.5 uppercase">Homepage Debug Diagnostics</div>
+          <div>dbSettings loaded: {dbSettings ? 'YES' : 'NO'}</div>
+          <div>dbSettings ID: {dbSettings?.id || 'N/A'}</div>
+          <div>dbSettings.homepageConfig: {dbSettings?.homepageConfig ? 'YES' : 'NO'}</div>
+          <div>dbSettings.homepage_config: {dbSettings?.homepage_config ? 'YES' : 'NO'}</div>
+          <div>Trending ID List: {JSON.stringify((dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.trending || [])}</div>
+          <div>New Arrivals ID List: {JSON.stringify((dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.new_arrivals || [])}</div>
+          <div>PRODUCTS in store: {PRODUCTS.length}</div>
+          <div>Trending Matched Count: {getHomepageProducts('trending', (p) => p.isFeatured, 6).filter(p => (dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.trending?.some((id: string) => String(p.id).toLowerCase().endsWith(id.trim().toLowerCase()))).length}</div>
+          <div className="text-[10px] text-gray-400 mt-1 border-t border-red-100 pt-1.5">First 5 Products in Store: {JSON.stringify(PRODUCTS.slice(0, 5).map(p => ({ id: p.id, name: p.name })))}</div>
+        </div>
+      )}
+
       {/* 1. Split Hero Banner & Carousel */}
       <HeroCarousel 
         heroBanners={heroBanners}

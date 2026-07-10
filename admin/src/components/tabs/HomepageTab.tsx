@@ -10,6 +10,7 @@ interface HomepageTabProps {
   setHomepageConfig: (config: any) => void;
   openBannerForm: (b: Banner | null) => void;
   handleDeleteBanner: (id: string) => void;
+  settingsId?: any;
 }
 
 export default function HomepageTab({
@@ -18,7 +19,8 @@ export default function HomepageTab({
   homepageConfig,
   setHomepageConfig,
   openBannerForm,
-  handleDeleteBanner
+  handleDeleteBanner,
+  settingsId
 }: HomepageTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -132,7 +134,7 @@ export default function HomepageTab({
                                 [type]: idsList.filter((item: string) => item !== id)
                               }
                             };
-                            const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', 1);
+                            const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', settingsId || 1);
                             if (!error) {
                               setHomepageConfig(updatedConfig);
                             }
@@ -161,7 +163,7 @@ export default function HomepageTab({
                           [type]: [...idsList, newId]
                         }
                       };
-                      const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', 1);
+                      const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', settingsId || 1);
                       if (!error) {
                         setHomepageConfig(updatedConfig);
                         input.value = '';
@@ -270,7 +272,7 @@ export default function HomepageTab({
           <button
             type="button"
             onClick={async () => {
-              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', 1);
+              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', settingsId || 1);
               if (!error) {
                 alert("Homepage category configurations saved successfully!");
               } else {
