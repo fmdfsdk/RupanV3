@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { Product } from '../types';
 import { productService } from '../services/productService';
+import { useSEO, buildOrganizationSchema, buildWebSiteSchema } from '../hooks/useSEO';
 
 // Decomposed Sub-components
 import HeroCarousel from '../components/home/HeroCarousel';
@@ -39,33 +40,14 @@ export default function HomePage() {
     navigate('/checkout');
   };
 
-  // Set Homepage SEO Meta Tags
-  useEffect(() => {
-    document.title = 'Rupan | Premium Traditional & Modern Wear in Bangladesh';
-    
-    let metaDesc = document.querySelector('meta[name="description"]');
-    if (!metaDesc) {
-      metaDesc = document.createElement('meta');
-      metaDesc.setAttribute('name', 'description');
-      document.head.appendChild(metaDesc);
-    }
-    metaDesc.setAttribute('content', "Explore Rupan's collections of luxury Jacquard Panjabis, Couple Sets, and Western Wear. Fast shipping within Bangladesh.");
-
-    const updateOGTag = (property: string, content: string) => {
-      let tag = document.querySelector(`meta[property="${property}"]`);
-      if (!tag) {
-        tag = document.createElement('meta');
-        tag.setAttribute('property', property);
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute('content', content);
-    };
-
-    updateOGTag('og:title', 'Rupan | Premium Traditional & Modern Wear');
-    updateOGTag('og:description', "Explore Rupan's collections of luxury Jacquard Panjabis, Couple Sets, and Western Wear.");
-    updateOGTag('og:image', 'https://myrupan.com/assets/Rupan%20Logo%20Final.png');
-    updateOGTag('og:type', 'website');
-  }, []);
+  // Homepage SEO — Organization + WebSite JSON-LD for Google Sitelinks
+  useSEO({
+    title: 'Rupan | Premium Traditional & Modern Wear in Bangladesh',
+    description: "Rupan-এর কালেকশন থেকে লাক্সারি Jacquard পাঞ্জাবি, কাপল সেট এবং ওয়েস্টার্ন কালেকশন অর্ডার করুন। সারাদেশে দ্রুত ডেলিভারি।",
+    canonical: '/',
+    ogType: 'website',
+    jsonLd: [buildOrganizationSchema(), buildWebSiteSchema()],
+  });
 
   const heroBanners = dbBanners && dbBanners.length > 0
     ? dbBanners.map((b: any) => ({

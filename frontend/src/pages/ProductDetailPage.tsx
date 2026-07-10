@@ -4,6 +4,9 @@ import { useStore } from '../store/useStore';
 import ProductDetail from '../components/ProductDetail';
 import { productService } from '../services/productService';
 import { Product } from '../types';
+import { useSEO, buildProductSchema, buildBreadcrumbSchema } from '../hooks/useSEO';
+
+
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -91,76 +94,50 @@ export default function ProductDetailPage() {
     return () => { cancelled = true; };
   }, [id, products, catalogIndex]);
 
-  // Inject dynamic SEO Meta Tags and JSON-LD Structured Schema
-  useEffect(() => {
-    if (!product) return;
+  // Product SEO — uses DB seoTitle/seoDescription when available
+  const productSlug = product?.slug || id || '';
+  const seoTitle = product
+    ? (product.seoTitle || `${product.name} | ${product.category || 'পণ্য'} কিনুন | Rupan`)
+    : 'পণ্য লোড হচ্ছে... | Rupan';
+  const seoDescription = product
+    ? (product.seoDescription || product.shortDescription || `Rupan-এ ${product.name} কিনুন। প্রিমিয়াম কোয়ালিটি, দ্রুত ডেলিভারি।`)
+    : '';
 
-    // 1. Update Title and Meta Tags
-    document.title = `${product.name} | Rupan`;
-    
-    let metaDesc = document.querySelector('meta[name="description"]');
-    if (!metaDesc) {
-      metaDesc = document.createElement('meta');
-      metaDesc.setAttribute('name', 'description');
-      document.head.appendChild(metaDesc);
-    }
-    metaDesc.setAttribute('content', product.shortDescription || `Buy ${product.name} at Rupan. Premium quality guaranteed.`);
-
-    // OpenGraph Tags
-    const updateOGTag = (property: string, content: string) => {
-      let tag = document.querySelector(`meta[property="${property}"]`);
-      if (!tag) {
-        tag = document.createElement('meta');
-        tag.setAttribute('property', property);
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute('content', content);
-    };
-
-    updateOGTag('og:title', product.name);
-    updateOGTag('og:description', product.shortDescription || `Buy ${product.name} at Rupan.`);
-    updateOGTag('og:image', product.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600');
-    updateOGTag('og:type', 'product');
-
-    // 2. Inject JSON-LD Schema
-    let jsonLdScript = document.getElementById('product-jsonld') as HTMLScriptElement;
-    if (!jsonLdScript) {
-      jsonLdScript = document.createElement('script');
-      jsonLdScript.id = 'product-jsonld';
-      jsonLdScript.type = 'application/ld+json';
-      document.head.appendChild(jsonLdScript);
-    }
-
-    const price = product.discountPrice || product.price;
-    const schemaData = {
-      "@context": "https://schema.org/",
-      "@type": "Product",
-      "name": product.name,
-      "image": product.images || [],
-      "description": product.shortDescription,
-      "sku": product.sku || product.id,
-      "brand": {
-        "@type": "Brand",
-        "name": product.brand || "Rupan"
-      },
-      "offers": {
-        "@type": "Offer",
-        "url": window.location.href,
-        "priceCurrency": "BDT",
-        "price": price,
-        "itemCondition": "https://schema.org/NewCondition",
-        "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
-      }
-    };
-
-    jsonLdScript.text = JSON.stringify(schemaData);
-
-    // Cleanup on unmount
-    return () => {
-      const script = document.getElementById('product-jsonld');
-      if (script) script.remove();
-    };
-  }, [product]);
+  useSEO({
+    title: seoTitle,
+    description: seoDescription,
+    canonical: product ? `/product/${productSlug}` : undefined,
+    ogImage: product?.images?.[0],
+    ogType: 'product',
+    robots: 'index, follow',
+    jsonLd: product
+      ? [
+          buildProductSchema({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            shortDescription: product.shortDescription,
+            images: product.images,
+            sku: product.sku,
+            brand: product.brand,
+            category: product.category,
+            material: product.material,
+            price: product.price,
+            discountPrice: product.discountPrice,
+            stock: product.stock,
+            rating: product.rating,
+            reviewsCount: product.reviewsCount,
+            slug: productSlug,
+          }),
+          buildBreadcrumbSchema([
+            { name: 'Home', url: '/' },
+            { name: 'Shop', url: '/shop' },
+            { name: product.category || 'Products', url: `/shop?category=${encodeURIComponent(product.category || '')}` },
+            { name: product.name, url: `/product/${productSlug}` },
+          ]),
+        ]
+      : undefined,
+  });
 
   if (loading) {
     return (

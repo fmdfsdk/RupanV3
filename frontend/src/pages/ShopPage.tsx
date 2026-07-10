@@ -5,6 +5,8 @@ import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { productService } from '../services/productService';
 import { Product } from '../types';
+import { useSEO } from '../hooks/useSEO';
+
 const formatCategoryName = (cat: string): string => {
   if (!cat) return '';
   return cat
@@ -55,6 +57,14 @@ export default function ShopPage() {
   const setSidebarSearch = useStore((state) => state.setSidebarSearch);
   const sortBy = useStore((state) => state.sortBy);
   const setSortBy = useStore((state) => state.setSortBy);
+
+  // Shop page SEO — fixed professional title, no dynamic filter-based changes
+  useSEO({
+    title: 'Shop | Rupan — Premium Bangladeshi Fashion',
+    description: 'Rupan-এর সম্পূর্ণ কালেকশন দেখুন — পাঞ্জাবি, শার্ট, টি-শার্ট, কাপল সেট, কিডস ও আনুষাঙ্গিক পণ্য। ফিল্টার করুন ক্যাটাগরি, সাইজ, রং ও দাম অনুযায়ী।',
+    canonical: '/shop',
+    ogType: 'website',
+  });
 
   const categoriesExpanded = useStore((state) => state.categoriesExpanded);
   const setCategoriesExpanded = useStore((state) => state.setCategoriesExpanded);
