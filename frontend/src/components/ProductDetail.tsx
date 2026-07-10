@@ -13,6 +13,7 @@ import { PRODUCTS as MOCK_PRODUCTS, REVIEWS as MOCK_REVIEWS } from '../data';
 import ProductCard from './ProductCard';
 import { useStore } from '../store/useStore';
 import { getOptimizedImageUrl } from '../utils/image';
+import { formatDescriptionToHtml } from '../lib/formatter';
 
 interface ProductDetailProps {
   productId: string;
@@ -487,8 +488,8 @@ export default function ProductDetail({
             <div className="space-y-4">
               <p className="font-bold text-gray-900 text-base">{product.name}</p>
               <div 
-                className="text-gray-600 leading-relaxed whitespace-pre-line"
-                dangerouslySetInnerHTML={{ __html: product.description || '' }}
+                className="text-gray-600 leading-relaxed space-y-1"
+                dangerouslySetInnerHTML={{ __html: formatDescriptionToHtml(product.description || '') }}
               />
               
               <div className="pt-4 space-y-2">

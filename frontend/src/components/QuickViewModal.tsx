@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { X, Star, Ruler, Truck, RotateCcw, ShieldCheck, Heart } from 'lucide-react';
 import { Product } from '../types';
 import { getOptimizedImageUrl } from '../utils/image';
+import { formatDescriptionToHtml } from '../lib/formatter';
 
 interface QuickViewModalProps {
   product: Product | null;
@@ -159,9 +160,10 @@ export default function QuickViewModal({
           </div>
 
           {/* Short description */}
-          <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-            {product.description}
-          </p>
+          <div 
+            className="text-xs text-gray-600 mb-5 leading-relaxed space-y-1 max-h-40 overflow-y-auto pr-1 bg-gray-50/50 p-3 rounded-lg border border-gray-100"
+            dangerouslySetInnerHTML={{ __html: formatDescriptionToHtml(product.description || '') }}
+          />
 
           {/* Color swatches selector */}
           {productColors.length > 0 && (
