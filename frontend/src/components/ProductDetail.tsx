@@ -46,7 +46,11 @@ export default function ProductDetail({
   const REVIEWS = reviews || MOCK_REVIEWS;
   const product = selectedProduct || PRODUCTS.find((p) => p.id === productId || p.slug === productId || getProductSlug(p.name) === productId) || PRODUCTS[0];
 
-  const [activeImage, setActiveImage] = useState<string>(product.images[0]);
+  const productImages = Array.isArray(product.images) && product.images.length > 0 
+    ? product.images 
+    : ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600'];
+
+  const [activeImage, setActiveImage] = useState<string>(productImages[0]);
   const [selectedColor, setSelectedColor] = useState<string>(product.colors[0]?.name || '');
   const [selectedSize, setSelectedSize] = useState<string>(product.sizes[0] || 'M');
   const [quantity, setQuantity] = useState<number>(1);
@@ -79,7 +83,7 @@ export default function ProductDetail({
 
   // Sync state if product changes
   useEffect(() => {
-    setActiveImage(product.images[0]);
+    setActiveImage(productImages[0]);
     setSelectedColor(product.colors[0]?.name || '');
     setSelectedSize(product.sizes[0] || 'Standard');
     setQuantity(1);
@@ -87,7 +91,7 @@ export default function ProductDetail({
       addRecentlyViewedId(product.id);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [productId, product, addRecentlyViewedId]);
+  }, [productId, product, addRecentlyViewedId, productImages]);
 
   const isWishlisted = wishlist.some((w) => w.id === product.id);
 
@@ -212,7 +216,7 @@ export default function ProductDetail({
 
           {/* Thumbnails list */}
           <div className="flex flex-wrap gap-3">
-            {product.images.map((img, i) => (
+            {productImages.map((img, i) => (
               <button
                 key={i}
                 onClick={() => setActiveImage(img)}

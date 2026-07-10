@@ -97,7 +97,7 @@ export default function ProductDetailPage() {
 
     updateOGTag('og:title', product.name);
     updateOGTag('og:description', product.shortDescription || `Buy ${product.name} at Rupan.`);
-    updateOGTag('og:image', product.images[0]);
+    updateOGTag('og:image', product.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600');
     updateOGTag('og:type', 'product');
 
     // 2. Inject JSON-LD Schema
@@ -114,7 +114,7 @@ export default function ProductDetailPage() {
       "@context": "https://schema.org/",
       "@type": "Product",
       "name": product.name,
-      "image": product.images,
+      "image": product.images || [],
       "description": product.shortDescription,
       "sku": product.sku || product.id,
       "brand": {
