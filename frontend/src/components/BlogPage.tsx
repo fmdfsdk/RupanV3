@@ -33,8 +33,9 @@ export default function BlogPage() {
   });
 
   // Parse metadata block
+  const isLandingPage = activePost?.category === '__landing_page__';
   const blogSettings = (() => {
-    if (!activePost) return { layout: 'standard', seoEnabled: true, marketingEnabled: true };
+    if (!activePost || isLandingPage) return { layout: isLandingPage ? 'blank' : 'standard', seoEnabled: true, marketingEnabled: true };
     const match = (activePost.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
     if (match) {
       try {
@@ -55,7 +56,7 @@ export default function BlogPage() {
   })();
 
   const isSeoEnabled = blogSettings.seoEnabled;
-  const isBlankLayout = blogSettings.layout === 'blank';
+  const isBlankLayout = blogSettings.layout === 'blank' || isLandingPage;
 
   // SEO — must be called unconditionally at top level
   const blogSeoTitle = activePost && isSeoEnabled
@@ -93,7 +94,7 @@ export default function BlogPage() {
   };
 
   if (activePost) {
-    const otherPosts = BLOGS.filter((b) => b.id !== activePost.id).slice(0, 2);
+    const otherPosts = BLOGS.filter((b) => b.id !== activePost.id && b.category !== '__landing_page__').slice(0, 2);
 
     if (isBlankLayout) {
       const cleanedHTML = activePost.content
@@ -251,7 +252,7 @@ export default function BlogPage() {
 
       {/* Blogs list Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {BLOGS.map((post) => (
+        {BLOGS.filter(p => p.category !== '__landing_page__').map((post) => (
           <Link
             key={post.id}
             to={`/blog/${post.id}`}

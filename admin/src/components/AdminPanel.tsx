@@ -23,6 +23,7 @@ import CustomersTab from './tabs/CustomersTab';
 import CouponsTab from './tabs/CouponsTab';
 import HomepageTab from './tabs/HomepageTab';
 import BlogsTab from './tabs/BlogsTab';
+import LandingPagesTab from './tabs/LandingPagesTab';
 import ReviewsTab from './tabs/ReviewsTab';
 import SettingsTab from './tabs/SettingsTab';
 import SeoMarketingTab from './tabs/SeoMarketingTab';
@@ -1554,6 +1555,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('landing-pages'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'landing-pages' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Globe className="w-4 h-4 text-green-500" />
+              <span>Landing Pages</span>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('reviews'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'reviews' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -1744,6 +1755,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   onOpenBlogForm={openBlogForm}
                   onDeleteBlog={handleDeleteBlog}
                 />
+              )}
+
+              {/* TAB 8b: LANDING PAGES */}
+              {activeTab === 'landing-pages' && (
+                <LandingPagesTab />
               )}
 
               {/* TAB 9: REVIEWS MODERATION BOARD */}
