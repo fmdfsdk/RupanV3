@@ -96,6 +96,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   const [bannerModalOpen, setBannerModalOpen] = useState<boolean>(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [uploadingBannerImage, setUploadingBannerImage] = useState<boolean>(false);
   const [bannerForm, setBannerForm] = useState<any>({
     title: '',
     subtitle: '',
@@ -892,6 +893,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       });
     }
     setBannerModalOpen(true);
+  };
+
+  const handleBannerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBannerImage(true);
+    try {
+      // 1. Try to create bucket 'banners' if it doesn't exist
+      try {
+        await supabase.storage.createBucket('banners', {
+          public: true,
+          fileSizeLimit: 5242880 // 5MB
+        });
+      } catch (e) {}
+
+      // 2. Upload file
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('banners')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) throw error;
+
+      // 3. Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('banners')
+        .getPublicUrl(filePath);
+
+      setBannerForm((prev: any) => ({
+        ...prev,
+        image: publicUrl
+      }));
+      alert("Image uploaded successfully!");
+    } catch (err: any) {
+      alert(`Upload failed: ${err.message}`);
+    } finally {
+      setUploadingBannerImage(false);
+    }
   };
 
   const handleSaveBanner = async (e: React.FormEvent) => {
@@ -1796,16 +1842,30 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="uppercase font-bold text-gray-400">Image URL</label>
-                <input
-                  type="text"
-                  required
-                  value={bannerForm.image}
-                  onChange={(e) => setBannerForm({ ...bannerForm, image: e.target.value })}
-                  placeholder="Paste banner image URL link"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
-                />
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Upload Banner Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerImageUpload}
+                    disabled={uploadingBannerImage}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-zinc-800 font-medium focus:outline-none file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#ff5c00]/10 file:text-[#ff5c00] hover:file:bg-[#ff5c00]/20 file:cursor-pointer"
+                  />
+                  {uploadingBannerImage && <p className="text-[10px] text-[#ff5c00] font-bold animate-pulse">Uploading image to Supabase...</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Image URL (or Auto-filled on Upload)</label>
+                  <input
+                    type="text"
+                    required
+                    value={bannerForm.image}
+                    onChange={(e) => setBannerForm({ ...bannerForm, image: e.target.value })}
+                    placeholder="Paste banner image URL link or upload above"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
