@@ -429,6 +429,7 @@ class MockAuth {
 }
 
 // Chainable mock builder mimicking supabase.from('...').select('...').eq('...').order('...')
+// Chainable mock builder mimicking supabase.from('...').select('...').eq('...').order('...')
 class MockQueryBuilder {
   private tableName: string;
   private filters: ((item: any) => boolean)[] = [];
@@ -437,6 +438,7 @@ class MockQueryBuilder {
   private limitCount: number | null = null;
   private rangeStart: number | null = null;
   private rangeEnd: number | null = null;
+  private pendingAction: (() => any) | null = null;
 
   constructor(tableName: string) {
     this.tableName = tableName;
@@ -503,93 +505,108 @@ class MockQueryBuilder {
 
   // To make it fully support "await supabase.from('...')"
   async then(onfulfilled?: (value: any) => any) {
-    let data = [...localDB.getTable(this.tableName)];
+    let result: any;
+    if (this.pendingAction) {
+      result = this.pendingAction();
+    } else {
+      let data = [...localDB.getTable(this.tableName)];
 
-    // Apply filters
-    for (const filter of this.filters) {
-      data = data.filter(filter);
+      // Apply filters
+      for (const filter of this.filters) {
+        data = data.filter(filter);
+      }
+
+      // Apply order
+      if (this.orderField) {
+        const f = this.orderField;
+        const asc = this.orderAscending ? 1 : -1;
+        data.sort((a, b) => {
+          if (a[f] < b[f]) return -1 * asc;
+          if (a[f] > b[f]) return 1 * asc;
+          return 0;
+        });
+      }
+
+      // Apply pagination range or limit
+      if (this.rangeStart !== null && this.rangeEnd !== null) {
+        data = data.slice(this.rangeStart, this.rangeEnd + 1);
+      } else if (this.limitCount !== null) {
+        data = data.slice(0, this.limitCount);
+      }
+
+      result = { data, error: null };
     }
 
-    // Apply order
-    if (this.orderField) {
-      const f = this.orderField;
-      const asc = this.orderAscending ? 1 : -1;
-      data.sort((a, b) => {
-        if (a[f] < b[f]) return -1 * asc;
-        if (a[f] > b[f]) return 1 * asc;
-        return 0;
-      });
-    }
-
-    // Apply pagination range or limit
-    if (this.rangeStart !== null && this.rangeEnd !== null) {
-      data = data.slice(this.rangeStart, this.rangeEnd + 1);
-    } else if (this.limitCount !== null) {
-      data = data.slice(0, this.limitCount);
-    }
-
-    const response = { data, error: null };
     if (onfulfilled) {
-      return Promise.resolve(onfulfilled(response));
+      return Promise.resolve(onfulfilled(result));
     }
-    return Promise.resolve(response);
+    return Promise.resolve(result);
   }
 
-  async insert(rows: any[]) {
-    const tableData = localDB.getTable(this.tableName);
-    const addedRows = rows.map(r => ({
-      id: r.id || `${this.tableName.substring(0, 3)}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      createdAt: r.createdAt || new Date().toISOString().replace('T', ' ').substring(0, 16),
-      ...r
-    }));
+  insert(rows: any[]) {
+    this.pendingAction = () => {
+      const tableData = localDB.getTable(this.tableName);
+      const addedRows = rows.map(r => ({
+        id: r.id || `${this.tableName.substring(0, 3)}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        createdAt: r.createdAt || new Date().toISOString().replace('T', ' ').substring(0, 16),
+        ...r
+      }));
 
-    const newTableData = [...tableData, ...addedRows];
-    localDB.saveTable(this.tableName, newTableData);
-    return { data: addedRows, error: null };
+      const newTableData = [...tableData, ...addedRows];
+      localDB.saveTable(this.tableName, newTableData);
+      return { data: addedRows, error: null };
+    };
+    return this;
   }
 
-  async update(values: any) {
-    const tableData = localDB.getTable(this.tableName);
-    let updatedRows: any[] = [];
+  update(values: any) {
+    this.pendingAction = () => {
+      const tableData = localDB.getTable(this.tableName);
+      let updatedRows: any[] = [];
 
-    const newTableData = tableData.map(item => {
-      // If we have filters active (like eq('id', '...'))
-      let matches = true;
-      for (const filter of this.filters) {
-        if (!filter(item)) matches = false;
-      }
+      const newTableData = tableData.map(item => {
+        // If we have filters active (like eq('id', '...'))
+        let matches = true;
+        for (const filter of this.filters) {
+          if (!filter(item)) matches = false;
+        }
 
-      if (matches) {
-        const updatedItem = { ...item, ...values };
-        updatedRows.push(updatedItem);
-        return updatedItem;
-      }
-      return item;
-    });
+        if (matches) {
+          const updatedItem = { ...item, ...values };
+          updatedRows.push(updatedItem);
+          return updatedItem;
+        }
+        return item;
+      });
 
-    localDB.saveTable(this.tableName, newTableData);
-    return { data: updatedRows, error: null };
+      localDB.saveTable(this.tableName, newTableData);
+      return { data: updatedRows, error: null };
+    };
+    return this;
   }
 
-  async delete() {
-    const tableData = localDB.getTable(this.tableName);
-    let deletedRows: any[] = [];
+  delete() {
+    this.pendingAction = () => {
+      const tableData = localDB.getTable(this.tableName);
+      let deletedRows: any[] = [];
 
-    const newTableData = tableData.filter(item => {
-      let matches = true;
-      for (const filter of this.filters) {
-        if (!filter(item)) matches = false;
-      }
+      const newTableData = tableData.filter(item => {
+        let matches = true;
+        for (const filter of this.filters) {
+          if (!filter(item)) matches = false;
+        }
 
-      if (matches) {
-        deletedRows.push(item);
-        return false; // exclude from table
-      }
-      return true;
-    });
+        if (matches) {
+          deletedRows.push(item);
+          return false; // exclude from table
+        }
+        return true;
+      });
 
-    localDB.saveTable(this.tableName, newTableData);
-    return { data: deletedRows, error: null };
+      localDB.saveTable(this.tableName, newTableData);
+      return { data: deletedRows, error: null };
+    };
+    return this;
   }
 }
 

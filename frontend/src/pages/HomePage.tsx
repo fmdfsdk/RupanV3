@@ -122,7 +122,14 @@ export default function HomePage() {
     const configIds = homeConfig?.featured_product_ids?.[type] || [];
     if (configIds.length > 0) {
       const matches = configIds
-        .map((id: string) => PRODUCTS.find(p => p.id === id || p.slug === id))
+        .map((id: string) => {
+          const searchId = id.trim().toLowerCase();
+          return PRODUCTS.find(p => {
+            const pId = p.id.toLowerCase();
+            const pSlug = (p.slug || '').toLowerCase();
+            return pId === searchId || pId.endsWith('-' + searchId) || pSlug === searchId;
+          });
+        })
         .filter(Boolean) as Product[];
       if (matches.length > 0) {
         if (matches.length < limit) {
@@ -140,7 +147,14 @@ export default function HomePage() {
     const configIds = homeConfig?.featured_product_ids?.new_arrivals || [];
     if (configIds.length > 0) {
       const matches = configIds
-        .map((id: string) => PRODUCTS.find(p => p.id === id || p.slug === id))
+        .map((id: string) => {
+          const searchId = id.trim().toLowerCase();
+          return PRODUCTS.find(p => {
+            const pId = p.id.toLowerCase();
+            const pSlug = (p.slug || '').toLowerCase();
+            return pId === searchId || pId.endsWith('-' + searchId) || pSlug === searchId;
+          });
+        })
         .filter(Boolean) as Product[];
       if (matches.length > 0) {
         if (matches.length < 18) {
