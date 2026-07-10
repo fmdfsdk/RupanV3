@@ -63,17 +63,46 @@ create table public.settings (
   google_tag_manager_id text,
   google_analytics_id text,
   homepage_config jsonb not null default '{
+    "category_style": "circular",
     "featured_categories": [
-      { "name": "Men Fashions", "desc": "Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.", "icon": "👕", "bg": "from-orange-50 to-amber-50/20" },
-      { "name": "Women Fashions", "desc": "High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.", "icon": "👗", "bg": "from-rose-50 to-pink-50/10" },
-      { "name": "Couple Collection", "desc": "Perfectly coordinated matching couple outfits for special occasions and wedding festivals.", "icon": "👩‍❤️‍👨", "bg": "from-purple-50 to-indigo-50/10" },
-      { "name": "Kids Fashions", "desc": "Extremely soft combed organic cotton comfort drops for children and growing toddlers.", "icon": "👶", "bg": "from-blue-50 to-sky-50/10" },
-      { "name": "Accessories", "desc": "Classic chronometer watches, dial analogs, and smart leather everyday utility gear.", "icon": "⌚", "bg": "from-gray-100 to-zinc-50" }
+      { "name": "Men Fashions", "desc": "Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.", "icon": "👕", "bg": "from-orange-50 to-amber-50/20", "mappedId": "men''s fashion" },
+      { "name": "Women Fashions", "desc": "High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.", "icon": "👗", "bg": "from-rose-50 to-pink-50/10", "mappedId": "women''s fashion" },
+      { "name": "Couple Collection", "desc": "Perfectly coordinated matching couple outfits for special occasions and wedding festivals.", "icon": "👩‍❤️‍👨", "bg": "from-purple-50 to-indigo-50/10", "mappedId": "couple collection" },
+      { "name": "Kids Fashions", "desc": "Extremely soft combed organic cotton comfort drops for children and growing toddlers.", "icon": "👶", "bg": "from-blue-50 to-sky-50/10", "mappedId": "kids zone" },
+      { "name": "Accessories", "desc": "Classic chronometer watches, dial analogs, and smart leather everyday utility gear.", "icon": "⌚", "bg": "from-gray-100 to-zinc-50", "mappedId": "watch" }
+    ],
+    "homepage_categories": [
+      { "name": "Women Fashions", "image": "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=150&auto=format&fit=crop", "mappedId": "women''s fashion" },
+      { "name": "Watches", "image": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=150&auto=format&fit=crop", "mappedId": "watch" },
+      { "name": "Toys Products", "image": "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=150&auto=format&fit=crop", "mappedId": "kids zone" },
+      { "name": "Shoes", "image": "https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=150&auto=format&fit=crop", "mappedId": "men''s fashion" },
+      { "name": "Power Sanders", "image": "https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=150&auto=format&fit=crop", "mappedId": "gadgets & electronics" },
+      { "name": "Men Fashions", "image": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=150&auto=format&fit=crop", "mappedId": "men''s fashion" },
+      { "name": "Shirts & Polos", "image": "https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=150&auto=format&fit=crop", "mappedId": "men''s fashion" },
+      { "name": "Kitchen Items", "image": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=150&auto=format&fit=crop", "mappedId": "home & lifestyle" },
+      { "name": "Home & Living", "image": "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=150&auto=format&fit=crop", "mappedId": "home & lifestyle" },
+      { "name": "Health Care", "image": "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=150&auto=format&fit=crop", "mappedId": "beauty" },
+      { "name": "Grocery", "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=150&auto=format&fit=crop", "mappedId": "foods" },
+      { "name": "Fitness", "image": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=150&auto=format&fit=crop", "mappedId": "fitness" },
+      { "name": "Electronics", "image": "https://images.unsplash.com/photo-1588508065123-287b28e013da?q=80&w=150&auto=format&fit=crop", "mappedId": "gadgets & electronics" },
+      { "name": "Beauty", "image": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=150&auto=format&fit=crop", "mappedId": "beauty" },
+      { "name": "Baby & Kids", "image": "https://images.unsplash.com/photo-1515488042361-404e9250afef?q=80&w=150&auto=format&fit=crop", "mappedId": "kids zone" },
+      { "name": "Accessories", "image": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=150&auto=format&fit=crop", "mappedId": "watch" }
     ],
     "featured_product_ids": {
       "trending": [],
       "new_arrivals": [],
       "best_sellers": []
+    },
+    "promo_banner": {
+      "badge": "Store Promo",
+      "title": "BIG SALE",
+      "discount": "UP TO 70% OFF",
+      "description": "Fashion • Electronics • Beauty • Home • Grocery",
+      "image1": "https://images.unsplash.com/photo-1565026057447-bc90a3dca487?q=80&w=400&auto=format&fit=crop",
+      "image2": "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?q=80&w=400&auto=format&fit=crop",
+      "cta_category": "All",
+      "bg_color": "#ff5c00"
     }
   }'::jsonb,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null

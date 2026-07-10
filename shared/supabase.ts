@@ -714,7 +714,7 @@ function convertKeysToSnake(obj: any): any {
   if (typeof obj === 'object') {
     const newObj: any = {};
     for (const key of Object.keys(obj)) {
-      if (key === 'colors' || key === 'config' || key === 'homepage_config') {
+      if (key === 'colors' || key === 'config' || key === 'homepage_config' || key === 'homepageConfig') {
         newObj[camelToSnake(key)] = obj[key];
       } else {
         newObj[camelToSnake(key)] = convertKeysToSnake(obj[key]);
@@ -733,7 +733,7 @@ function convertKeysToCamel(obj: any): any {
   if (typeof obj === 'object') {
     const newObj: any = {};
     for (const key of Object.keys(obj)) {
-      if (key === 'colors' || key === 'config' || key === 'homepage_config') {
+      if (key === 'colors' || key === 'config' || key === 'homepage_config' || key === 'homepageConfig') {
         newObj[snakeToCamel(key)] = obj[key];
       } else {
         newObj[snakeToCamel(key)] = convertKeysToCamel(obj[key]);
