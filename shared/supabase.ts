@@ -774,6 +774,31 @@ class QueryBuilderWrapper {
     return this;
   }
 
+  in(column: string, values: any[]) {
+    this.query = this.query.in(camelToSnake(column), values);
+    return this;
+  }
+
+  gte(column: string, value: any) {
+    this.query = this.query.gte(camelToSnake(column), value);
+    return this;
+  }
+
+  lte(column: string, value: any) {
+    this.query = this.query.lte(camelToSnake(column), value);
+    return this;
+  }
+
+  gt(column: string, value: any) {
+    this.query = this.query.gt(camelToSnake(column), value);
+    return this;
+  }
+
+  or(filters: string, options?: any) {
+    this.query = this.query.or(filters, options);
+    return this;
+  }
+
   order(column: string, options?: any) {
     this.query = this.query.order(camelToSnake(column), options);
     return this;
