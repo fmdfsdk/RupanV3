@@ -798,8 +798,8 @@ class QueryBuilderWrapper {
     this.table = table;
   }
 
-  select(columns: string = '*') {
-    this.query = this.query.select(columns);
+  select(columns: string = '*', options?: any) {
+    this.query = this.query.select(columns, options);
     return this;
   }
 
