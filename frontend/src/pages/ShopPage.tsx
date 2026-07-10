@@ -26,6 +26,7 @@ export default function ShopPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Load all store states and actions
   const PRODUCTS = useStore((state) => state.dbProducts);
@@ -338,6 +339,226 @@ export default function ShopPage() {
     navigate('/checkout');
   };
 
+  const renderFilterContent = () => {
+    return (
+      <>
+        {/* Categories Collapsible */}
+        <div className="space-y-3">
+          <button 
+            onClick={() => setCategoriesExpanded(!categoriesExpanded)}
+            className="flex items-center justify-between w-full text-left cursor-pointer"
+          >
+            <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Categories</span>
+            <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+              {categoriesExpanded ? '−' : '+'}
+            </span>
+          </button>
+          
+          {categoriesExpanded && (
+            <div className="space-y-2.5 pt-1">
+              {Array.from(new Set(PRODUCTS.map(p => p.category).filter(Boolean))).map((cat) => {
+                const count = PRODUCTS.filter(p => p.category === cat).length;
+                const isChecked = checkedCategories.includes(cat);
+                return (
+                  <label key={cat} className="flex items-center justify-between group cursor-pointer text-sm">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setCheckedCategories(
+                            isChecked ? checkedCategories.filter(c => c !== cat) : [...checkedCategories, cat]
+                          );
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
+                      />
+                      <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
+                        {formatCategoryName(cat)}
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Subcategories Collapsible */}
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <button 
+            onClick={() => setSubCategoriesExpanded(!subCategoriesExpanded)}
+            className="flex items-center justify-between w-full text-left cursor-pointer"
+          >
+            <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Sub Categories</span>
+            <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+              {subCategoriesExpanded ? '−' : '+'}
+            </span>
+          </button>
+          
+          {subCategoriesExpanded && (
+            <div className="space-y-2.5 pt-1">
+              {Array.from(new Set(PRODUCTS.map(p => p.subCategory || '').filter(Boolean))).map((sub) => {
+                const count = PRODUCTS.filter(p => (p.subCategory) === sub).length;
+                const isChecked = checkedSubCategories.includes(sub);
+                return (
+                  <label key={sub} className="flex items-center justify-between group cursor-pointer text-sm">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setCheckedSubCategories(
+                            isChecked ? checkedSubCategories.filter(s => s !== sub) : [...checkedSubCategories, sub]
+                          );
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
+                      />
+                      <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
+                        {sub}
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Brand Collapsible */}
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <button 
+            onClick={() => setBrandExpanded(!brandExpanded)}
+            className="flex items-center justify-between w-full text-left cursor-pointer"
+          >
+            <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Brand</span>
+            <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+              {brandExpanded ? '−' : '+'}
+            </span>
+          </button>
+
+          {brandExpanded && (
+            <div className="space-y-2.5 pt-1">
+              {Array.from(new Set(PRODUCTS.map(p => p.brand).filter(Boolean))).map((brand) => {
+                const count = PRODUCTS.filter(p => p.brand === brand).length;
+                const isChecked = selectedBrands.includes(brand);
+                return (
+                  <label key={brand} className="flex items-center justify-between group cursor-pointer text-sm">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setSelectedBrands(
+                            isChecked ? selectedBrands.filter(b => b !== brand) : [...selectedBrands, brand]
+                          );
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 accent-[#ff5c00]"
+                      />
+                      <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold text-gray-955' : ''}`}>
+                        {brand}
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Price Range Collapsible */}
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <button 
+            onClick={() => setPriceExpanded(!priceExpanded)}
+            className="flex items-center justify-between w-full text-left cursor-pointer"
+          >
+            <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Price Range</span>
+            <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+              {priceExpanded ? '−' : '+'}
+            </span>
+          </button>
+
+          {priceExpanded && (
+            <div className="pt-1 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 rounded-md border border-gray-300 overflow-hidden focus-within:ring-1 focus-within:ring-[#ff5c00] focus-within:border-[#ff5c00]">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">৳</span>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                    className="w-full pl-6 pr-2 py-1.5 text-xs outline-none bg-white text-gray-800 placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                
+                <span className="text-gray-400 text-xs">−</span>
+                
+                <div className="relative flex-1 rounded-md border border-gray-300 overflow-hidden focus-within:ring-1 focus-within:ring-[#ff5c00] focus-within:border-[#ff5c00]">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">৳</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                    className="w-full pl-6 pr-2 py-1.5 text-xs outline-none bg-white text-gray-800 placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Stock Status Collapsible */}
+        <div className="border-t border-gray-100 pt-4 space-y-3">
+          <button 
+            onClick={() => setStockExpanded(!stockExpanded)}
+            className="flex items-center justify-between w-full text-left cursor-pointer"
+          >
+            <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Stock Status</span>
+            <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+              {stockExpanded ? '−' : '+'}
+            </span>
+          </button>
+
+          {stockExpanded && (
+            <div className="space-y-2.5 pt-1">
+              {['In Stock', 'Out of Stock'].map((status) => {
+                const count = status === 'In Stock' 
+                  ? PRODUCTS.filter(p => p.stock > 0).length
+                  : PRODUCTS.filter(p => p.stock === 0).length;
+                const isChecked = selectedStock.includes(status);
+                return (
+                  <label key={status} className="flex items-center justify-between group cursor-pointer text-sm">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setSelectedStock(
+                            isChecked ? selectedStock.filter(s => s !== status) : [...selectedStock, status]
+                          );
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 accent-[#ff5c00]"
+                      />
+                      <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold text-gray-950' : ''}`}>
+                        {status}
+                      </span>
+                    </div>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  };
+
+
   return (
     <div className="w-full bg-[#f4f6f8] min-h-screen font-sans pb-16">
       
@@ -349,8 +570,8 @@ export default function ShopPage() {
       {/* 2-Column Filtering & Store Setup */}
       <div className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12 flex flex-col lg:flex-row gap-8">
         
-        {/* Left Column: Filter Sidebar */}
-        <div className="w-full lg:w-68 space-y-5 shrink-0">
+        {/* Left Column: Filter Sidebar (Desktop only) */}
+        <div className="hidden lg:block lg:w-68 space-y-5 shrink-0">
           
           {/* Search Products Sidebar Box */}
           <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-2xs">
@@ -387,226 +608,7 @@ export default function ShopPage() {
               </button>
             </div>
 
-            {/* Categories Collapsible */}
-            <div className="space-y-3">
-              <button 
-                onClick={() => setCategoriesExpanded(!categoriesExpanded)}
-                className="flex items-center justify-between w-full text-left cursor-pointer"
-              >
-                <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Categories</span>
-                <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
-                  {categoriesExpanded ? '−' : '+'}
-                </span>
-              </button>
-              
-              {categoriesExpanded && (
-                <div className="space-y-2.5 pt-1">
-                  {Array.from(new Set(PRODUCTS.map(p => p.category).filter(Boolean))).map((cat) => {
-                    const count = PRODUCTS.filter(p => p.category === cat).length;
-                    const isChecked = checkedCategories.includes(cat);
-                    return (
-                      <label key={cat} className="flex items-center justify-between group cursor-pointer text-sm">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setCheckedCategories(
-                                isChecked ? checkedCategories.filter(c => c !== cat) : [...checkedCategories, cat]
-                              );
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
-                          />
-                          <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
-                            {formatCategoryName(cat)}
-                          </span>
-                        </div>
-                        <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Subcategories Collapsible */}
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <button 
-                onClick={() => setSubCategoriesExpanded(!subCategoriesExpanded)}
-                className="flex items-center justify-between w-full text-left cursor-pointer"
-              >
-                <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Sub Categories</span>
-                <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
-                  {subCategoriesExpanded ? '−' : '+'}
-                </span>
-              </button>
-              
-              {subCategoriesExpanded && (
-                <div className="space-y-2.5 pt-1">
-                  {Array.from(new Set(PRODUCTS.map(p => p.subCategory || '').filter(Boolean))).map((sub) => {
-                    const count = PRODUCTS.filter(p => (p.subCategory) === sub).length;
-                    const isChecked = checkedSubCategories.includes(sub);
-                    return (
-                      <label key={sub} className="flex items-center justify-between group cursor-pointer text-sm">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setCheckedSubCategories(
-                                isChecked ? checkedSubCategories.filter(s => s !== sub) : [...checkedSubCategories, sub]
-                              );
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
-                          />
-                          <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
-                            {sub}
-                          </span>
-                        </div>
-                        <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Brand Collapsible */}
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <button 
-                onClick={() => setBrandExpanded(!brandExpanded)}
-                className="flex items-center justify-between w-full text-left cursor-pointer"
-              >
-                <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Brand</span>
-                <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
-                  {brandExpanded ? '−' : '+'}
-                </span>
-              </button>
-
-              {brandExpanded && (
-                <div className="space-y-2.5 pt-1">
-                  {Array.from(new Set(PRODUCTS.map(p => {
-                    const b = p.brand ? p.brand.replace(/reseller/gi, '').trim() || 'Rupan' : 'Rupan';
-                    return b;
-                  }).filter(Boolean))).map((brand) => {
-                    const count = PRODUCTS.filter(p => {
-                      const b = p.brand ? p.brand.replace(/reseller/gi, '').trim() || 'Rupan' : 'Rupan';
-                      return b === brand;
-                    }).length;
-                    const isChecked = selectedBrands.includes(brand);
-                    return (
-                      <label key={brand} className="flex items-center justify-between group cursor-pointer text-sm">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setSelectedBrands(
-                                isChecked ? selectedBrands.filter(b => b !== brand) : [...selectedBrands, brand]
-                              );
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 accent-[#ff5c00]"
-                          />
-                          <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold text-gray-955' : ''}`}>
-                            {brand}
-                          </span>
-                        </div>
-                        <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Price Range Collapsible */}
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <button 
-                onClick={() => setPriceExpanded(!priceExpanded)}
-                className="flex items-center justify-between w-full text-left cursor-pointer"
-              >
-                <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Price Range</span>
-                <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
-                  {priceExpanded ? '−' : '+'}
-                </span>
-              </button>
-
-              {priceExpanded && (
-                <div className="pt-1 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    {/* Min Price */}
-                    <div className="relative flex-1 rounded-md border border-gray-300 overflow-hidden focus-within:ring-1 focus-within:ring-[#ff5c00] focus-within:border-[#ff5c00]">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">৳</span>
-                      <input
-                        type="number"
-                        placeholder="Min"
-                        value={minPrice}
-                        onChange={(e) => setMinPrice(e.target.value)}
-                        className="w-full pl-6 pr-2 py-1.5 text-xs outline-none bg-white text-gray-800 placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    
-                    <span className="text-gray-400 text-xs">−</span>
-                    
-                    {/* Max Price */}
-                    <div className="relative flex-1 rounded-md border border-gray-300 overflow-hidden focus-within:ring-1 focus-within:ring-[#ff5c00] focus-within:border-[#ff5c00]">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">৳</span>
-                      <input
-                        type="number"
-                        placeholder="Max"
-                        value={maxPrice}
-                        onChange={(e) => setMaxPrice(e.target.value)}
-                        className="w-full pl-6 pr-2 py-1.5 text-xs outline-none bg-white text-gray-800 placeholder-gray-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Stock Status Collapsible */}
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <button 
-                onClick={() => setStockExpanded(!stockExpanded)}
-                className="flex items-center justify-between w-full text-left cursor-pointer"
-              >
-                <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Stock Status</span>
-                <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
-                  {stockExpanded ? '−' : '+'}
-                </span>
-              </button>
-
-              {stockExpanded && (
-                <div className="space-y-2.5 pt-1">
-                  {['In Stock', 'Out of Stock'].map((status) => {
-                    const count = status === 'In Stock' 
-                      ? PRODUCTS.filter(p => p.stock > 0).length
-                      : PRODUCTS.filter(p => p.stock === 0).length;
-                    const isChecked = selectedStock.includes(status);
-                    return (
-                      <label key={status} className="flex items-center justify-between group cursor-pointer text-sm">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setSelectedStock(
-                                isChecked ? selectedStock.filter(s => s !== status) : [...selectedStock, status]
-                              );
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 accent-[#ff5c00]"
-                          />
-                          <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold text-gray-950' : ''}`}>
-                            {status}
-                          </span>
-                        </div>
-                        <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {renderFilterContent()}
 
             {/* Actions Area */}
             <div className="border-t border-gray-100 pt-5 space-y-2.5">
@@ -629,6 +631,72 @@ export default function ShopPage() {
 
         {/* Right Column: Products list */}
         <div className="flex-1 space-y-4">
+          
+          {/* Mobile Search & Filter Toolbar */}
+          <div className="lg:hidden flex gap-2.5 w-full items-center mb-4">
+            <div className="flex-1 flex rounded-lg border border-gray-300 overflow-hidden bg-white shadow-2xs">
+              <input 
+                type="text"
+                placeholder="Search products..."
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleApplyFilters();
+                }}
+                className="flex-1 min-w-0 px-3.5 py-2.5 text-xs text-gray-800 outline-none bg-white placeholder-gray-400"
+              />
+              <button 
+                onClick={handleApplyFilters}
+                className="bg-[#111827] hover:bg-black text-white px-4 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button 
+              onClick={() => setMobileFiltersOpen(true)}
+              className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-lg px-4 py-3 text-xs font-black text-gray-700 shadow-2xs hover:bg-gray-50 active:scale-95 transition-all cursor-pointer h-full shrink-0"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              <span>Filters</span>
+            </button>
+          </div>
+
+          {/* Mobile filters drawer */}
+          {mobileFiltersOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <div className="absolute inset-0 bg-black/45 backdrop-blur-xs" onClick={() => setMobileFiltersOpen(false)} />
+              <div className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-white shadow-xl flex flex-col animate-in slide-in-from-right duration-250">
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                  <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-900">Filter Options</h3>
+                  <button 
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="text-gray-400 hover:text-gray-600 text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                  {renderFilterContent()}
+                </div>
+                <div className="p-4 border-t border-gray-100 flex gap-2">
+                  <button
+                    onClick={() => { handleResetFilters(); setMobileFiltersOpen(false); }}
+                    className="flex-1 border border-gray-200 text-gray-700 py-3 rounded-lg text-xs font-bold hover:bg-gray-50 cursor-pointer"
+                  >
+                    Reset All
+                  </button>
+                  <button
+                    onClick={() => { handleApplyFilters(); setMobileFiltersOpen(false); }}
+                    className="flex-1 bg-[#ff5c00] text-white py-3 rounded-lg text-xs font-bold hover:bg-orange-600 cursor-pointer"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Product Count Indicator & Sorting */}
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between text-xs text-gray-500 py-1">
