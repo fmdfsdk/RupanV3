@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Clock, Calendar, ArrowLeft, BookOpen, MessageSquare, Heart, Share2 } from 'lucide-react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { BlogPost } from '../types';
 import { useSEO, buildBlogPostingSchema } from '../hooks/useSEO';
@@ -8,32 +8,58 @@ import { useSEO, buildBlogPostingSchema } from '../hooks/useSEO';
 export default function BlogPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const BLOGS = useStore((state) => state.dbBlogs);
+  const location = useLocation();
+  const BLOGS = useStore((state) => state.dbBlogs) || [];
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [id]);
+  }, [id, location.pathname]);
 
-  // Find active blog post
-  const activePost = id ? BLOGS.find((b) => b.id === id) : null;
+  // Find active blog post (match either location pathname or parameterized ID)
+  const activePost = BLOGS.find((b) => b.id === location.pathname || b.id === id || b.id === `/blog/${id}`);
 
-  // SEO — must be called unconditionally at top level (React Rules of Hooks)
-  const blogSeoTitle = activePost
+  // Parse metadata block
+  const blogSettings = (() => {
+    if (!activePost) return { layout: 'standard', seoEnabled: true, marketingEnabled: true };
+    const match = (activePost.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        return {
+          layout: parsed.layout || 'standard',
+          seoEnabled: parsed.seoEnabled !== false,
+          marketingEnabled: parsed.marketingEnabled !== false
+        };
+      } catch (e) {}
+    }
+    const isBlankLegacy = (activePost.content || '').startsWith('<!-- layout: blank -->') || (activePost.content || '').startsWith('<!-- layout:blank -->');
+    return {
+      layout: isBlankLegacy ? 'blank' : 'standard',
+      seoEnabled: true,
+      marketingEnabled: true
+    };
+  })();
+
+  const isSeoEnabled = blogSettings.seoEnabled;
+  const isBlankLayout = blogSettings.layout === 'blank';
+
+  // SEO — must be called unconditionally at top level
+  const blogSeoTitle = activePost && isSeoEnabled
     ? (activePost.seoTitle || `${activePost.title} | Rupan Blog`)
     : 'Style Guides & Fashion Journal | Rupan Blog';
-  const blogSeoDesc = activePost
+  const blogSeoDesc = activePost && isSeoEnabled
     ? (activePost.seoDescription || activePost.excerpt || activePost.title)
     : "Rupan-এর মাস্টার ডিজাইনারদের তৈরি প্রিমিয়াম স্টাইল গাইড, ট্র্যাডিশনাল ফ্যাব্রিক কেয়ার গাইড ও ফ্যাশন ইনসাইট।";
 
   useSEO({
     title: blogSeoTitle,
     description: blogSeoDesc,
-    canonical: activePost ? `/blog/${activePost.id}` : '/blog',
+    canonical: activePost ? (activePost.id.startsWith('/') ? activePost.id : `/blog/${activePost.id}`) : '/blog',
     ogImage: activePost?.image,
     ogType: activePost ? 'article' : 'website',
     publishedTime: activePost?.date,
     author: 'Rupan Editorial',
-    jsonLd: activePost
+    jsonLd: activePost && isSeoEnabled
       ? [buildBlogPostingSchema({
           id: activePost.id,
           title: activePost.title,
@@ -53,14 +79,18 @@ export default function BlogPage() {
   };
 
   if (activePost) {
-    const isBlankLayout = activePost.content?.startsWith('<!-- layout: blank -->') || activePost.content?.startsWith('<!-- layout:blank -->');
     const otherPosts = BLOGS.filter((b) => b.id !== activePost.id).slice(0, 2);
 
     if (isBlankLayout) {
+      const cleanedHTML = activePost.content
+        .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+        .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
       return (
-        <div 
-          className="w-full min-h-screen font-sans p-0 m-0"
-          dangerouslySetInnerHTML={{ __html: activePost.content }}
+        <iframe 
+          title={activePost.title}
+          srcDoc={cleanedHTML}
+          className="fixed inset-0 w-full h-full border-none m-0 p-0 block bg-white z-50"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />
       );
     }
@@ -123,7 +153,7 @@ export default function BlogPage() {
           )}
           
           {/* Detailed structured content using HTML */}
-          <div dangerouslySetInnerHTML={{ __html: activePost.content }} />
+          <div dangerouslySetInnerHTML={{ __html: activePost.content.replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '') }} />
         </article>
 
         {/* Action Share widgets */}

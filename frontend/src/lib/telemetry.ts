@@ -4,6 +4,7 @@
  */
 
 import { Product, Order } from '../types';
+import { useStore } from '../store/useStore';
 
 let isPixelLoaded = typeof window !== 'undefined' && !!(window as any).isPixelLoaded;
 let isGTMConfigured = typeof window !== 'undefined' && !!(window as any).isGTMConfigured;
@@ -120,6 +121,30 @@ const fireEvent = (
   options: { eventID?: string; testCode?: string } = {}
 ) => {
   if (typeof window === 'undefined') return;
+
+  // Check if marketing is disabled for the active landing page
+  try {
+    const dbBlogs = useStore.getState().dbBlogs || [];
+    const currentPath = window.location.pathname;
+    const activeBlog = dbBlogs.find((b: any) => {
+      if (b.id === currentPath) return true;
+      const match = currentPath.match(/^\/blog\/([^/]+)$/);
+      if (match) {
+        return b.id === match[1] || b.id === `/blog/${match[1]}`;
+      }
+      return false;
+    });
+    if (activeBlog) {
+      const metaMatch = (activeBlog.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+      if (metaMatch) {
+        const meta = JSON.parse(metaMatch[1]);
+        if (meta.marketingEnabled === false) {
+          console.log(`[Telemetry] Tracking blocked for path ${currentPath} (marketing/pixel disabled)`);
+          return;
+        }
+      }
+    }
+  } catch (e) {}
 
   const w = window as any;
   const eventId = options.eventID;

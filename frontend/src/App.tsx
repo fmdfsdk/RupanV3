@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { checkSupabaseConnection } from './lib/supabase';
 import { trackPageView, generateEventId, initializeTelemetry } from './lib/telemetry';
@@ -149,11 +149,25 @@ function AppLayout() {
 
   const BLOGS = useStore((state) => state.dbBlogs) || [];
   const isBlankLayoutBlog = (() => {
-    const match = location.pathname.match(/^\/blog\/([^/]+)$/);
-    if (!match) return false;
-    const blogId = match[1];
-    const activeBlog = BLOGS.find((b) => b.id === blogId);
-    return !!(activeBlog?.content?.startsWith('<!-- layout: blank -->') || activeBlog?.content?.startsWith('<!-- layout:blank -->'));
+    const activeBlog = BLOGS.find((b) => {
+      if (b.id === location.pathname) return true;
+      const match = location.pathname.match(/^\/blog\/([^/]+)$/);
+      if (match) {
+        return b.id === match[1] || b.id === `/blog/${match[1]}`;
+      }
+      return false;
+    });
+
+    if (!activeBlog) return false;
+
+    const metaMatch = (activeBlog.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+    if (metaMatch) {
+      try {
+        const meta = JSON.parse(metaMatch[1]);
+        return meta.layout === 'blank';
+      } catch (e) {}
+    }
+    return !!(activeBlog.content?.startsWith('<!-- layout: blank -->') || activeBlog.content?.startsWith('<!-- layout:blank -->'));
   })();
 
   return (
@@ -209,7 +223,7 @@ function AppLayout() {
               <Route path="/blog/:id" element={<BlogPage />} />
               <Route path="/blogs" element={<BlogPage />} />
               <Route path="/product-search" element={<SearchPage />} />
-
+              <Route path="/*" element={<CatchAllRoute />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
@@ -248,6 +262,33 @@ function AppLayout() {
 
       {/* TOAST NOTIFICATION FLOATING PORTAL */}
       <ToastContainer />
+    </div>
+  );
+}
+
+function CatchAllRoute() {
+  const BLOGS = useStore((state) => state.dbBlogs) || [];
+  const location = useLocation();
+  
+  // Find blog/landing page by exact path matching
+  const matchingBlog = BLOGS.find(b => b.id === location.pathname);
+  
+  if (matchingBlog) {
+    return <BlogPage />;
+  }
+  
+  return (
+    <div className="max-w-md mx-auto py-32 text-center space-y-6 animate-in fade-in duration-300">
+      <h1 className="text-6xl font-black text-zinc-900 tracking-tight">404</h1>
+      <p className="text-sm font-semibold text-gray-500 max-w-xs mx-auto">
+        We couldn't find the page you are looking for. It might have been moved or deleted.
+      </p>
+      <Link 
+        to="/" 
+        className="inline-block bg-brand-primary text-white text-xs font-bold uppercase tracking-widest px-8 py-3.5 rounded-xl hover:bg-blue-900 transition-colors shadow-md"
+      >
+        Back to Home
+      </Link>
     </div>
   );
 }

@@ -135,6 +135,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     seoDescription: ''
   });
   const [blogLayoutMode, setBlogLayoutMode] = useState<'standard' | 'blank'>('standard');
+  const [blogSeoEnabled, setBlogSeoEnabled] = useState<boolean>(true);
+  const [blogMarketingEnabled, setBlogMarketingEnabled] = useState<boolean>(true);
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
 
   // Selected Order Detail View
@@ -1059,8 +1061,28 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const openBlogForm = (blog: BlogPost | null = null) => {
     if (blog) {
       setEditingBlog(blog);
-      const isBlank = (blog.content || '').startsWith('<!-- layout: blank -->');
-      setBlogLayoutMode(isBlank ? 'blank' : 'standard');
+      const content = blog.content || '';
+      let layout: 'standard' | 'blank' = 'standard';
+      let seo = true;
+      let marketing = true;
+      
+      const metaMatch = content.match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+      if (metaMatch) {
+        try {
+          const parsed = JSON.parse(metaMatch[1]);
+          layout = parsed.layout || 'standard';
+          seo = parsed.seoEnabled !== false;
+          marketing = parsed.marketingEnabled !== false;
+        } catch (e) {}
+      } else {
+        if (content.startsWith('<!-- layout: blank -->') || content.startsWith('<!-- layout:blank -->')) {
+          layout = 'blank';
+        }
+      }
+      
+      setBlogLayoutMode(layout);
+      setBlogSeoEnabled(seo);
+      setBlogMarketingEnabled(marketing);
       setBlogForm({
         id: blog.id,
         title: blog.title,
@@ -1076,6 +1098,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     } else {
       setEditingBlog(null);
       setBlogLayoutMode('standard');
+      setBlogSeoEnabled(true);
+      setBlogMarketingEnabled(true);
       setBlogForm({
         id: '',
         title: '',
@@ -1103,15 +1127,27 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return;
     }
 
-    const finalId = blogForm.id.trim() 
-      ? blogForm.id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-      : blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-    // Prepend or strip the layout mode tag from content
-    let finalContent = (blogForm.content || '').replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '');
-    if (blogLayoutMode === 'blank') {
-      finalContent = `<!-- layout: blank -->\n${finalContent}`;
+    let finalId = blogForm.id.trim();
+    if (!finalId) {
+      finalId = `/blog/${blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
     }
+    // Ensure it starts with a slash
+    if (!finalId.startsWith('/')) {
+      finalId = '/' + finalId;
+    }
+
+    // Strip old layout tags and metadata comments
+    let cleanedContent = (blogForm.content || '')
+      .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+      .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+
+    // Form metadata JSON block
+    const metadata = {
+      layout: blogLayoutMode,
+      seoEnabled: blogSeoEnabled,
+      marketingEnabled: blogMarketingEnabled
+    };
+    const finalContent = `<!-- metadata: ${JSON.stringify(metadata)} -->\n${cleanedContent}`;
 
     const payload = {
       id: finalId,
@@ -2607,7 +2643,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                       value={blogForm.title}
                       onChange={(e) => {
                         const newTitle = e.target.value;
-                        const generatedSlug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                        const generatedSlug = `/blog/${newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
                         setBlogForm({ 
                           ...blogForm, 
                           title: newTitle, 
@@ -2621,14 +2657,21 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   </div>
 
                   <div className="space-y-1">
-                    <label className="uppercase font-bold text-zinc-600">URL Slug (ID)</label>
+                    <label className="uppercase font-bold text-zinc-600 block mb-0.5">Full URL Path (Must start with /)</label>
                     <input
                       type="text"
                       required
                       value={blogForm.id}
-                      onChange={(e) => setBlogForm({ ...blogForm, id: e.target.value })}
-                      placeholder="e.g. summer-fashion-trends-bd"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-mono focus:outline-none"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        let sanitized = val.toLowerCase().replace(/[^a-z0-9\-/]/g, '');
+                        if (sanitized && !sanitized.startsWith('/')) {
+                          sanitized = '/' + sanitized;
+                        }
+                        setBlogForm({ ...blogForm, id: sanitized });
+                      }}
+                      placeholder="e.g. /offers/eid-campaign or /blog/my-slug"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-mono focus:outline-none font-bold"
                     />
                   </div>
 
@@ -2702,6 +2745,33 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                       <option value="blank">Blank Canvas (Custom HTML Landing Page - Hides Header/Footer)</option>
                     </select>
                   </div>
+
+                  {blogLayoutMode === 'blank' && (
+                    <div className="space-y-2 pt-2 border-t border-gray-100">
+                      <label className="uppercase font-extrabold text-[10px] text-gray-400 block tracking-wider">Canvas Customizations</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
+                          <input 
+                            type="checkbox" 
+                            checked={blogSeoEnabled} 
+                            onChange={(e) => setBlogSeoEnabled(e.target.checked)}
+                            className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                          />
+                          <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable SEO</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
+                          <input 
+                            type="checkbox" 
+                            checked={blogMarketingEnabled} 
+                            onChange={(e) => setBlogMarketingEnabled(e.target.checked)}
+                            className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                          />
+                          <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable Tracking</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Media Preview Card */}
@@ -2935,7 +3005,20 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                   {editingBlog && (
                     <a 
-                      href={`/blog/${blogForm.id}`} 
+                      href={(() => {
+                        const origin = window.location.origin;
+                        let storefrontOrigin = origin;
+                        if (origin.includes('localhost:5174')) {
+                          storefrontOrigin = origin.replace('localhost:5174', 'localhost:5173');
+                        } else if (origin.includes('127.0.0.1:5174')) {
+                          storefrontOrigin = origin.replace('127.0.0.1:5174', '127.0.0.1:5173');
+                        } else if (origin.includes('admin.')) {
+                          storefrontOrigin = origin.replace('admin.', 'www.');
+                        }
+                        const path = blogForm.id;
+                        const formattedPath = path.startsWith('/') ? path : `/blog/${path}`;
+                        return `${storefrontOrigin}${formattedPath}`;
+                      })()}
                       target="_blank" 
                       rel="noreferrer"
                       className="mr-auto bg-blue-50 text-brand-primary border border-blue-100 hover:bg-blue-100/50 font-bold px-5 py-3 rounded-xl transition-all flex items-center gap-1.5 text-xs uppercase tracking-wider cursor-pointer"
