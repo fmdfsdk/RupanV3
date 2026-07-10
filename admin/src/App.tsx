@@ -154,7 +154,7 @@ export default function App() {
   // Verify Roles
   const isAuthorized = profile && [
     'Super Admin', 'Admin', 'Manager', 'Editor', 'Support', 'Delivery Manager'
-  ].includes(profile.role) && profile.is_active;
+  ].includes(profile.role) && (profile.isActive !== undefined ? profile.isActive : profile.is_active);
 
   // Show Admin Panel if logged in and authorized
   if (session && isAuthorized) {
