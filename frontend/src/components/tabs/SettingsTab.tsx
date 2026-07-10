@@ -201,61 +201,6 @@ export default function SettingsTab({
             </div>
           </div>
         </div>
-
-        {/* Marketing Ad Integrations Card */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4 col-span-1 lg:col-span-2">
-          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-2 flex items-center gap-2">
-            <Tag className="w-4 h-4 text-[#ff5c00]" />
-            Marketing Telemetry & Ad Integrations
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-zinc-600">Meta Pixel (Facebook Ads) ID</label>
-              <input 
-                type="text" 
-                placeholder="e.g. 10284812841"
-                value={settings.metaPixelId || ''}
-                onChange={(e) => setSettings({ ...settings, metaPixelId: e.target.value })}
-                className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-zinc-600">Meta Test Event Code</label>
-              <input 
-                type="text" 
-                placeholder="e.g. TEST12345 (for monitoring live test events)"
-                value={settings.metaTestEventCode || ''}
-                onChange={(e) => setSettings({ ...settings, metaTestEventCode: e.target.value })}
-                className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-zinc-600">Google Tag Manager (GTM) ID</label>
-              <input 
-                type="text" 
-                placeholder="e.g. GTM-XXXXXX"
-                value={settings.googleTagManagerId || ''}
-                onChange={(e) => setSettings({ ...settings, googleTagManagerId: e.target.value })}
-                className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-zinc-600">Google Analytics 4 (GA4) Measurement ID</label>
-              <input 
-                type="text" 
-                placeholder="e.g. G-XXXXXXXXXX"
-                value={settings.googleAnalyticsId || ''}
-                onChange={(e) => setSettings({ ...settings, googleAnalyticsId: e.target.value })}
-                className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
-              />
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   );

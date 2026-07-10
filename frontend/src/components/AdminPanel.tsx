@@ -4,7 +4,7 @@ import {
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
@@ -25,6 +25,7 @@ import HomepageTab from './tabs/HomepageTab';
 import BlogsTab from './tabs/BlogsTab';
 import ReviewsTab from './tabs/ReviewsTab';
 import SettingsTab from './tabs/SettingsTab';
+import SeoMarketingTab from './tabs/SeoMarketingTab';
 import SyncTab from './tabs/SyncTab';
 
 interface AdminPanelProps {
@@ -93,9 +94,20 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   
   const [couponModalOpen, setCouponModalOpen] = useState<boolean>(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [couponForm, setCouponForm] = useState<any>({
+    code: '',
+    type: 'percentage',
+    value: 0,
+    minOrder: 0,
+    maxDiscount: '',
+    expiryDate: '',
+    usageLimit: '',
+    isActive: true
+  });
 
   const [bannerModalOpen, setBannerModalOpen] = useState<boolean>(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [uploadingBannerImage, setUploadingBannerImage] = useState<boolean>(false);
   const [bannerForm, setBannerForm] = useState<any>({
     title: '',
     subtitle: '',
@@ -109,6 +121,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   const [blogModalOpen, setBlogModalOpen] = useState<boolean>(false);
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
+  const [blogForm, setBlogForm] = useState<any>({
+    id: '',
+    title: '',
+    excerpt: '',
+    content: '',
+    image: '',
+    readTime: '3 min read',
+    category: 'Fashion',
+    status: 'published',
+    seoTitle: '',
+    seoDescription: ''
+  });
 
   // Selected Order Detail View
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -278,6 +302,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (uData) setUsers(uData);
       if (sData) {
         setSettings({
+          id: sData.id,
           logoText: sData.logo_text || sData.logoText || 'RUPAN',
           logoAccent: sData.logo_accent || sData.logoAccent || '.',
           tagline: sData.tagline || 'Style That Speaks.',
@@ -293,8 +318,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId || '',
           googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId || ''
         });
-        if (sData.homepage_config) {
-          setHomepageConfig(sData.homepage_config);
+        const hConfig = sData.homepageConfig || sData.homepage_config;
+        if (hConfig) {
+          setHomepageConfig(hConfig);
         }
       }
 
@@ -368,7 +394,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         googleAnalyticsId: settings.googleAnalyticsId
       };
       
-      const { error } = await supabase.from('settings').update(payload).eq('id', 1);
+      const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
       if (!error) {
         alert("Website configurations updated successfully!");
       } else {
@@ -891,7 +917,255 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         publish_date: ''
       });
     }
-    setBannerModalOpen(true);
+  };
+
+  const openCouponForm = (coupon: Coupon | null = null) => {
+    if (coupon) {
+      setEditingCoupon(coupon);
+      setCouponForm({
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+        minOrder: coupon.minOrder,
+        maxDiscount: coupon.maxDiscount ?? '',
+        expiryDate: coupon.expiryDate || '',
+        usageLimit: coupon.usageLimit ?? '',
+        isActive: coupon.isActive ?? true
+      });
+    } else {
+      setEditingCoupon(null);
+      setCouponForm({
+        code: '',
+        type: 'percentage',
+        value: 0,
+        minOrder: 0,
+        maxDiscount: '',
+        expiryDate: '',
+        usageLimit: '',
+        isActive: true
+      });
+    }
+    setCouponModalOpen(true);
+  };
+
+  const handleSaveCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponForm.code.trim()) {
+      alert("Please enter a coupon code");
+      return;
+    }
+
+    const payload = {
+      code: couponForm.code.toUpperCase().trim(),
+      type: couponForm.type,
+      value: Number(couponForm.value),
+      min_order: Number(couponForm.minOrder),
+      max_discount: couponForm.maxDiscount ? Number(couponForm.maxDiscount) : null,
+      expiry_date: couponForm.expiryDate || null,
+      usage_limit: couponForm.usageLimit ? Number(couponForm.usageLimit) : null,
+      is_active: couponForm.isActive
+    };
+
+    const finalCoupon: Coupon = {
+      code: payload.code,
+      type: payload.type as any,
+      value: payload.value,
+      minOrder: payload.min_order,
+      maxDiscount: payload.max_discount || undefined,
+      expiryDate: payload.expiry_date || '',
+      usageLimit: payload.usage_limit || undefined,
+      isActive: payload.is_active,
+      usedCount: editingCoupon ? editingCoupon.usedCount : 0
+    };
+
+    if (editingCoupon) {
+      const { error } = await supabase.from('coupons').update(payload).eq('code', editingCoupon.code);
+      if (error) {
+        alert("Error updating coupon: " + error.message);
+        return;
+      }
+      setCoupons(coupons.map(c => c.code === editingCoupon.code ? finalCoupon : c));
+      alert("Coupon updated successfully!");
+    } else {
+      if (coupons.some(c => c.code === finalCoupon.code)) {
+        alert("A coupon with this code already exists!");
+        return;
+      }
+      const { error } = await supabase.from('coupons').insert([payload]);
+      if (error) {
+        alert("Error creating coupon: " + error.message);
+        return;
+      }
+      setCoupons([...coupons, finalCoupon]);
+      alert("Coupon created successfully!");
+    }
+    setCouponModalOpen(false);
+  };
+
+  const handleDeleteCoupon = async (code: string) => {
+    if (!window.confirm(`Are you sure you want to delete coupon "${code}"?`)) return;
+    const { error } = await supabase.from('coupons').delete().eq('code', code);
+    if (error) {
+      alert("Error deleting coupon: " + error.message);
+      return;
+    }
+    setCoupons(coupons.filter(c => c.code !== code));
+    alert("Coupon deleted successfully!");
+  };
+
+  const openBlogForm = (blog: BlogPost | null = null) => {
+    if (blog) {
+      setEditingBlog(blog);
+      setBlogForm({
+        id: blog.id,
+        title: blog.title,
+        excerpt: blog.excerpt || '',
+        content: blog.content || '',
+        image: blog.image || '',
+        readTime: blog.readTime || '3 min read',
+        category: blog.category || 'Fashion',
+        status: blog.status || 'published',
+        seoTitle: blog.seoTitle || '',
+        seoDescription: blog.seoDescription || ''
+      });
+    } else {
+      setEditingBlog(null);
+      setBlogForm({
+        id: '',
+        title: '',
+        excerpt: '',
+        content: '<p>Write your article content here...</p>',
+        image: '',
+        readTime: '3 min read',
+        category: 'Fashion',
+        status: 'published',
+        seoTitle: '',
+        seoDescription: ''
+      });
+    }
+    setBlogModalOpen(true);
+  };
+
+  const handleSaveBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blogForm.title.trim()) {
+      alert("Please enter a blog title");
+      return;
+    }
+    if (!blogForm.content.trim()) {
+      alert("Please enter blog content");
+      return;
+    }
+
+    const finalId = blogForm.id.trim() 
+      ? blogForm.id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      : blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    const payload = {
+      id: finalId,
+      title: blogForm.title,
+      excerpt: blogForm.excerpt,
+      content: blogForm.content,
+      image: blogForm.image,
+      read_time: blogForm.readTime,
+      category: blogForm.category,
+      status: blogForm.status,
+      seo_title: blogForm.seoTitle || null,
+      seo_description: blogForm.seoDescription || null
+    };
+
+    const finalBlog: BlogPost = {
+      id: finalId,
+      title: blogForm.title,
+      excerpt: blogForm.excerpt,
+      content: blogForm.content,
+      image: blogForm.image,
+      date: editingBlog ? editingBlog.date : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      readTime: blogForm.readTime,
+      category: blogForm.category,
+      status: blogForm.status as any,
+      seoTitle: blogForm.seoTitle || undefined,
+      seoDescription: blogForm.seoDescription || undefined
+    };
+
+    if (editingBlog) {
+      const { error } = await supabase.from('blogs').update(payload).eq('id', editingBlog.id);
+      if (error) {
+        alert("Error updating blog: " + error.message);
+        return;
+      }
+      setBlogs(blogs.map(b => b.id === editingBlog.id ? finalBlog : b));
+      alert("Blog post updated successfully!");
+    } else {
+      if (blogs.some(b => b.id === finalBlog.id)) {
+        alert("An article with this URL slug already exists!");
+        return;
+      }
+      const { error } = await supabase.from('blogs').insert([payload]);
+      if (error) {
+        alert("Error creating blog: " + error.message);
+        return;
+      }
+      setBlogs([finalBlog, ...blogs]);
+      alert("Blog post created successfully!");
+    }
+    setBlogModalOpen(false);
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this blog post?")) return;
+    const { error } = await supabase.from('blogs').delete().eq('id', id);
+    if (error) {
+      alert("Error deleting blog: " + error.message);
+      return;
+    }
+    setBlogs(blogs.filter(b => b.id !== id));
+    alert("Blog post deleted successfully!");
+  };
+
+  const handleBannerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBannerImage(true);
+    try {
+      // 1. Try to create bucket 'banners' if it doesn't exist
+      try {
+        await supabase.storage.createBucket('banners', {
+          public: true,
+          fileSizeLimit: 5242880 // 5MB
+        });
+      } catch (e) {}
+
+      // 2. Upload file
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('banners')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) throw error;
+
+      // 3. Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('banners')
+        .getPublicUrl(filePath);
+
+      setBannerForm((prev: any) => ({
+        ...prev,
+        image: publicUrl
+      }));
+      alert("Image uploaded successfully!");
+    } catch (err: any) {
+      alert(`Upload failed: ${err.message}`);
+    } finally {
+      setUploadingBannerImage(false);
+    }
   };
 
   const handleSaveBanner = async (e: React.FormEvent) => {
@@ -1187,6 +1461,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('marketing'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'marketing' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Globe className="w-4 h-4" />
+              <span>SEO & Marketing</span>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('settings'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'settings' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -1219,6 +1503,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 <OverviewTab 
                   stats={stats} 
                   orders={orders} 
+                  products={products}
+                  settings={settings}
                   setActiveTab={setActiveTab} 
                 />
               )}
@@ -1285,8 +1571,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 <CouponsTab
                   coupons={coupons}
                   setCoupons={setCoupons}
-                  setEditingCoupon={setEditingCoupon}
+                  setEditingCoupon={openCouponForm}
                   setCouponModalOpen={setCouponModalOpen}
+                  onDeleteCoupon={handleDeleteCoupon}
                 />
               )}
 
@@ -1299,12 +1586,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   setHomepageConfig={setHomepageConfig}
                   openBannerForm={openBannerForm}
                   handleDeleteBanner={handleDeleteBanner}
+                  settingsId={settings.id}
                 />
               )}
 
               {/* TAB 8: BLOG MANAGEMENT */}
               {activeTab === 'blogs' && (
-                <BlogsTab blogs={blogs} />
+                <BlogsTab
+                  blogs={blogs}
+                  onOpenBlogForm={openBlogForm}
+                  onDeleteBlog={handleDeleteBlog}
+                />
               )}
 
               {/* TAB 9: REVIEWS MODERATION BOARD */}
@@ -1315,7 +1607,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               )}
 
-              {/* TAB 10: GLOBAL STORE CONFIGURATIONS */}
+              {/* TAB 10: SEO & MARKETING INTEGRATIONS */}
+              {activeTab === 'marketing' && (
+                <SeoMarketingTab
+                  settings={settings}
+                  setSettings={setSettings}
+                  handleSaveSettings={handleSaveSettings}
+                />
+              )}
+
+              {/* TAB 11: GLOBAL STORE CONFIGURATIONS */}
               {activeTab === 'settings' && (
                 <SettingsTab
                   settings={settings}
@@ -1796,16 +2097,30 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="uppercase font-bold text-gray-400">Image URL</label>
-                <input
-                  type="text"
-                  required
-                  value={bannerForm.image}
-                  onChange={(e) => setBannerForm({ ...bannerForm, image: e.target.value })}
-                  placeholder="Paste banner image URL link"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
-                />
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Upload Banner Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerImageUpload}
+                    disabled={uploadingBannerImage}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-zinc-800 font-medium focus:outline-none file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#ff5c00]/10 file:text-[#ff5c00] hover:file:bg-[#ff5c00]/20 file:cursor-pointer"
+                  />
+                  {uploadingBannerImage && <p className="text-[10px] text-[#ff5c00] font-bold animate-pulse">Uploading image to Supabase...</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Image URL (or Auto-filled on Upload)</label>
+                  <input
+                    type="text"
+                    required
+                    value={bannerForm.image}
+                    onChange={(e) => setBannerForm({ ...bannerForm, image: e.target.value })}
+                    placeholder="Paste banner image URL link or upload above"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1888,7 +2203,490 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           </div>
         </div>
       )}
+      {/* MODAL 7: COUPON EDIT / CREATE FORM */}
+      {couponModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <h2 className="text-xl font-black tracking-tight text-zinc-900 uppercase">
+                {editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : 'Create New Coupon'}
+              </h2>
+              <button 
+                onClick={() => setCouponModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
+            <form onSubmit={handleSaveCoupon} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="uppercase font-bold text-gray-400">Coupon Code</label>
+                <input
+                  type="text"
+                  required
+                  disabled={!!editingCoupon}
+                  value={couponForm.code}
+                  onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value })}
+                  placeholder="e.g. EIDSALE20"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-bold focus:outline-none uppercase tracking-wider disabled:bg-gray-100 disabled:text-gray-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Discount Scheme</label>
+                  <select
+                    value={couponForm.type}
+                    onChange={(e) => setCouponForm({ ...couponForm, type: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="percentage">Percentage Off (%)</option>
+                    <option value="fixed">Flat Amount Waiver (৳)</option>
+                    <option value="free_shipping">Free Shipping</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Discount Value</label>
+                  <input
+                    type="number"
+                    required
+                    disabled={couponForm.type === 'free_shipping'}
+                    value={couponForm.type === 'free_shipping' ? '' : couponForm.value}
+                    onChange={(e) => setCouponForm({ ...couponForm, value: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 15"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Min Order Requirement (৳)</label>
+                  <input
+                    type="number"
+                    required
+                    value={couponForm.minOrder}
+                    onChange={(e) => setCouponForm({ ...couponForm, minOrder: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 1000"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-bold focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Max Discount Limit (৳)</label>
+                  <input
+                    type="number"
+                    disabled={couponForm.type !== 'percentage'}
+                    value={couponForm.maxDiscount || ''}
+                    onChange={(e) => setCouponForm({ ...couponForm, maxDiscount: e.target.value })}
+                    placeholder="e.g. 500 (Optional)"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-bold focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Usage Limit Count</label>
+                  <input
+                    type="number"
+                    value={couponForm.usageLimit || ''}
+                    onChange={(e) => setCouponForm({ ...couponForm, usageLimit: e.target.value })}
+                    placeholder="e.g. 100 (Optional)"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-400">Expiration Date</label>
+                  <input
+                    type="date"
+                    value={couponForm.expiryDate || ''}
+                    onChange={(e) => setCouponForm({ ...couponForm, expiryDate: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="couponIsActive"
+                  checked={couponForm.isActive}
+                  onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
+                />
+                <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
+                  Activate Coupon Instantly (Online)
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+                <button 
+                  type="button"
+                  onClick={() => setCouponModalOpen(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer"
+                >
+                  {editingCoupon ? "Save Coupon" : "Create Coupon"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL 8: BLOG EDIT / CREATE FORM */}
+      {blogModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <h2 className="text-xl font-black tracking-tight text-zinc-900 uppercase">
+                {editingBlog ? `Edit Article: ${editingBlog.title}` : 'Compose New Article'}
+              </h2>
+              <button 
+                onClick={() => setBlogModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBlog} className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-xs">
+              
+              {/* Left Column: Metadata & Media Preview (4 cols) */}
+              <div className="lg:col-span-4 space-y-4">
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">Article Metadata</h3>
+                  
+                  <div className="space-y-1">
+                    <label className="uppercase font-bold text-zinc-600">Article Title</label>
+                    <input
+                      type="text"
+                      required
+                      value={blogForm.title}
+                      onChange={(e) => {
+                        const newTitle = e.target.value;
+                        const generatedSlug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                        setBlogForm({ 
+                          ...blogForm, 
+                          title: newTitle, 
+                          id: editingBlog ? blogForm.id : generatedSlug,
+                          seoTitle: editingBlog ? blogForm.seoTitle : newTitle
+                        });
+                      }}
+                      placeholder="e.g. 5 Summer Fashion Trends in Bangladesh"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-semibold focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="uppercase font-bold text-zinc-600">URL Slug (ID)</label>
+                    <input
+                      type="text"
+                      required
+                      value={blogForm.id}
+                      onChange={(e) => setBlogForm({ ...blogForm, id: e.target.value })}
+                      placeholder="e.g. summer-fashion-trends-bd"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-mono focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="uppercase font-bold text-zinc-600">Category</label>
+                      <input
+                        type="text"
+                        value={blogForm.category}
+                        onChange={(e) => setBlogForm({ ...blogForm, category: e.target.value })}
+                        placeholder="e.g. Fashion"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="uppercase font-bold text-zinc-600">Read Time</label>
+                      <input
+                        type="text"
+                        value={blogForm.readTime}
+                        onChange={(e) => setBlogForm({ ...blogForm, readTime: e.target.value })}
+                        placeholder="e.g. 4 min read"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="uppercase font-bold text-zinc-600">Excerpt / Short Description</label>
+                    <textarea
+                      value={blogForm.excerpt}
+                      onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
+                      placeholder="A short snippet that summarizes the article for listings."
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none h-20 resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="uppercase font-bold text-zinc-600">Publish Status</label>
+                      <select
+                        value={blogForm.status}
+                        onChange={(e) => setBlogForm({ ...blogForm, status: e.target.value })}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                      >
+                        <option value="published">Published</option>
+                        <option value="draft">Draft</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="uppercase font-bold text-zinc-600">Featured Photo Link</label>
+                      <input
+                        type="text"
+                        value={blogForm.image}
+                        onChange={(e) => setBlogForm({ ...blogForm, image: e.target.value })}
+                        placeholder="e.g. https://images.unsplash.com/..."
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Media Preview Card */}
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-3">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">Media Preview</h3>
+                  <div className="w-full aspect-video bg-white border border-gray-200 rounded-xl flex items-center justify-center overflow-hidden p-2">
+                    {blogForm.image ? (
+                      (() => {
+                        const url = blogForm.image.trim();
+                        if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+                          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                          const match = url.match(regExp);
+                          const yId = (match && match[2].length === 11) ? match[2] : null;
+                          if (yId) {
+                            return (
+                              <iframe
+                                src={`https://www.youtube.com/embed/${yId}`}
+                                className="w-full h-full rounded-lg"
+                                allowFullScreen
+                                title="YouTube Video Preview"
+                              />
+                            );
+                          }
+                        }
+                        if (url.includes('vimeo.com/')) {
+                          const match = url.match(/vimeo\.com\/(\d+)/);
+                          const vId = match ? match[1] : null;
+                          if (vId) {
+                            return (
+                              <iframe
+                                src={`https://player.vimeo.com/video/${vId}`}
+                                className="w-full h-full rounded-lg"
+                                allowFullScreen
+                                title="Vimeo Video Preview"
+                              />
+                            );
+                          }
+                        }
+                        if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg')) {
+                          return (
+                            <video src={url} controls className="w-full h-full rounded-lg object-contain" />
+                          );
+                        }
+                        return (
+                          <img src={url} alt="Featured Preview" className="max-w-full max-h-full object-contain rounded-lg" onError={(e) => {
+                            (e.target as any).src = 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600';
+                          }} />
+                        );
+                      })()
+                    ) : (
+                      <span className="text-gray-400 font-bold text-[10px]">No image or video URL provided</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center font-medium font-sans">Supports direct image links, MP4 videos, YouTube, and Vimeo links.</p>
+                </div>
+              </div>
+
+              {/* Right Column: Dual Editors Side-by-Side (8 cols) */}
+              <div className="lg:col-span-8 flex flex-col space-y-4">
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col flex-1 min-h-[480px]">
+                  <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-3">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400">Simultaneous Dual Editor</h3>
+                    <div className="flex space-x-2 text-[10px] font-bold">
+                      <span className="bg-[#ff5c00]/10 text-[#ff5c00] px-2.5 py-1 rounded">Rich Text Panel</span>
+                      <span className="text-zinc-400 py-1">⇔</span>
+                      <span className="bg-zinc-800 text-green-400 px-2.5 py-1 rounded">HTML Source Panel</span>
+                    </div>
+                  </div>
+
+                  {/* Split Pane Container */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                    
+                    {/* Visual Editor Pane */}
+                    <div className="flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white min-h-[300px]">
+                      {/* Rich Text Toolbar */}
+                      <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('bold', false)}
+                          className="px-2 py-1 font-bold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                          title="Bold"
+                        >
+                          B
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('italic', false)}
+                          className="px-2 py-1 italic rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                          title="Italic"
+                        >
+                          I
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('underline', false)}
+                          className="px-2 py-1 underline rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                          title="Underline"
+                        >
+                          U
+                        </button>
+                        <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('formatBlock', false, '<h2>')}
+                          className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                          title="Heading 2"
+                        >
+                          H2
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('formatBlock', false, '<h3>')}
+                          className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                          title="Heading 3"
+                        >
+                          H3
+                        </button>
+                        <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('insertUnorderedList', false)}
+                          className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
+                          title="Unordered List"
+                        >
+                          • List
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => document.execCommand('insertOrderedList', false)}
+                          className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
+                          title="Ordered List"
+                        >
+                          1. List
+                        </button>
+                      </div>
+                      
+                      {/* contentEditable Visual Box */}
+                      <div
+                        contentEditable
+                        suppressContentEditableWarning
+                        onFocus={() => { (window as any).focusedEditor = 'visual'; }}
+                        onBlur={() => { (window as any).focusedEditor = null; }}
+                        onInput={(e) => {
+                          const html = e.currentTarget.innerHTML;
+                          setBlogForm({ ...blogForm, content: html });
+                        }}
+                        ref={(el) => {
+                          if (el && (window as any).focusedEditor !== 'visual') {
+                            el.innerHTML = blogForm.content;
+                          }
+                        }}
+                        className="p-4 flex-1 overflow-y-auto text-xs focus:outline-none leading-relaxed prose max-w-none text-zinc-800"
+                        style={{ minHeight: '260px' }}
+                      />
+                    </div>
+
+                    {/* HTML Source Code Pane */}
+                    <div className="flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-zinc-950 min-h-[300px]">
+                      <div className="bg-zinc-900 border-b border-zinc-800 p-2.5 text-zinc-400 font-mono text-[9px] uppercase tracking-wider flex items-center justify-between">
+                        <span>raw html markup source</span>
+                        <span className="text-zinc-600 font-sans text-[8px] font-bold">direct input/paste enabled</span>
+                      </div>
+                      <textarea
+                        value={blogForm.content}
+                        onFocus={() => { (window as any).focusedEditor = 'html'; }}
+                        onBlur={() => { (window as any).focusedEditor = null; }}
+                        onChange={(e) => {
+                          const text = e.target.value;
+                          setBlogForm({ ...blogForm, content: text });
+                        }}
+                        placeholder="<p>Paste or write raw HTML markup tags here...</p>"
+                        className="p-4 flex-1 font-mono text-xs bg-zinc-950 text-green-400 focus:outline-none resize-none overflow-y-auto border-none leading-normal h-full"
+                        style={{ minHeight: '260px' }}
+                      />
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* SEO Configurations */}
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">Search Engine Optimization (SEO)</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="uppercase font-bold text-zinc-600">SEO Meta Title</label>
+                      <input
+                        type="text"
+                        value={blogForm.seoTitle}
+                        onChange={(e) => setBlogForm({ ...blogForm, seoTitle: e.target.value })}
+                        placeholder="If blank, uses main article title"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-semibold focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="uppercase font-bold text-zinc-600">SEO Meta Description</label>
+                      <input
+                        type="text"
+                        value={blogForm.seoDescription}
+                        onChange={(e) => setBlogForm({ ...blogForm, seoDescription: e.target.value })}
+                        placeholder="Brief summary shown in Google search result cards"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save & Cancel Row */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                  <button 
+                    type="button"
+                    onClick={() => setBlogModalOpen(false)}
+                    className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+                  >
+                    {editingBlog ? "Save Article" : "Publish Article"}
+                  </button>
+                </div>
+
+              </div>
+              
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
