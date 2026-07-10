@@ -24,6 +24,7 @@ export const productService = {
    */
   async fetchProductsFiltered({
     category,
+    categories,
     gender,
     brands,
     subCategories,
@@ -36,6 +37,7 @@ export const productService = {
     limit = 12
   }: {
     category?: string;
+    categories?: string[];
     gender?: string;
     brands?: string[];
     subCategories?: string[];
@@ -52,8 +54,10 @@ export const productService = {
     // Enforce published status
     query = query.eq('status', 'published');
     
-    // Category filter
-    if (category && category !== 'All') {
+    // Categories filter (multi-select)
+    if (categories && categories.length > 0) {
+      query = query.in('category', categories);
+    } else if (category && category !== 'All') {
       if (category === 'New Arrivals') {
         query = query.eq('is_new', true);
       } else if (category === 'Best Sellers') {

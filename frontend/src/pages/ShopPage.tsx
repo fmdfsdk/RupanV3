@@ -5,7 +5,16 @@ import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { productService } from '../services/productService';
 import { Product } from '../types';
-
+const formatCategoryName = (cat: string): string => {
+  if (!cat) return '';
+  return cat
+    .split(' ')
+    .map(word => {
+      if (word.toLowerCase() === 'and' || word === '&') return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -192,6 +201,7 @@ export default function ShopPage() {
       try {
         const { products, count } = await productService.fetchProductsFiltered({
           category: urlCategory,
+          categories: urlCategories,
           gender: urlGender,
           brands: urlBrands,
           subCategories: urlSubCategories,
@@ -387,7 +397,7 @@ export default function ShopPage() {
                             className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
                           />
                           <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
-                            {cat}
+                            {formatCategoryName(cat)}
                           </span>
                         </div>
                         <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
@@ -454,8 +464,14 @@ export default function ShopPage() {
 
               {brandExpanded && (
                 <div className="space-y-2.5 pt-1">
-                  {['Apex', 'No Brand', 'Ruposhi', 'Sports Vision'].map((brand) => {
-                    const count = PRODUCTS.filter(p => (p.brand || 'No Brand') === brand).length;
+                  {Array.from(new Set(PRODUCTS.map(p => {
+                    const b = p.brand ? p.brand.replace(/reseller/gi, '').trim() || 'Rupan' : 'Rupan';
+                    return b;
+                  }).filter(Boolean))).map((brand) => {
+                    const count = PRODUCTS.filter(p => {
+                      const b = p.brand ? p.brand.replace(/reseller/gi, '').trim() || 'Rupan' : 'Rupan';
+                      return b === brand;
+                    }).length;
                     const isChecked = selectedBrands.includes(brand);
                     return (
                       <label key={brand} className="flex items-center justify-between group cursor-pointer text-sm">
