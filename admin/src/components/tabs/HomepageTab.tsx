@@ -195,14 +195,38 @@ export default function HomepageTab({
 
       {/* Section 3: Homepage Featured Categories */}
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
-        <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-3 flex items-center gap-2">
-          <Tag className="w-4 h-4 text-purple-500" />
-          Showcase Categories Grid (Home)
-        </h3>
+        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-purple-500" />
+            Showcase Categories Grid (Home)
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              const list = [...(homepageConfig.featured_categories || [])];
+              list.push({ name: 'New Showcase Category', desc: 'Detailed description of this category...', icon: '📦', bg: 'from-blue-50 to-sky-50/10' });
+              setHomepageConfig({ ...homepageConfig, featured_categories: list });
+            }}
+            className="bg-brand-primary text-white text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg hover:bg-blue-900 transition-all cursor-pointer"
+          >
+            Add Showcase Block
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(homepageConfig.featured_categories || []).map((cat: any, index: number) => (
-            <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3">
+            <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3 relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const list = homepageConfig.featured_categories.filter((_: any, i: number) => i !== index);
+                  setHomepageConfig({ ...homepageConfig, featured_categories: list });
+                }}
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-[10px] px-2 py-0.5 rounded bg-white border border-gray-100 hover:bg-red-50 cursor-pointer"
+              >
+                Delete
+              </button>
+
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{cat.icon}</span>
                 <div className="flex-1">
@@ -285,6 +309,120 @@ export default function HomepageTab({
           </button>
         </div>
       </div>
+
+      {/* Section 4: Homepage Circular Categories (Circular Bubbles) */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
+        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-[#ff5c00]" />
+            Homepage Circular Categories (Bubbles)
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              const list = [...(homepageConfig.homepage_categories || [])];
+              list.push({ 
+                name: 'New Category', 
+                image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=150', 
+                mappedId: 'all' 
+              });
+              setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+            }}
+            className="bg-brand-primary text-white text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg hover:bg-blue-900 transition-all cursor-pointer"
+          >
+            Add Circular Bubble
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {(homepageConfig.homepage_categories || []).map((cat: any, index: number) => (
+            <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3 relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const list = homepageConfig.homepage_categories.filter((_: any, i: number) => i !== index);
+                  setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                }}
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-[10px] px-2 py-0.5 rounded bg-white border border-gray-100 hover:bg-red-50 cursor-pointer"
+              >
+                Delete
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex items-center justify-center bg-white shrink-0">
+                  <img 
+                    src={cat.image || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=150'} 
+                    alt={cat.name} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={cat.name}
+                    onChange={(e) => {
+                      const list = [...homepageConfig.homepage_categories];
+                      list[index] = { ...cat, name: e.target.value };
+                      setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                    }}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none"
+                    placeholder="Category Name"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400">Image URL</label>
+                <input
+                  type="text"
+                  value={cat.image || ''}
+                  onChange={(e) => {
+                    const list = [...homepageConfig.homepage_categories];
+                    list[index] = { ...cat, image: e.target.value };
+                    setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none"
+                  placeholder="https://images.unsplash.com/..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400">Database Category Link (Slug)</label>
+                <input
+                  type="text"
+                  value={cat.mappedId || ''}
+                  onChange={(e) => {
+                    const list = [...homepageConfig.homepage_categories];
+                    list[index] = { ...cat, mappedId: e.target.value };
+                    setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none"
+                  placeholder="e.g. panjabi or watch"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end pt-3">
+          <button
+            type="button"
+            onClick={async () => {
+              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', settingsId || 1);
+              if (!error) {
+                alert("Homepage configurations saved successfully!");
+              } else {
+                alert(`Failed to save configurations: ${error.message}`);
+              }
+            }}
+            className="bg-[#ff5c00] text-white text-xs font-bold uppercase tracking-wider px-6 py-3.5 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+          >
+            Save Homepage Configurations
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useStore } from '../../store/useStore';
 
 interface CategoryGridProps {
   setSelectedCategory: (cat: string) => void;
@@ -6,7 +7,7 @@ interface CategoryGridProps {
   navigate: (path: string) => void;
 }
 
-const mapCategoryToDbId = (name: string): string => {
+const mapCategoryToDbIdFallback = (name: string): string => {
   const mapping: { [key: string]: string } = {
     'Women Fashions': "women's fashion",
     'Watches': 'watch',
@@ -33,24 +34,31 @@ export default function CategoryGrid({
   setSelectedGender,
   navigate
 }: CategoryGridProps) {
-  const categoriesList = [
-    { name: 'Women Fashions', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Watches', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Toys Products', image: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Shoes', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Power Sanders', image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Men Fashions', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Shirts & Polos', image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Kitchen Items', image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Home & Living', image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Health Care', image: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Grocery', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Fitness', image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Electronics', image: 'https://images.unsplash.com/photo-1588508065123-287b28e013da?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Beauty', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Baby & Kids', image: 'https://images.unsplash.com/photo-1515488042361-404e9250afef?q=80&w=150&auto=format&fit=crop' },
-    { name: 'Accessories', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=150&auto=format&fit=crop' }
+  const dbSettings = useStore((state) => state.dbSettings);
+  const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
+  
+  const defaultCategoriesList = [
+    { name: 'Women Fashions', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=150&auto=format&fit=crop', mappedId: "women's fashion" },
+    { name: 'Watches', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=150&auto=format&fit=crop', mappedId: 'watch' },
+    { name: 'Toys Products', image: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=150&auto=format&fit=crop', mappedId: 'kids zone' },
+    { name: 'Shoes', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+    { name: 'Power Sanders', image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=150&auto=format&fit=crop', mappedId: 'gadgets & electronics' },
+    { name: 'Men Fashions', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+    { name: 'Shirts & Polos', image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+    { name: 'Kitchen Items', image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=150&auto=format&fit=crop', mappedId: 'home & lifestyle' },
+    { name: 'Home & Living', image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=150&auto=format&fit=crop', mappedId: 'home & lifestyle' },
+    { name: 'Health Care', image: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=150&auto=format&fit=crop', mappedId: 'beauty' },
+    { name: 'Grocery', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=150&auto=format&fit=crop', mappedId: 'foods' },
+    { name: 'Fitness', image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=150&auto=format&fit=crop', mappedId: 'fitness' },
+    { name: 'Electronics', image: 'https://images.unsplash.com/photo-1588508065123-287b28e013da?q=80&w=150&auto=format&fit=crop', mappedId: 'gadgets & electronics' },
+    { name: 'Beauty', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=150&auto=format&fit=crop', mappedId: 'beauty' },
+    { name: 'Baby & Kids', image: 'https://images.unsplash.com/photo-1515488042361-404e9250afef?q=80&w=150&auto=format&fit=crop', mappedId: 'kids zone' },
+    { name: 'Accessories', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=150&auto=format&fit=crop', mappedId: 'watch' }
   ];
+
+  const categoriesList = homeConfig?.homepage_categories && homeConfig.homepage_categories.length > 0
+    ? homeConfig.homepage_categories
+    : defaultCategoriesList;
 
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12">
@@ -66,13 +74,13 @@ export default function CategoryGrid({
         </button>
       </div>
 
-      {/* Grid of 16 WooCommerce-style circular categories */}
+      {/* Grid of WooCommerce-style circular categories */}
       <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-6">
-        {categoriesList.map((cat) => (
+        {categoriesList.map((cat: any) => (
           <button
             key={cat.name}
             onClick={() => {
-              const mappedId = mapCategoryToDbId(cat.name);
+              const mappedId = cat.mappedId || mapCategoryToDbIdFallback(cat.name);
               setSelectedCategory(mappedId);
               setSelectedGender('All');
               navigate(`/shop?category=${encodeURIComponent(mappedId)}`);

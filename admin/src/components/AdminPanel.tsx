@@ -319,10 +319,45 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId || '',
           googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId || ''
         });
-        const hConfig = sData.homepageConfig || sData.homepage_config;
-        if (hConfig) {
-          setHomepageConfig(hConfig);
-        }
+        const hConfig = sData.homepageConfig || sData.homepage_config || {};
+        const defaultFeaturedCategories = [
+          { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
+          { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10' },
+          { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10' },
+          { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10' },
+          { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50' }
+        ];
+        const defaultHomepageCategories = [
+          { name: 'Women Fashions', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=150&auto=format&fit=crop', mappedId: "women's fashion" },
+          { name: 'Watches', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=150&auto=format&fit=crop', mappedId: 'watch' },
+          { name: 'Toys Products', image: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=150&auto=format&fit=crop', mappedId: 'kids zone' },
+          { name: 'Shoes', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+          { name: 'Power Sanders', image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=150&auto=format&fit=crop', mappedId: 'gadgets & electronics' },
+          { name: 'Men Fashions', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+          { name: 'Shirts & Polos', image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+          { name: 'Kitchen Items', image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=150&auto=format&fit=crop', mappedId: 'home & lifestyle' },
+          { name: 'Home & Living', image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=150&auto=format&fit=crop', mappedId: 'home & lifestyle' },
+          { name: 'Health Care', image: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=150&auto=format&fit=crop', mappedId: 'beauty' },
+          { name: 'Grocery', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=150&auto=format&fit=crop', mappedId: 'foods' },
+          { name: 'Fitness', image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=150&auto=format&fit=crop', mappedId: 'fitness' },
+          { name: 'Electronics', image: 'https://images.unsplash.com/photo-1588508065123-287b28e013da?q=80&w=150&auto=format&fit=crop', mappedId: 'gadgets & electronics' },
+          { name: 'Beauty', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=150&auto=format&fit=crop', mappedId: 'beauty' },
+          { name: 'Baby & Kids', image: 'https://images.unsplash.com/photo-1515488042361-404e9250afef?q=80&w=150&auto=format&fit=crop', mappedId: 'kids zone' },
+          { name: 'Accessories', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=150&auto=format&fit=crop', mappedId: 'watch' }
+        ];
+
+        const resolvedConfig = {
+          ...hConfig,
+          featured_categories: hConfig.featured_categories && hConfig.featured_categories.length > 0
+            ? hConfig.featured_categories
+            : defaultFeaturedCategories,
+          homepage_categories: hConfig.homepage_categories && hConfig.homepage_categories.length > 0
+            ? hConfig.homepage_categories
+            : defaultHomepageCategories,
+          featured_product_ids: hConfig.featured_product_ids || { trending: [], new_arrivals: [], best_sellers: [] }
+        };
+        setHomepageConfig(resolvedConfig);
+
       }
 
       // Fetch sync sources & logs
@@ -1885,6 +1920,59 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   />
                 </div>
               </div>
+
+              {/* Product Flags */}
+              <div className="space-y-2 text-xs font-semibold text-zinc-700">
+                <label className="block text-gray-500 uppercase tracking-wider text-[10px]">Product Flags / Badges</label>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isFeatured || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isFeatured: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Featured</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isTrending || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isTrending: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Trending</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isNew || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isNew: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>New Arrival</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isBestSeller || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Best Seller</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isFlashSale || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isFlashSale: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Flash Sale</span>
+                  </label>
+                </div>
+              </div>
+
 
               {/* Descriptions & Rich Details */}
               <div className="space-y-4">

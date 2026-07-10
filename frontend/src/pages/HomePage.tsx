@@ -184,7 +184,7 @@ export default function HomePage() {
 
   // Helper to load customized homepage product lists
   const getHomepageProducts = (type: 'trending' | 'new_arrivals' | 'best_sellers', fallbackFilter: (p: Product) => boolean, limit = 6) => {
-    const key = type === 'new_arrivals' ? 'newArrivals' : type;
+    const key = type === 'new_arrivals' ? 'newArrivals' : type === 'best_sellers' ? 'bestSellers' : type;
     const matches = featuredProducts[key] || [];
     if (matches.length > 0) {
       if (matches.length < limit) {
@@ -195,6 +195,7 @@ export default function HomePage() {
     }
     return PRODUCTS.filter(fallbackFilter).slice(0, limit);
   };
+
 
   const getHomepageNewArrivals = () => {
     const matches = featuredProducts.newArrivals || [];
