@@ -199,6 +199,7 @@ export default async function handler(req: any, res: any) {
     const errors: string[] = [];
 
     // 3. Process products in batch
+    const categoriesMap = new Map<string, string>();
     const upsertBuffer: any[] = [];
 
     for (const rawItem of productsArray) {
@@ -279,8 +280,13 @@ export default async function handler(req: any, res: any) {
           finalDiscountPrice = null;
         }
 
+        // Parse and register category ID
+        const categoryName = (item.category || 'General').trim();
+        const categoryId = categoryName.toLowerCase();
+        categoriesMap.set(categoryId, categoryName);
+
         // Generate clean tags
-        const tags = [item.category || 'Reseller'];
+        const tags = [categoryName];
 
         // Determine stock availability
         const isOutOfStock = 
@@ -297,8 +303,8 @@ export default async function handler(req: any, res: any) {
           slug: item.slug || `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${item.id}`,
           sku: item.product_code ? `${source.toUpperCase()}-${item.product_code}` : `${source.toUpperCase()}-${item.id}`,
           brand: item.brand || 'Rupan Reseller',
-          category: item.category || 'General',
-          sub_category: extractSubCategory(item.name, item.category),
+          category: categoryId,
+          sub_category: extractSubCategory(item.name, categoryName),
           tags: tags,
           gender: 'Men', // Default, editable from dashboard
           price: finalPrice,
@@ -335,22 +341,17 @@ export default async function handler(req: any, res: any) {
     }
 
     // 3.5. Ensure all categories exist in the categories table first to satisfy FK constraint
-    const uniqueCategories = new Set<string>();
-    for (const p of upsertBuffer) {
-      if (p.category) {
-        uniqueCategories.add(p.category.trim());
-      }
-    }
-
-    if (uniqueCategories.size > 0) {
-      const categoryRows = Array.from(uniqueCategories).map(name => ({
+    if (categoriesMap.size > 0) {
+      const categoryRows = Array.from(categoriesMap.entries()).map(([id, name]) => ({
+        id: id,
         name: name,
-        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        slug: id.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        is_active: true
       }));
 
       const { error: catError } = await supabase
         .from('categories')
-        .upsert(categoryRows, { onConflict: 'name' });
+        .upsert(categoryRows, { onConflict: 'id' });
         
       if (catError) {
         console.warn("Category upsert failed during sync:", catError.message);
