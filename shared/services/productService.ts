@@ -7,16 +7,31 @@ export const productService = {
    * Optimizes columns query for lightweight load.
    */
   async fetchProducts(): Promise<Product[]> {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at')
-      .eq('status', 'published')
-      .limit(5000);
-
-    if (error) {
+    const columns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at';
+    
+    try {
+      // Query 3 pages in parallel to retrieve up to 3000 products, bypassing default 1000 max_rows PostgREST limits
+      const promises = [
+        supabase.from('products').select(columns).eq('status', 'published').range(0, 999),
+        supabase.from('products').select(columns).eq('status', 'published').range(1000, 1999),
+        supabase.from('products').select(columns).eq('status', 'published').range(2000, 2999)
+      ];
+      
+      const results = await Promise.all(promises);
+      
+      let allProducts: Product[] = [];
+      for (const res of results) {
+        if (res.error) {
+          throw res.error;
+        }
+        if (res.data && Array.isArray(res.data)) {
+          allProducts = allProducts.concat(res.data);
+        }
+      }
+      return allProducts;
+    } catch (error: any) {
       throw new Error(`Failed to fetch products: ${error.message}`);
     }
-    return data || [];
   },
 
   /**
