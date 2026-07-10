@@ -11,6 +11,7 @@ import { generateEventId, initializeTelemetry, trackAddToCart, trackPurchase } f
 
 interface StoreState {
   isSupabaseOnline: boolean;
+  isDataLoaded: boolean;
   dbProducts: Product[];
   // Full catalog index (all product IDs + minimal fields) — used for search & ID resolution
   productCatalogIndex: Product[];
@@ -74,6 +75,7 @@ interface StoreState {
 
   // Setters & UI Actions
   setIsSupabaseOnline: (online: boolean) => void;
+  setIsDataLoaded: (loaded: boolean) => void;
   setDbProducts: (products: Product[]) => void;
   setProductCatalogIndex: (index: Product[]) => void;
   setDbReviews: (reviews: Review[]) => void;
@@ -138,6 +140,7 @@ interface StoreState {
 
 export const useStore = create<StoreState>((set, get) => ({
   isSupabaseOnline: false,
+  isDataLoaded: false,
   dbProducts: (() => {
     const cached = localStorage.getItem('rup_db_products');
     if (cached) {
@@ -263,6 +266,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   setIsSupabaseOnline: (online) => set({ isSupabaseOnline: online }),
+  setIsDataLoaded: (loaded) => set({ isDataLoaded: loaded }),
   setDbProducts: (products) => set({ dbProducts: products }),
   setProductCatalogIndex: (index) => set({ productCatalogIndex: index }),
   setDbReviews: (reviews) => set({ dbReviews: reviews }),
@@ -404,8 +408,13 @@ export const useStore = create<StoreState>((set, get) => ({
         }
       }).catch((e) => console.error('Catalog index load failed:', e));
 
+      // Mark data as loaded — unblocks CatchAllRoute from showing 404
+      set({ isDataLoaded: true });
+
     } catch (e) {
       console.error("Error loading Supabase storefront data:", e);
+      // Even on error, mark as loaded so UI can render (will use cached localStorage data)
+      set({ isDataLoaded: true });
     }
   },
 

@@ -273,9 +273,11 @@ function AppLayout() {
 
 function CatchAllRoute() {
   const BLOGS = useStore((state) => state.dbBlogs) || [];
+  const isDataLoaded = useStore((state) => state.isDataLoaded);
   const location = useLocation();
-  
-  const cleanIdPattern = (path: string) => {
+
+  // Strip common URL prefixes so /offer/foo, /blog/foo, /landing/foo all resolve to same slug
+  const cleanSlug = (path: string) => {
     return path
       .toLowerCase()
       .replace(/^\//, '')
@@ -284,23 +286,34 @@ function CatchAllRoute() {
       .replace(/(^-|-$)/g, '');
   };
 
-  // Find blog/landing page by exact path matching (or prefix-immune slug match)
-  const matchingBlog = BLOGS.find((b) => {
-    return cleanIdPattern(b.id) === cleanIdPattern(location.pathname) || b.id === location.pathname;
-  });
-  
+  // 1. Try exact match first
+  const matchingBlog = BLOGS.find((b) => b.id === location.pathname)
+    // 2. Try prefix-immune slug match as fallback
+    ?? BLOGS.find((b) => cleanSlug(b.id) === cleanSlug(location.pathname));
+
   if (matchingBlog) {
     return <BlogPage />;
   }
-  
+
+  // Still loading data — show spinner instead of premature 404
+  if (!isDataLoaded) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading page...</p>
+      </div>
+    );
+  }
+
+  // Data is loaded but no match found — genuine 404
   return (
     <div className="max-w-md mx-auto py-32 text-center space-y-6 animate-in fade-in duration-300">
       <h1 className="text-6xl font-black text-zinc-900 tracking-tight">404</h1>
       <p className="text-sm font-semibold text-gray-500 max-w-xs mx-auto">
         We couldn't find the page you are looking for. It might have been moved or deleted.
       </p>
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="inline-block bg-brand-primary text-white text-xs font-bold uppercase tracking-widest px-8 py-3.5 rounded-xl hover:bg-blue-900 transition-colors shadow-md"
       >
         Back to Home
