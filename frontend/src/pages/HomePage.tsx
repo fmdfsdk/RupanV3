@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
 import { Product } from '../types';
+import { productService } from '../services/productService';
 
 // Decomposed Sub-components
 import HeroCarousel from '../components/home/HeroCarousel';
@@ -20,6 +21,7 @@ export default function HomePage() {
   const dbBanners = useStore((state) => state.dbBanners);
   const dbSettings = useStore((state) => state.dbSettings);
   const wishlist = useStore((state) => state.wishlist);
+  const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);
   
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const addToCart = useStore((state) => state.addToCart);
@@ -116,53 +118,110 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
+  // State to hold resolved featured products (fetched from DB if missing in local first-1000 PRODUCTS list)
+  const [featuredProducts, setFeaturedProducts] = useState<{
+    trending: Product[];
+    newArrivals: Product[];
+    bestSellers: Product[];
+  }>({
+    trending: [],
+    newArrivals: [],
+    bestSellers: []
+  });
+  const [loadingFeatured, setLoadingFeatured] = useState<boolean>(true);
+
+  useEffect(() => {
+    const resolveFeaturedProducts = async () => {
+      const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
+      const featuredProductIds = homeConfig?.featured_product_ids || {};
+      
+      const types = ['trending', 'new_arrivals', 'best_sellers'] as const;
+      const resolved: Record<string, Product[]> = {
+        trending: [],
+        new_arrivals: [],
+        best_sellers: []
+      };
+
+      for (const type of types) {
+        const ids = featuredProductIds[type] || [];
+        if (ids.length === 0) continue;
+
+        const list: Product[] = [];
+        for (const id of ids) {
+          const searchId = id.trim().toLowerCase();
+          const numMatch = searchId.match(/\d+$/);
+          const searchNum = numMatch ? parseInt(numMatch[0], 10) : null;
+
+          // 1. Try local cache
+          const foundLocal = PRODUCTS.find(p => {
+            const pId = String(p.id).toLowerCase();
+            const pSlug = String(p.slug || '').toLowerCase();
+            if (pId === searchId || pSlug === searchId) return true;
+            
+            if (searchNum !== null) {
+              const pNumMatch = pId.match(/\d+$/);
+              if (pNumMatch) {
+                const pNum = parseInt(pNumMatch[0], 10);
+                if (pNum === searchNum || pNum === searchNum - 3000 || pNum === searchNum + 3000) {
+                  return true;
+                }
+              }
+            }
+            return false;
+          });
+
+          if (foundLocal) {
+            list.push(foundLocal);
+          } else if (isSupabaseOnline) {
+            // 2. Fetch from database directly to bypass frontend 1000 limit
+            try {
+              const dbProduct = await productService.fetchProductByIdOrSlug(id);
+              if (dbProduct) {
+                list.push(dbProduct);
+              }
+            } catch (e) {
+              console.error("Error fetching featured product:", id, e);
+            }
+          }
+        }
+        resolved[type] = list;
+      }
+
+      setFeaturedProducts({
+        trending: resolved.trending,
+        newArrivals: resolved.new_arrivals,
+        bestSellers: resolved.best_sellers
+      });
+      setLoadingFeatured(false);
+    };
+
+    if (PRODUCTS.length > 0) {
+      resolveFeaturedProducts();
+    }
+  }, [dbSettings, PRODUCTS, isSupabaseOnline]);
+
   // Helper to load customized homepage product lists
   const getHomepageProducts = (type: 'trending' | 'new_arrivals' | 'best_sellers', fallbackFilter: (p: Product) => boolean, limit = 6) => {
-    const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
-    const configIds = homeConfig?.featured_product_ids?.[type] || [];
-    if (configIds.length > 0) {
-      const matches = configIds
-        .map((id: string) => {
-          const searchId = id.trim().toLowerCase();
-          return PRODUCTS.find(p => {
-            const pId = p.id.toLowerCase();
-            const pSlug = (p.slug || '').toLowerCase();
-            return pId === searchId || pId.endsWith('-' + searchId) || pSlug === searchId;
-          });
-        })
-        .filter(Boolean) as Product[];
-      if (matches.length > 0) {
-        if (matches.length < limit) {
-          const fill = PRODUCTS.filter(p => fallbackFilter(p) && !matches.some(m => m.id === p.id)).slice(0, limit - matches.length);
-          return [...matches, ...fill];
-        }
-        return matches.slice(0, limit);
+    const key = type === 'new_arrivals' ? 'newArrivals' : type;
+    const matches = featuredProducts[key] || [];
+    if (matches.length > 0) {
+      if (matches.length < limit) {
+        const fill = PRODUCTS.filter(p => fallbackFilter(p) && !matches.some(m => m.id === p.id)).slice(0, limit - matches.length);
+        return [...matches, ...fill];
       }
+      return matches.slice(0, limit);
     }
     return PRODUCTS.filter(fallbackFilter).slice(0, limit);
   };
 
   const getHomepageNewArrivals = () => {
-    const homeConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config;
-    const configIds = homeConfig?.featured_product_ids?.new_arrivals || [];
-    if (configIds.length > 0) {
-      const matches = configIds
-        .map((id: string) => {
-          const searchId = id.trim().toLowerCase();
-          return PRODUCTS.find(p => {
-            const pId = p.id.toLowerCase();
-            const pSlug = (p.slug || '').toLowerCase();
-            return pId === searchId || pId.endsWith('-' + searchId) || pSlug === searchId;
-          });
-        })
-        .filter(Boolean) as Product[];
-      if (matches.length > 0) {
-        if (matches.length < 18) {
-          const fill = PRODUCTS.filter(p => !matches.some(m => m.id === p.id)).slice(0, 18 - matches.length);
-          return [...matches, ...fill];
-        }
-        return matches.slice(0, 18);
+    const matches = featuredProducts.newArrivals || [];
+    if (matches.length > 0) {
+      if (matches.length < 18) {
+        const fill = PRODUCTS.filter(p => !matches.some(m => m.id === p.id)).slice(0, 18 - matches.length);
+        return [...matches, ...fill];
       }
+      return matches.slice(0, 18);
     }
     return PRODUCTS.slice(0, 18);
   };
@@ -181,7 +240,9 @@ export default function HomePage() {
           <div>Trending ID List: {JSON.stringify((dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.trending || [])}</div>
           <div>New Arrivals ID List: {JSON.stringify((dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.new_arrivals || [])}</div>
           <div>PRODUCTS in store: {PRODUCTS.length}</div>
-          <div>Trending Matched Count: {getHomepageProducts('trending', (p) => p.isFeatured, 6).filter(p => (dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.trending?.some((id: string) => String(p.id).toLowerCase().endsWith(id.trim().toLowerCase()))).length}</div>
+          <div>Trending Matches in State: {featuredProducts.trending.length} (Expected: {(dbSettings?.homepageConfig || dbSettings?.homepage_config)?.featured_product_ids?.trending?.length || 0})</div>
+          <div>New Arrivals Matches in State: {featuredProducts.newArrivals.length}</div>
+          <div>Best Sellers Matches in State: {featuredProducts.bestSellers.length}</div>
           <div className="text-[10px] text-gray-400 mt-1 border-t border-red-100 pt-1.5">First 5 Products in Store: {JSON.stringify(PRODUCTS.slice(0, 5).map(p => ({ id: p.id, name: p.name })))}</div>
         </div>
       )}
