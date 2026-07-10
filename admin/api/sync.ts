@@ -259,18 +259,24 @@ export default async function handler(req: any, res: any) {
         const purchasePrice = Number(item.sale_price || item.price || 0);
         const regularPrice = Number(item.price || 0);
         
-        // If markup is defined, apply it on top of Rupan's cost (sale_price). 
-        // Otherwise, retail price is the supplier regular price.
-        const price = markup > 0
+        // Our active selling price (cost + markup)
+        const sellingPrice = markup > 0
           ? Math.round(purchasePrice * (1 + markup / 100))
           : regularPrice;
 
-        let discountPrice = markup > 0 && regularPrice > purchasePrice
-          ? Math.round(regularPrice) // if marked up, make original retail price the "discounted from" reference if higher
-          : undefined;
+        let finalPrice = sellingPrice;
+        let finalDiscountPrice: number | null = null;
 
-        if (discountPrice !== undefined && discountPrice <= price) {
-          discountPrice = undefined;
+        // If the regular retail price is higher than our selling price, 
+        // we present it as a discount: price = regularPrice, discount_price = sellingPrice
+        // This satisfies the database constraint that discount_price < price
+        if (regularPrice > sellingPrice) {
+          finalPrice = regularPrice;
+          finalDiscountPrice = sellingPrice;
+        } else {
+          // No discount shown, sellingPrice is the main price
+          finalPrice = sellingPrice;
+          finalDiscountPrice = null;
         }
 
         // Generate clean tags
@@ -295,8 +301,8 @@ export default async function handler(req: any, res: any) {
           sub_category: extractSubCategory(item.name, item.category),
           tags: tags,
           gender: 'Men', // Default, editable from dashboard
-          price: price,
-          discount_price: discountPrice || null,
+          price: finalPrice,
+          discount_price: finalDiscountPrice,
           purchase_price: purchasePrice,
           rating: 5.0,
           reviews_count: 0,
@@ -325,6 +331,29 @@ export default async function handler(req: any, res: any) {
       } catch (err: any) {
         failedCount++;
         errors.push(`Error processing item ID ${rawItem?.id || 'unknown'}: ${err.message}`);
+      }
+    }
+
+    // 3.5. Ensure all categories exist in the categories table first to satisfy FK constraint
+    const uniqueCategories = new Set<string>();
+    for (const p of upsertBuffer) {
+      if (p.category) {
+        uniqueCategories.add(p.category.trim());
+      }
+    }
+
+    if (uniqueCategories.size > 0) {
+      const categoryRows = Array.from(uniqueCategories).map(name => ({
+        name: name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      }));
+
+      const { error: catError } = await supabase
+        .from('categories')
+        .upsert(categoryRows, { onConflict: 'name' });
+        
+      if (catError) {
+        console.warn("Category upsert failed during sync:", catError.message);
       }
     }
 
