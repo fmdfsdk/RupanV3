@@ -9,6 +9,7 @@ import { useStore } from '../store/useStore';
 let isPixelLoaded = typeof window !== 'undefined' && !!(window as any).isPixelLoaded;
 let isGTMConfigured = typeof window !== 'undefined' && !!(window as any).isGTMConfigured;
 let isGAConfigured = typeof window !== 'undefined' && !!(window as any).isGAConfigured;
+const initializedPixels = new Set<string>();
 
 interface TelemetryConfig {
   metaPixelId?: string;
@@ -84,23 +85,33 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
   }
 
   // 3. Meta (Facebook) Pixel
-  if (metaPixelId && !isPixelLoaded) {
+  if (metaPixelId) {
     try {
-      const fbScript = document.createElement('script');
-      fbScript.innerHTML = `
-        !function(f,b,e,v,n,t,s)
-        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-        n.queue=[];t=b.createElement(e);t.async=!0;
-        t.src=v;s=b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t,s)}(window, document,'script',
-        'https://connect.facebook.net/en_US/fbevents.js');
-        fbq('init', '${metaPixelId}');
-      `;
-      document.head.appendChild(fbScript);
-      isPixelLoaded = true;
-      console.log(`[Telemetry] Meta Pixel initialized: ${metaPixelId}`);
+      if (!isPixelLoaded) {
+        const fbScript = document.createElement('script');
+        fbScript.innerHTML = `
+          !function(f,b,e,v,n,t,s)
+          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+          n.queue=[];t=b.createElement(e);t.async=!0;
+          t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)}(window, document,'script',
+          'https://connect.facebook.net/en_US/fbevents.js');
+        `;
+        document.head.appendChild(fbScript);
+        isPixelLoaded = true;
+      }
+
+      // Always initialize if this specific Meta Pixel / Dataset ID hasn't been initialized yet
+      if (!initializedPixels.has(metaPixelId)) {
+        const w = window as any;
+        if (w.fbq) {
+          w.fbq('init', metaPixelId);
+          initializedPixels.add(metaPixelId);
+          console.log(`[Telemetry] Meta Pixel initialized/linked: ${metaPixelId}`);
+        }
+      }
     } catch (e) {
       console.error('[Telemetry] Error loading Meta Pixel:', e);
     }
@@ -153,7 +164,9 @@ const fireEvent = (
 
   // 1. Meta Pixel trigger
   if (w.fbq) {
-    const fbOptions = eventId ? { eventID: eventId } : {};
+    const fbOptions: Record<string, any> = {};
+    if (eventId) fbOptions.eventID = eventId;
+    if (testCode) fbOptions.testEventCode = testCode;
     w.fbq('track', eventName, payload, fbOptions);
     console.log(`[Telemetry] Fired Meta Pixel: ${eventName}`, payload, fbOptions);
   }

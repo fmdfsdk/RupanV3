@@ -107,6 +107,8 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
 
     // Meta Pixel
     if (pixelId) {
+      const testCode = settings.meta_test_event_code;
+      const testCodeOption = testCode ? `, {}, {testEventCode: '${testCode}'}` : '';
       headInjections += `
     <!-- Meta Pixel Code -->
     <script>
@@ -119,7 +121,7 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
       s.parentNode.insertBefore(t,s)}(window, document,'script',
       'https://connect.facebook.net/en_US/fbevents.js');
       fbq('init', '${pixelId}');
-      fbq('track', 'PageView');
+      fbq('track', 'PageView'${testCodeOption});
     </script>
     <!-- End Meta Pixel Code -->
       `;
