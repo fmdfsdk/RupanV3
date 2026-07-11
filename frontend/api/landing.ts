@@ -44,31 +44,34 @@ function serveIndexHtml(res: VercelResponse) {
  */
 function injectMarketingAndSEO(html: string, page: any, settings: any, metadata: any): string {
   const seoEnabled = metadata.seoEnabled !== false;
-  const marketingEnabled = metadata.marketingEnabled !== false;
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
-  let headInjections = `
-    <!-- Dynamic Supabase & Marketing Settings Injection -->
-    <script>
-      window.SUPABASE_URL = "${supabaseUrl}";
-      window.SUPABASE_ANON_KEY = "${supabaseKey}";
-      window.RUPAN_SETTINGS = {
-        metaPixelId: "${settings?.meta_pixel_id || ''}",
-        metaCapiAccessToken: "${settings?.meta_capi_access_token || ''}",
-        metaTestEventCode: "${settings?.meta_test_event_code || ''}"
-      };
-    </script>
-  `;
-  let bodyInjections = '';
+  let modifiedHtml = html;
 
-  // 1. Inject SEO Tools if enabled
+  // 1. Perform placeholder replacements
+  if (settings) {
+    modifiedHtml = modifiedHtml
+      .replace(/RUPAN_META_PIXEL_ID/g, settings.meta_pixel_id || '')
+      .replace(/RUPAN_META_TEST_CODE/g, settings.meta_test_event_code || '')
+      .replace(/RUPAN_GTM_ID/g, settings.google_tag_manager_id || '')
+      .replace(/RUPAN_GA4_ID/g, settings.google_analytics_id || '')
+      .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, String(settings.inside_dhaka_shipping || '60'))
+      .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, String(settings.outside_dhaka_shipping || '120'))
+      .replace(/RUPAN_FREE_SHIPPING_MIN/g, String(settings.free_shipping_min_order || '3000'));
+  }
+
+  modifiedHtml = modifiedHtml
+    .replace(/RUPAN_SUPABASE_URL/g, supabaseUrl)
+    .replace(/RUPAN_SUPABASE_KEY/g, supabaseKey);
+
+  // 2. Inject SEO Tools if enabled
   if (seoEnabled) {
     const title = page.seo_title || page.title || 'Rupan';
     const description = page.seo_description || 'Rupan - Premium Bangladeshi Fashion Brand';
     
-    headInjections += `
+    const headInjections = `
     <!-- Dynamic SEO Meta Tags -->
     <title>${title}</title>
     <meta name="description" content="${description}" />
@@ -77,124 +80,10 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     `;
-  }
 
-  // 2. Inject Marketing / Ad Tracking Tools if enabled and settings exist
-  if (marketingEnabled && settings) {
-    const gtmId = settings.google_tag_manager_id;
-    const gaId = settings.google_analytics_id;
-    const pixelId = settings.meta_pixel_id;
-
-    // Google Tag Manager (GTM)
-    if (gtmId) {
-      headInjections += `
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','${gtmId}');</script>
-    <!-- End Google Tag Manager -->
-      `;
-
-      bodyInjections += `
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${gtmId}"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
-      `;
-    }
-
-    // Google Analytics 4 (GA4)
-    if (gaId) {
-      headInjections += `
-    <!-- Google Analytics (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${gaId}');
-    </script>
-      `;
-    }
-
-    // Meta Pixel
-    if (pixelId) {
-      const testCode = settings.meta_test_event_code;
-      const testCodeOption = testCode ? `, {}, {testEventCode: '${testCode}'}` : '';
-      headInjections += `
-    <!-- Meta Pixel Code -->
-    <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '${pixelId}');
-      fbq('track', 'PageView'${testCodeOption});
-    </script>
-    <!-- End Meta Pixel Code -->
-      `;
-
-      bodyInjections += `
-    <!-- Meta Pixel noscript -->
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
-    /></noscript>
-      `;
-    }
-
-    // Future-proof generic custom header / footer scripts from settings
-    // If you add header_script / footer_script columns to settings in the future, they are automatically injected here!
-    if (settings.header_script) {
-      headInjections += `\n<!-- Settings Custom Header Script -->\n${settings.header_script}\n`;
-    }
-    if (settings.footer_script) {
-      bodyInjections += `\n<!-- Settings Custom Footer Script -->\n${settings.footer_script}\n`;
-    }
-  }
-
-  // Inject into HTML content
-  let modifiedHtml = html;
-
-  // Insert head injections
-  if (headInjections) {
     const headTagIndex = modifiedHtml.search(/<head>/i);
     if (headTagIndex !== -1) {
-      // Insert right after <head> tag
       modifiedHtml = modifiedHtml.slice(0, headTagIndex + 6) + headInjections + modifiedHtml.slice(headTagIndex + 6);
-    } else {
-      // No head tag found, prepended to beginning
-      modifiedHtml = headInjections + modifiedHtml;
-    }
-  }
-
-  // Insert body injections
-  if (bodyInjections) {
-    const bodyTagIndex = modifiedHtml.search(/<body>/i);
-    if (bodyTagIndex !== -1) {
-      // Insert right after <body> tag
-      modifiedHtml = modifiedHtml.slice(0, bodyTagIndex + 6) + bodyInjections + modifiedHtml.slice(bodyTagIndex + 6);
-    } else {
-      // No body tag found, appended to end
-      modifiedHtml = modifiedHtml + bodyInjections;
-    }
-  }
-
-  // 3. Automatically replace placeholder values if they exist in the pasted code
-  if (settings) {
-    if (settings.meta_pixel_id) {
-      modifiedHtml = modifiedHtml.replace(/YOUR_PIXEL_ID|YOUR-PIXEL-ID|YOUR_FACEBOOK_PIXEL_ID/g, settings.meta_pixel_id);
-    }
-    if (settings.google_tag_manager_id) {
-      modifiedHtml = modifiedHtml.replace(/YOUR_GTM_ID|YOUR-GTM-ID/g, settings.google_tag_manager_id);
-    }
-    if (settings.google_analytics_id) {
-      modifiedHtml = modifiedHtml.replace(/YOUR_GA_ID|YOUR-GA-ID|YOUR_GA4_ID|YOUR-GA4-ID/g, settings.google_analytics_id);
     }
   }
 

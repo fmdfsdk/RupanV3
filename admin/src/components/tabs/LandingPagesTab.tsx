@@ -84,6 +84,54 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   const codeRef = useRef<HTMLTextAreaElement>(null);
   const [saveMsg, setSaveMsg] = useState('');
 
+  const ALL_PLACEHOLDERS = [
+    { key: 'RUPAN_META_PIXEL_ID', label: 'Meta Pixel ID' },
+    { key: 'RUPAN_META_TEST_CODE', label: 'Meta CAPI Test Code' },
+    { key: 'RUPAN_GTM_ID', label: 'Google Tag Manager ID' },
+    { key: 'RUPAN_GA4_ID', label: 'Google Analytics 4 ID' },
+    { key: 'RUPAN_SUPABASE_URL', label: 'Supabase Database URL' },
+    { key: 'RUPAN_SUPABASE_KEY', label: 'Supabase Anon Key' },
+    { key: 'RUPAN_INSIDE_DHAKA_SHIPPING', label: 'Inside Dhaka Shipping Cost' },
+    { key: 'RUPAN_OUTSIDE_DHAKA_SHIPPING', label: 'Outside Dhaka Shipping Cost' },
+    { key: 'RUPAN_FREE_SHIPPING_MIN', label: 'Free Shipping Min Order' }
+  ];
+
+  const getPlaceholderAudit = () => {
+    const found: any[] = [];
+    const missing: any[] = [];
+    for (const item of ALL_PLACEHOLDERS) {
+      if (formContent.includes(item.key)) {
+        found.push(item);
+      } else {
+        missing.push(item);
+      }
+    }
+    return { found, missing };
+  };
+
+  const getPreviewHtml = () => {
+    let html = formContent;
+    if (settings) {
+      html = html
+        .replace(/RUPAN_META_PIXEL_ID/g, settings.meta_pixel_id || 'MOCK_PIXEL_ID')
+        .replace(/RUPAN_META_TEST_CODE/g, settings.meta_test_event_code || 'TEST_CODE')
+        .replace(/RUPAN_GTM_ID/g, settings.google_tag_manager_id || 'GTM_ID')
+        .replace(/RUPAN_GA4_ID/g, settings.google_analytics_id || 'GA4_ID')
+        .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, String(settings.inside_dhaka_shipping || '60'))
+        .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, String(settings.outside_dhaka_shipping || '120'))
+        .replace(/RUPAN_FREE_SHIPPING_MIN/g, String(settings.free_shipping_min_order || '3000'));
+    }
+    // Get keys from window (or mock if offline/blank)
+    const supUrl = (window as any).SUPABASE_URL || (window as any).location.origin || 'https://yourdomain.supabase.co';
+    const supKey = (window as any).SUPABASE_ANON_KEY || 'mock-anon-key';
+    
+    html = html
+      .replace(/RUPAN_SUPABASE_URL/g, supUrl)
+      .replace(/RUPAN_SUPABASE_KEY/g, supKey);
+      
+    return html;
+  };
+
   // Fetch pages and global settings
   useEffect(() => {
     fetchPages();
@@ -470,6 +518,74 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
           </div>
         )}
 
+        {/* Instructions and Variable Audit Panel */}
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 grid grid-cols-1 lg:grid-cols-2 gap-4 shrink-0 text-xs text-gray-700">
+          
+          {/* Instructions Box */}
+          <div className="space-y-1 bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm">
+            <h4 className="font-bold text-gray-900 flex items-center gap-1.5">
+              <Info className="w-4 h-4 text-brand-primary" />
+              ল্যান্ডিং পেজ ভেরিয়েবল গাইড (Instructions)
+            </h4>
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              আপনার এইচটিএমএল কোডের যেখানে যেখানে আইডি/কনফিগারেশন বসানো দরকার, সেখানে সরাসরি নিচের ভেরিয়েবল বা প্লেসহোল্ডারগুলো ব্যবহার করুন। ভিজিটর পেজ লোড করার সময় সার্ভার স্বয়ংক্রিয়ভাবে এগুলো আপনার আসল সেটিংস দিয়ে রিপ্লেস করে দেবে।
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 pt-2 text-[10px] font-mono text-gray-600">
+              <div><span className="font-bold text-brand-primary">RUPAN_META_PIXEL_ID</span>: Pixel ID</div>
+              <div><span className="font-bold text-brand-primary">RUPAN_SUPABASE_URL</span>: DB URL</div>
+              <div><span className="font-bold text-brand-primary">RUPAN_SUPABASE_KEY</span>: DB Key</div>
+              <div><span className="font-bold text-brand-primary">RUPAN_GTM_ID</span>: GTM Container ID</div>
+              <div><span className="font-bold text-brand-primary">RUPAN_GA4_ID</span>: GA4 ID</div>
+              <div><span className="font-bold text-brand-primary font-sans">অন্যান্য:</span> <code>RUPAN_INSIDE_DHAKA_SHIPPING</code>, <code>RUPAN_OUTSIDE_DHAKA_SHIPPING</code>, <code>RUPAN_FREE_SHIPPING_MIN</code>, <code>RUPAN_META_TEST_CODE</code></div>
+            </div>
+          </div>
+
+          {/* Variables Audit Check */}
+          <div className="space-y-2 bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+            <div>
+              <h4 className="font-bold text-gray-900 flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                কোড ভেরিয়েবল অডিট (Live Code Check)
+              </h4>
+              <p className="text-[10px] text-gray-500">কোড লিখার পর এখানে চেক করুন কোন ভেরিয়েবলগুলো পাওয়া গেছে:</p>
+            </div>
+            
+            <div className="space-y-1.5">
+              {/* Found list */}
+              {getPlaceholderAudit().found.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">পেয়েছি ({getPlaceholderAudit().found.length}):</span>
+                  {getPlaceholderAudit().found.map(item => (
+                    <span key={item.key} title={item.label} className="font-mono text-[9px] bg-gray-100 hover:bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded border border-gray-200 transition-colors">
+                      {item.key}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Missing list */}
+              {getPlaceholderAudit().missing.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md shrink-0">পাইনি ({getPlaceholderAudit().missing.length}):</span>
+                  {getPlaceholderAudit().missing.map(item => (
+                    <span key={item.key} title={item.label} className="font-mono text-[9px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100 text-center select-all">
+                      {item.key}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle className="w-4 h-4" /> অভিনন্দন! সবকটি ভেরিয়েবল কোডে পাওয়া গেছে।
+                </div>
+              )}
+            </div>
+            
+            <p className="text-[9px] text-gray-400 italic">
+              *যেসব ভেরিয়েবল ব্যবহার করবেন না, সেগুলোর সংশ্লিষ্ট ফিচার বা সিস্টেম ল্যান্ডিং পেজে নিষ্ক্রিয় থাকবে।
+            </p>
+          </div>
+        </div>
+
         {/* Editor + Preview */}
         <div className={`flex-1 flex min-h-0 ${previewMode === 'split' ? 'flex-row' : 'flex-col'}`}>
           {/* Code editor pane */}
@@ -516,7 +632,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
               <div className={`flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto`}>
                 <iframe
                   title="Landing Page Preview"
-                  srcDoc={formContent}
+                  srcDoc={getPreviewHtml()}
                   className={`bg-white shadow-xl border border-gray-300 rounded-lg transition-all duration-300 ${deviceView === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'}`}
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 />
