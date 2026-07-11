@@ -87,21 +87,25 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
   // 3. Meta (Facebook) Pixel
   if (metaPixelId) {
     try {
-      if (!isPixelLoaded) {
-        const fbScript = document.createElement('script');
-        fbScript.innerHTML = `
-          !function(f,b,e,v,n,t,s)
-          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-          n.queue=[];t=b.createElement(e);t.async=!0;
-          t.src=v;s=b.getElementsByTagName(e)[0];
-          s.parentNode.insertBefore(t,s)}(window, document,'script',
-          'https://connect.facebook.net/en_US/fbevents.js');
-        `;
-        document.head.appendChild(fbScript);
-        isPixelLoaded = true;
+      const w = window as any;
+      if (!w.fbq) {
+        w.fbq = function() {
+          w.fbq.callMethod ? w.fbq.callMethod.apply(w.fbq, arguments) : w.fbq.queue.push(arguments);
+        };
+        w._fbq = w.fbq;
+        w.fbq.push = w.fbq;
+        w.fbq.loaded = true;
+        w.fbq.version = '2.0';
+        w.fbq.queue = [];
       }
+
+      if (!document.querySelector('script[src*="fbevents.js"]')) {
+        const fbScript = document.createElement('script');
+        fbScript.async = true;
+        fbScript.src = 'https://connect.facebook.net/en_US/fbevents.js';
+        document.head.appendChild(fbScript);
+      }
+      isPixelLoaded = true;
 
       // Always initialize if this specific Meta Pixel / Dataset ID hasn't been initialized yet
       if (!initializedPixels.has(metaPixelId)) {
