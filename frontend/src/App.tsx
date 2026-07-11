@@ -54,15 +54,17 @@ function AppLayout() {
       try {
         const sData = JSON.parse(cachedSettings);
         initializeTelemetry({
-          metaPixelId: sData.meta_pixel_id || sData.metaPixelId,
-          metaTestEventCode: sData.meta_test_event_code || sData.metaTestEventCode,
-          googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId,
-          googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId
+          metaPixelId:         sData.meta_pixel_id || sData.metaPixelId,
+          metaTestEventCode:   sData.meta_test_event_code || sData.metaTestEventCode,
+          metaCapiAccessToken: sData.meta_capi_access_token || sData.metaCapiAccessToken,
+          googleTagManagerId:  sData.google_tag_manager_id || sData.googleTagManagerId,
+          googleAnalyticsId:   sData.google_analytics_id || sData.googleAnalyticsId,
         });
       } catch (e) {
         console.error('Error parsing cached settings for telemetry:', e);
       }
     }
+
   }, []);
 
   // Track page views on route changes

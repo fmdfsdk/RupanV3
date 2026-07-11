@@ -6,7 +6,6 @@
     <title>Rupan Clothing | প্রিমিয়াম বাংলাদেশী ফ্যাশন ব্র্যান্ড</title>
     <link rel="icon" type="image/png" href="/assets/rupan-logo-part.png" />
 
-
     <!-- Primary SEO Meta (Static Fallback — overridden by React per-page) -->
     <meta name="description" content="Rupan – বাংলাদেশের প্রিমিয়াম ফ্যাশন ব্র্যান্ড। পাঞ্জাবি, শার্ট, টি-শার্ট, কাপল ড্রেস ও আরও অনেক কিছু অর্ডার করুন। দ্রুত ডেলিভারি, সেরা মান।" />
     <meta name="robots" content="index, follow" />
@@ -31,101 +30,123 @@
     <meta name="twitter:title" content="Rupan | প্রিমিয়াম বাংলাদেশী ফ্যাশন ব্র্যান্ড" />
     <meta name="twitter:description" content="Rupan-এর কালেকশন থেকে লাক্সারি পাঞ্জাবি, শার্ট ও আনুষাঙ্গিক পণ্য অর্ডার করুন।" />
     <meta name="twitter:image" content="https://www.myrupan.com/assets/Rupan%20Logo%20Final.png" />
-    
 
-    <!-- Meta Pixel Base Code -->
+    <!--
+      ================================================================
+      TELEMETRY BOOTSTRAP
+      ================================================================
+      Runs before any JS bundle loads. Reads cached Supabase settings
+      from localStorage and injects tracking scripts at the earliest
+      possible moment so no events are lost on first load.
+      ================================================================
+    -->
     <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-    </script>
-
-    <!-- Google Analytics Base Code -->
-    <script>
+      // ── Step 1: Bootstrap dataLayer + gtag queue (must come before any gtag calls) ──
       window.dataLayer = window.dataLayer || [];
-      window.gtag = function(){dataLayer.push(arguments);}
+      window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
       gtag('js', new Date());
-    </script>
 
-    <!-- Telemetry Cache Preloader -->
-    <script>
-      (function() {
+      // ── Step 2: Bootstrap Meta Pixel loader (before fbevents.js loads) ──
+      !function(f,b,e,v,n,t,s){
+        if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)
+      }(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+      // ── Step 3: Load settings from localStorage cache and inject trackers ──
+      (function () {
         try {
-          var settingsStr = localStorage.getItem('rup_db_settings');
-          if (settingsStr) {
-            var settings = JSON.parse(settingsStr);
-            var gtmId = settings.google_tag_manager_id || settings.googleTagManagerId;
-            var gaId = settings.google_analytics_id || settings.googleAnalyticsId;
-            var pixelId = settings.meta_pixel_id || settings.metaPixelId;
+          var raw = localStorage.getItem('rup_db_settings');
+          if (!raw) return;
 
-            // 1. GTM Inject
-            if (gtmId) {
-              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-              })(window,document,'script','dataLayer',gtmId);
-              window.isGTMConfigured = true;
-            }
+          var s = JSON.parse(raw);
+          var gtmId   = s.google_tag_manager_id || s.googleTagManagerId;
+          var gaId    = s.google_analytics_id   || s.googleAnalyticsId;
+          var pixelId = s.meta_pixel_id          || s.metaPixelId;
 
-            // 2. GA4 Inject
-            if (gaId) {
-              var gaScript = document.createElement('script');
-              gaScript.async = true;
-              gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
-              document.head.appendChild(gaScript);
-              gtag('config', gaId, { 'send_page_view': false });
-              window.isGAConfigured = true;
-            }
-
-            // 3. Meta Pixel Inject
-            if (pixelId) {
-              fbq('init', pixelId);
-              fbq('track', 'PageView');
-              window.isPixelLoaded = true;
-            }
+          // ── Google Tag Manager ──
+          if (gtmId && !window.isGTMConfigured) {
+            (function(w,d,l,i){
+              w[l]=w[l]||[];
+              w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});
+              var f=d.getElementsByTagName('script')[0],
+                  j=d.createElement('script');
+              j.async=true;
+              j.src='https://www.googletagmanager.com/gtm.js?id='+i;
+              f.parentNode.insertBefore(j,f);
+            })(window, document, 'dataLayer', gtmId);
+            window.isGTMConfigured = true;
           }
-        } catch(e) {
+
+          // ── Google Analytics 4 ──
+          // IMPORTANT: gtag('config') must be called in the onload handler of
+          // the GA script, not before it is loaded. We set a global flag here
+          // and let telemetry.ts call gtag('config') on script onload.
+          if (gaId && !window.isGAConfigured) {
+            var gaScript = document.createElement('script');
+            gaScript.async = true;
+            gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+            gaScript.onload = function () {
+              gtag('config', gaId, { send_page_view: false });
+            };
+            document.head.appendChild(gaScript);
+            window.isGAConfigured = true;
+          }
+
+          // ── Meta Pixel ──
+          if (pixelId && !window.isPixelLoaded) {
+            fbq('init', pixelId);
+            fbq('track', 'PageView');
+            window.isPixelLoaded = true;
+          }
+
+        } catch (e) {
           console.error('[Telemetry Preloader] Error:', e);
         }
       })();
     </script>
   </head>
   <body>
-    <!-- Meta Pixel noscript fallback (Fallback using current active pixel) -->
-    <noscript><img height="1" width="1" style="display:none"
-      src="https://www.facebook.com/tr?id=1034785765603654&ev=PageView&noscript=1"
-    /></noscript>
-    <!-- Dynamic GTM Noscript Fallback Preloader -->
+    <!--
+      GTM Noscript Fallback — must be the FIRST element inside <body>
+      Rendered statically here instead of dynamically injected by JS
+      so it works even if JS fails to load.
+      Replace GTM-XXXXXX with your actual GTM container ID,
+      OR this will be injected by the dynamic preloader above.
+    -->
     <script>
-      (function() {
+      // Dynamically inject the GTM noscript iframe if GTM is configured
+      (function () {
         try {
-          var settingsStr = localStorage.getItem('rup_db_settings');
-          if (settingsStr) {
-            var settings = JSON.parse(settingsStr);
-            var gtmId = settings.google_tag_manager_id || settings.googleTagManagerId;
-            if (gtmId) {
-              var iframe = document.createElement('iframe');
-              iframe.src = 'https://www.googletagmanager.com/ns.html?id=' + gtmId;
-              iframe.height = '0';
-              iframe.width = '0';
-              iframe.style.display = 'none';
-              iframe.style.visibility = 'hidden';
-              var noscript = document.createElement('noscript');
-              noscript.appendChild(iframe);
-              document.body.insertBefore(noscript, document.body.firstChild);
-            }
+          var raw = localStorage.getItem('rup_db_settings');
+          if (!raw) return;
+          var s = JSON.parse(raw);
+          var gtmId = s.google_tag_manager_id || s.googleTagManagerId;
+          if (gtmId) {
+            var ns = document.createElement('noscript');
+            var iframe = document.createElement('iframe');
+            iframe.src = 'https://www.googletagmanager.com/ns.html?id=' + gtmId;
+            iframe.height = '0';
+            iframe.width  = '0';
+            iframe.style.cssText = 'display:none;visibility:hidden';
+            ns.appendChild(iframe);
+            document.body.insertBefore(ns, document.body.firstChild);
           }
-        } catch(e) {}
+        } catch (e) {}
       })();
     </script>
+
+    <!-- Meta Pixel noscript fallback (static pixel for non-JS environments) -->
+    <noscript>
+      <img height="1" width="1" style="display:none"
+        src="https://www.facebook.com/tr?id=PIXEL_ID_PLACEHOLDER&ev=PageView&noscript=1"
+      />
+    </noscript>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

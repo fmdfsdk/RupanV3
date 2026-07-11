@@ -338,11 +338,13 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           outsideDhakaShipping: Number(sData.outside_dhaka_shipping ?? sData.outsideDhakaShipping ?? 120),
           freeShippingMinOrder: Number(sData.free_shipping_min_order ?? sData.freeShippingMinOrder ?? 3000),
           theme: sData.theme || 'sleek',
-          metaPixelId: sData.meta_pixel_id || sData.metaPixelId || '',
-          metaTestEventCode: sData.meta_test_event_code || sData.metaTestEventCode || '',
-          googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId || '',
-          googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId || ''
+          metaPixelId:         sData.meta_pixel_id          || sData.metaPixelId         || '',
+          metaTestEventCode:   sData.meta_test_event_code   || sData.metaTestEventCode   || '',
+          metaCapiAccessToken: sData.meta_capi_access_token || sData.metaCapiAccessToken || '',
+          googleTagManagerId:  sData.google_tag_manager_id  || sData.googleTagManagerId  || '',
+          googleAnalyticsId:   sData.google_analytics_id    || sData.googleAnalyticsId   || '',
         });
+
         const hConfig = sData.homepageConfig || sData.homepage_config || {};
         const defaultFeaturedCategories = [
           { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20', mappedId: "men's fashion" },
@@ -425,45 +427,35 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const handleSaveSettings = async () => {
     try {
       const payload = {
-        logo_text: settings.logoText,
-        logo_accent: settings.logoAccent,
-        tagline: settings.tagline,
-        whatsapp_number: settings.whatsappNumber,
-        support_number: settings.supportNumber,
-        currency_symbol: settings.currencySymbol,
-        inside_dhaka_shipping: Number(settings.insideDhakaShipping),
+        logo_text:              settings.logoText,
+        logo_accent:            settings.logoAccent,
+        tagline:                settings.tagline,
+        whatsapp_number:        settings.whatsappNumber,
+        support_number:         settings.supportNumber,
+        currency_symbol:        settings.currencySymbol,
+        inside_dhaka_shipping:  Number(settings.insideDhakaShipping),
         outside_dhaka_shipping: Number(settings.outsideDhakaShipping),
-        free_shipping_min_order: Number(settings.freeShippingMinOrder),
-        theme: settings.theme,
-        meta_pixel_id: settings.metaPixelId,
-        meta_test_event_code: settings.metaTestEventCode,
-        google_tag_manager_id: settings.googleTagManagerId,
-        google_analytics_id: settings.googleAnalyticsId,
-        // Mock compatibility keys
-        logoText: settings.logoText,
-        logoAccent: settings.logoAccent,
-        whatsappNumber: settings.whatsappNumber,
-        supportNumber: settings.supportNumber,
-        currencySymbol: settings.currencySymbol,
-        insideDhakaShipping: Number(settings.insideDhakaShipping),
-        outsideDhakaShipping: Number(settings.outsideDhakaShipping),
-        freeShippingMinOrder: Number(settings.freeShippingMinOrder),
-        metaPixelId: settings.metaPixelId,
-        metaTestEventCode: settings.metaTestEventCode,
-        googleTagManagerId: settings.googleTagManagerId,
-        googleAnalyticsId: settings.googleAnalyticsId
+        free_shipping_min_order:Number(settings.freeShippingMinOrder),
+        theme:                  settings.theme,
+        meta_pixel_id:          settings.metaPixelId          || null,
+        meta_test_event_code:   settings.metaTestEventCode    || null,
+        meta_capi_access_token: settings.metaCapiAccessToken  || null,
+        google_tag_manager_id:  settings.googleTagManagerId   || null,
+        google_analytics_id:    settings.googleAnalyticsId    || null,
       };
-      
+
       const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
       if (!error) {
-        alert("Website configurations updated successfully!");
+        alert('✅ SEO & Marketing configuration saved successfully!');
       } else {
-        alert(`Error saving settings: ${error.message}`);
+        alert(`❌ Error saving settings: ${error.message}`);
       }
     } catch (err) {
       console.error(err);
+      alert('❌ An unexpected error occurred while saving settings.');
     }
   };
+
 
   // Synchronize reseller products page-by-page
   const runSync = async () => {

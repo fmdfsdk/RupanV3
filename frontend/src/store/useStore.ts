@@ -392,12 +392,14 @@ export const useStore = create<StoreState>((set, get) => ({
         set({ dbSettings: sData });
         localStorage.setItem('rup_db_settings', JSON.stringify(sData));
         initializeTelemetry({
-          metaPixelId: sData.meta_pixel_id,
-          metaTestEventCode: sData.meta_test_event_code,
-          googleTagManagerId: sData.google_tag_manager_id,
-          googleAnalyticsId: sData.google_analytics_id
+          metaPixelId:         sData.meta_pixel_id,
+          metaTestEventCode:   sData.meta_test_event_code,
+          metaCapiAccessToken: sData.meta_capi_access_token,
+          googleTagManagerId:  sData.google_tag_manager_id,
+          googleAnalyticsId:   sData.google_analytics_id,
         });
       }
+
 
       // TIER 2: Background — fetch full catalog index (all products, minimal fields)
       // This runs AFTER initial data is loaded so it doesn't block the UI

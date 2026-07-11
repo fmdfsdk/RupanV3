@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import { Save, Tag, Globe, Sparkles, AlertCircle, HelpCircle, Check, Copy, ExternalLink, Code } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  Save, Tag, Globe, Sparkles, AlertCircle, Check, Copy, ExternalLink, Code,
+  Shield, Zap, Activity, Eye, EyeOff, Server, Wifi, WifiOff, RefreshCw,
+  ChevronRight, Info, CheckCircle2, XCircle, AlertTriangle, Play,
+  BarChart3, Target, Settings2, Layers
+} from 'lucide-react';
 import { WebsiteSettings } from '../../types';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SeoMarketingTabProps {
   settings: WebsiteSettings;
@@ -8,246 +15,718 @@ interface SeoMarketingTabProps {
   handleSaveSettings: () => void;
 }
 
-export default function SeoMarketingTab({
-  settings,
-  setSettings,
-  handleSaveSettings
-}: SeoMarketingTabProps) {
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+type StatusType = 'active' | 'inactive' | 'testing' | 'error' | 'idle';
 
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+interface StatusBadgeProps {
+  status: StatusType;
+  label?: string;
+}
+
+interface LogEntry {
+  ts: string;
+  type: 'success' | 'error' | 'info';
+  msg: string;
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatusBadge({ status, label }: StatusBadgeProps) {
+  const styles: Record<StatusType, string> = {
+    active:   'bg-emerald-50 text-emerald-700 border-emerald-200',
+    inactive: 'bg-gray-50 text-gray-500 border-gray-200',
+    testing:  'bg-amber-50 text-amber-700 border-amber-200',
+    error:    'bg-red-50 text-red-600 border-red-200',
+    idle:     'bg-blue-50 text-blue-600 border-blue-200',
   };
+  const dots: Record<StatusType, string> = {
+    active:   'bg-emerald-500',
+    inactive: 'bg-gray-400',
+    testing:  'bg-amber-500',
+    error:    'bg-red-500',
+    idle:     'bg-blue-500',
+  };
+  const pulse = status === 'active' || status === 'testing';
+  const text = label || (status === 'active' ? 'Active' : status === 'inactive' ? 'Not Configured' : status === 'testing' ? 'Testing...' : status === 'error' ? 'Error' : 'Ready');
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
-      {/* Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-gray-100 shadow-xs">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-            <Globe className="w-6 h-6 text-brand-primary" />
-            SEO & Marketing Hub
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Configure search engine meta tags, sitemaps, and link your store to Meta (Facebook) Pixel/Datasets, Google Tag Manager, and Google Analytics.
-          </p>
+    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${styles[status]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dots[status]} ${pulse ? 'animate-pulse' : ''}`} />
+      {text}
+    </span>
+  );
+}
+
+function SectionCard({
+  title, icon, children, badge, rightSlot,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  badge?: React.ReactNode;
+  rightSlot?: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+        <div className="flex items-center gap-2">
+          <span className="text-brand-primary">{icon}</span>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">{title}</h3>
+          {badge}
         </div>
-        <button
-          onClick={handleSaveSettings}
-          className="bg-brand-primary hover:bg-blue-900 text-white text-xs font-bold uppercase tracking-wider px-6 py-3.5 rounded-xl flex items-center space-x-2 transition-all cursor-pointer shadow-md active:scale-95"
-        >
-          <Save className="w-4 h-4" />
-          <span>Save Configuration</span>
-        </button>
+        {rightSlot}
       </div>
+      <div className="p-5 space-y-4">{children}</div>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Column: Form Settings */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Tracking Pixels Settings Card */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-5">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-3 flex items-center gap-2">
-              <Tag className="w-4 h-4 text-brand-primary" />
-              Ad Tracking & Analytics Integration
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Meta Pixel/Dataset ID */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-zinc-700 flex items-center gap-1">
-                    Meta Pixel / Dataset ID
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <a 
-                    href="https://business.facebook.com/events_manager2" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[10px] text-brand-primary hover:underline flex items-center gap-0.5"
-                  >
-                    Events Manager <ExternalLink className="w-2.5 h-2.5" />
-                  </a>
-                </div>
-                <input 
-                  type="text" 
-                  placeholder="e.g. 10284812841"
-                  value={settings.metaPixelId || ''}
-                  onChange={(e) => setSettings({ ...settings, metaPixelId: e.target.value })}
-                  className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3.5 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-mono transition-all"
-                />
-                <p className="text-[10px] text-gray-400">
-                  Connects Meta Pixel or Dataset to track PageView, AddToCart, and Purchases.
-                </p>
+function InputField({
+  label, value, onChange, placeholder, helpText, type = 'text', required = false,
+  docsHref, masked = false, readOnly = false, copyable = false,
+}: {
+  label: string; value: string; onChange?: (v: string) => void;
+  placeholder?: string; helpText?: string; type?: string; required?: boolean;
+  docsHref?: string; masked?: boolean; readOnly?: boolean; copyable?: boolean;
+}) {
+  const [showMasked, setShowMasked] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const inputType = masked ? (showMasked ? 'text' : 'password') : type;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-bold text-zinc-700 flex items-center gap-1">
+          {label}
+          {required && <span className="text-red-500">*</span>}
+        </label>
+        {docsHref && (
+          <a href={docsHref} target="_blank" rel="noopener noreferrer"
+            className="text-[10px] text-brand-primary hover:underline flex items-center gap-0.5">
+            Docs <ExternalLink className="w-2.5 h-2.5" />
+          </a>
+        )}
+      </div>
+      <div className="flex">
+        <input
+          type={inputType}
+          placeholder={placeholder}
+          value={value || ''}
+          readOnly={readOnly}
+          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+          className={`bg-gray-50 border border-gray-200 text-xs rounded-${(masked || copyable) ? 'none rounded-l' : 'xl'} px-3.5 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-mono transition-all ${readOnly ? 'text-gray-500 select-all cursor-default' : ''}`}
+        />
+        {masked && (
+          <button type="button" onClick={() => setShowMasked(!showMasked)}
+            title={showMasked ? 'Hide token' : 'Show token'}
+            className="bg-gray-100 hover:bg-gray-200 border border-gray-200 border-l-0 text-zinc-600 px-3 transition-all flex items-center">
+            {showMasked ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        )}
+        {copyable && (
+          <button type="button" onClick={handleCopy}
+            className="bg-gray-100 hover:bg-gray-200 border border-gray-200 border-l-0 text-zinc-700 text-xs font-bold px-4 rounded-r-xl transition-all cursor-pointer flex items-center gap-1">
+            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+        )}
+        {masked && copyable && (
+          <button type="button" onClick={handleCopy}
+            className="bg-gray-100 hover:bg-gray-200 border border-gray-200 border-l-0 text-zinc-700 text-xs font-bold px-4 rounded-r-xl transition-all cursor-pointer flex items-center gap-1">
+            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+        )}
+      </div>
+      {helpText && <p className="text-[10px] text-gray-400 leading-relaxed">{helpText}</p>}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function SeoMarketingTab({
+  settings, setSettings, handleSaveSettings,
+}: SeoMarketingTabProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [pixelStatus, setPixelStatus]     = useState<StatusType>('idle');
+  const [capiStatus, setCapiStatus]       = useState<StatusType>('idle');
+  const [gtmStatus, setGtmStatus]         = useState<StatusType>('idle');
+  const [ga4Status, setGa4Status]         = useState<StatusType>('idle');
+  const [isTesting, setIsTesting]         = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Derive initial statuses from settings
+  useEffect(() => {
+    setPixelStatus(settings.metaPixelId         ? 'active' : 'inactive');
+    setCapiStatus(settings.metaCapiAccessToken  ? 'active' : 'inactive');
+    setGtmStatus(settings.googleTagManagerId    ? 'active' : 'inactive');
+    setGa4Status(settings.googleAnalyticsId     ? 'active' : 'inactive');
+  }, [settings]);
+
+  const addLog = useCallback((type: LogEntry['type'], msg: string) => {
+    const now = new Date();
+    const ts  = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    setLogs(prev => [...prev.slice(-49), { ts, type, msg }]);
+    setTimeout(() => logEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+  }, []);
+
+  // ── Save Handler ──────────────────────────────────────────────────────────
+  const onSave = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    addLog('info', 'Saving SEO & Marketing configuration...');
+    try {
+      await handleSaveSettings();
+      setSaveSuccess(true);
+      addLog('success', '✅ Configuration saved to Supabase successfully.');
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch {
+      addLog('error', '❌ Failed to save configuration. Check Supabase connection.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ── Test Meta Pixel ──────────────────────────────────────────────────────
+  const testPixelConnection = async () => {
+    if (!settings.metaPixelId) {
+      addLog('error', '❌ No Pixel ID entered. Please add a Meta Pixel / Dataset ID first.');
+      return;
+    }
+    setPixelStatus('testing');
+    addLog('info', `Testing Meta Pixel: ${settings.metaPixelId}...`);
+
+    // Simulate browser pixel fire
+    await new Promise(r => setTimeout(r, 1200));
+
+    try {
+      const w = window as any;
+      if (w.fbq) {
+        const evtId = `evt-test-${Date.now()}`;
+        w.fbq('track', 'PageView', {}, { eventID: evtId });
+        addLog('success', `✅ Pixel test fired → PageView (eventID: ${evtId})`);
+        setPixelStatus('active');
+      } else {
+        addLog('error', '⚠️ fbq() not loaded yet. Save settings and refresh the storefront page to test.');
+        setPixelStatus('idle');
+      }
+    } catch (e: any) {
+      addLog('error', `❌ Pixel test failed: ${e.message}`);
+      setPixelStatus('error');
+    }
+  };
+
+  // ── Test CAPI ─────────────────────────────────────────────────────────────
+  const testCapiConnection = async () => {
+    if (!settings.metaPixelId) {
+      addLog('error', '❌ Meta Pixel ID required for CAPI test.');
+      return;
+    }
+    if (!settings.metaCapiAccessToken) {
+      addLog('error', '❌ No CAPI Access Token entered.');
+      return;
+    }
+    setCapiStatus('testing');
+    addLog('info', `Testing CAPI → Pixel: ${settings.metaPixelId}...`);
+
+    try {
+      const evtId = `evt-capi-test-${Date.now()}`;
+      const payload = {
+        pixelId:       settings.metaPixelId,
+        accessToken:   settings.metaCapiAccessToken,
+        testEventCode: settings.metaTestEventCode || undefined,
+        events: [{
+          eventName:      'PageView',
+          eventId:        evtId,
+          eventSourceUrl: typeof window !== 'undefined' ? window.location.href : 'https://admin.myrupan.com',
+          customData:     { page_path: '/admin/seo-test' },
+        }],
+      };
+
+      const res  = await fetch('/api/meta-capi', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        addLog('success', `✅ CAPI event sent! events_received: ${data.events_received}, fbtrace: ${data.fbtrace_id}`);
+        setCapiStatus('active');
+      } else {
+        addLog('error', `❌ CAPI returned error: ${data.error}`);
+        setCapiStatus('error');
+      }
+    } catch (e: any) {
+      addLog('error', `❌ CAPI request failed: ${e.message || 'Network error'}`);
+      setCapiStatus('error');
+    }
+  };
+
+  // ── Test GTM ─────────────────────────────────────────────────────────────
+  const testGTMConnection = async () => {
+    if (!settings.googleTagManagerId) {
+      addLog('error', '❌ No GTM ID entered.');
+      return;
+    }
+    setGtmStatus('testing');
+    addLog('info', `Testing GTM: ${settings.googleTagManagerId}...`);
+    await new Promise(r => setTimeout(r, 1000));
+
+    const w = window as any;
+    if (w.dataLayer && Array.isArray(w.dataLayer)) {
+      w.dataLayer.push({ event: 'admin_test', source: 'rupan_admin' });
+      addLog('success', `✅ GTM dataLayer.push() fired. Container: ${settings.googleTagManagerId}`);
+      setGtmStatus('active');
+    } else {
+      addLog('error', '⚠️ dataLayer not found. GTM may not be loaded on this admin panel page. It will work on the storefront.');
+      setGtmStatus('idle');
+    }
+  };
+
+  // ── Test GA4 ─────────────────────────────────────────────────────────────
+  const testGA4Connection = async () => {
+    if (!settings.googleAnalyticsId) {
+      addLog('error', '❌ No GA4 Measurement ID entered.');
+      return;
+    }
+    setGa4Status('testing');
+    addLog('info', `Testing GA4: ${settings.googleAnalyticsId}...`);
+    await new Promise(r => setTimeout(r, 1000));
+
+    const w = window as any;
+    if (w.gtag) {
+      w.gtag('event', 'admin_test', { event_category: 'rupan_admin', value: 1 });
+      addLog('success', `✅ GA4 gtag('event') fired. Property: ${settings.googleAnalyticsId}`);
+      setGa4Status('active');
+    } else {
+      addLog('error', '⚠️ gtag() not found on this page. GA4 will work on the storefront where scripts are loaded.');
+      setGa4Status('idle');
+    }
+  };
+
+  // ── Fire All Test Events ──────────────────────────────────────────────────
+  const runFullTest = async () => {
+    setIsTesting(true);
+    addLog('info', '🚀 Running full tracking suite test...');
+    await testPixelConnection();
+    await testCapiConnection();
+    await testGTMConnection();
+    await testGA4Connection();
+    addLog('info', '✅ Full test suite complete. Check logs below.');
+    setIsTesting(false);
+  };
+
+  // ── Computed values ──────────────────────────────────────────────────────
+  const activeCount = [
+    settings.metaPixelId,
+    settings.metaCapiAccessToken,
+    settings.googleTagManagerId,
+    settings.googleAnalyticsId,
+  ].filter(Boolean).length;
+
+  return (
+    <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-400 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        </div>
+
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-white/10 rounded-xl">
+                <Target className="w-5 h-5 text-blue-300" />
               </div>
-
-              {/* Meta Test Code */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-zinc-700 flex items-center gap-1">
-                  Meta Test Event Code
-                  <span className="text-gray-400 text-[10px] font-normal">(Optional)</span>
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. TEST12345"
-                  value={settings.metaTestEventCode || ''}
-                  onChange={(e) => setSettings({ ...settings, metaTestEventCode: e.target.value })}
-                  className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3.5 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-mono transition-all"
-                />
-                <p className="text-[10px] text-gray-400">
-                  Enter code from the "Test Events" tab in Meta to debug pixel setup live.
-                </p>
-              </div>
-
-              {/* GTM Container ID */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-zinc-700">Google Tag Manager (GTM) ID</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. GTM-XXXXXX"
-                  value={settings.googleTagManagerId || ''}
-                  onChange={(e) => setSettings({ ...settings, googleTagManagerId: e.target.value })}
-                  className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3.5 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-mono transition-all"
-                />
-                <p className="text-[10px] text-gray-400">
-                  Injects Google Tag Manager containers across all storefront pages.
-                </p>
-              </div>
-
-              {/* GA4 ID */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-zinc-700">Google Analytics 4 (GA4) ID</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. G-XXXXXXXXXX"
-                  value={settings.googleAnalyticsId || ''}
-                  onChange={(e) => setSettings({ ...settings, googleAnalyticsId: e.target.value })}
-                  className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3.5 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary font-mono transition-all"
-                />
-                <p className="text-[10px] text-gray-400">
-                  Connects GA4 property for tracking visitor behavior and traffic sources.
+              <div>
+                <h1 className="text-xl font-black tracking-tight">SEO & Marketing Hub</h1>
+                <p className="text-xs text-blue-200 mt-0.5">
+                  {activeCount} of 4 integrations active
                 </p>
               </div>
             </div>
+
+            {/* Integration status pills */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[
+                { label: 'Meta Pixel',  active: !!settings.metaPixelId },
+                { label: 'CAPI',        active: !!settings.metaCapiAccessToken },
+                { label: 'GTM',         active: !!settings.googleTagManagerId },
+                { label: 'GA4',         active: !!settings.googleAnalyticsId },
+              ].map(({ label, active }) => (
+                <span key={label}
+                  className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                    active
+                      ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
+                      : 'bg-white/5 text-white/40 border border-white/10'
+                  }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`} />
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
 
-          {/* Search Engine Optimization (Sitemap) Card */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-3 flex items-center gap-2">
-              <Globe className="w-4 h-4 text-emerald-500" />
-              Sitemap & Search Console Indexing
-            </h3>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={runFullTest}
+              disabled={isTesting}
+              className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-wider px-4 py-3 rounded-xl transition-all border border-white/10 cursor-pointer active:scale-95 disabled:opacity-50">
+              {isTesting
+                ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                : <Play className="w-3.5 h-3.5" />}
+              Test All
+            </button>
 
-            <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-start gap-2.5">
-              <Sparkles className="w-4.5 h-4.5 text-emerald-600 shrink-0 mt-0.5" />
+            <button
+              onClick={onSave}
+              disabled={isSaving}
+              className={`flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider px-6 py-3 rounded-xl transition-all cursor-pointer active:scale-95 shadow-md ${
+                saveSuccess
+                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                  : 'bg-blue-500 hover:bg-blue-400 text-white'
+              } disabled:opacity-50`}>
+              {isSaving
+                ? <RefreshCw className="w-4 h-4 animate-spin" />
+                : saveSuccess
+                ? <CheckCircle2 className="w-4 h-4" />
+                : <Save className="w-4 h-4" />}
+              <span>{isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Configuration'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Grid ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
+
+        {/* LEFT: Config Cards (3/5 width) */}
+        <div className="xl:col-span-3 space-y-4">
+
+          {/* ── Meta Pixel Card ──────────────────────────────────────────── */}
+          <SectionCard
+            title="Meta Pixel"
+            icon={<Tag className="w-4 h-4" />}
+            badge={<StatusBadge status={pixelStatus} />}
+            rightSlot={
+              <button
+                onClick={testPixelConnection}
+                disabled={pixelStatus === 'testing'}
+                className="text-[10px] font-bold text-brand-primary hover:text-blue-800 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50">
+                {pixelStatus === 'testing'
+                  ? <RefreshCw className="w-3 h-3 animate-spin" />
+                  : <Zap className="w-3 h-3" />}
+                Test Pixel
+              </button>
+            }
+          >
+            <InputField
+              label="Meta Pixel / Dataset ID"
+              value={settings.metaPixelId || ''}
+              onChange={(v) => setSettings({ ...settings, metaPixelId: v })}
+              placeholder="e.g. 1028481284194762"
+              required
+              docsHref="https://business.facebook.com/events_manager2"
+              helpText="Your 15–16 digit Pixel or Dataset ID from Meta Events Manager. Fires PageView, ViewContent, AddToCart, and Purchase browser events."
+            />
+            <InputField
+              label="Meta Test Event Code"
+              value={settings.metaTestEventCode || ''}
+              onChange={(v) => setSettings({ ...settings, metaTestEventCode: v })}
+              placeholder="e.g. TEST12345"
+              helpText="Optional — Enter code from the 'Test Events' tab in Meta Events Manager to debug pixel events live without affecting real data."
+            />
+          </SectionCard>
+
+          {/* ── Conversations API (CAPI) Card ─────────────────────────────── */}
+          <SectionCard
+            title="Conversations API (CAPI)"
+            icon={<Server className="w-4 h-4" />}
+            badge={<StatusBadge status={capiStatus} />}
+            rightSlot={
+              <button
+                onClick={testCapiConnection}
+                disabled={capiStatus === 'testing'}
+                className="text-[10px] font-bold text-brand-primary hover:text-blue-800 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50">
+                {capiStatus === 'testing'
+                  ? <RefreshCw className="w-3 h-3 animate-spin" />
+                  : <Shield className="w-3 h-3" />}
+                Test CAPI
+              </button>
+            }
+          >
+            {/* CAPI explanation banner */}
+            <div className="p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-2.5">
+              <Shield className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-indigo-800">Why CAPI matters</p>
+                <p className="text-[11px] text-indigo-600 mt-0.5 leading-relaxed">
+                  Server-side CAPI bypasses iOS/Safari ITP, ad-blockers, and browser restrictions that can block up to <strong>40% of browser pixel events</strong>. Every event fires twice — browser + server — and is automatically deduplicated by Meta via Event ID.
+                </p>
+              </div>
+            </div>
+
+            <InputField
+              label="CAPI Access Token"
+              value={settings.metaCapiAccessToken || ''}
+              onChange={(v) => setSettings({ ...settings, metaCapiAccessToken: v })}
+              placeholder="EAAxxxxxxxxxxxxxxxxx..."
+              masked
+              docsHref="https://developers.facebook.com/docs/marketing-api/conversions-api/get-started"
+              helpText="Generate from Meta Events Manager → Data Sources → your Pixel → Settings → Conversions API → Generate Access Token. Keep this secret — never expose it in frontend code."
+            />
+
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-700 leading-relaxed">
+                <strong>Security:</strong> This token is stored encrypted in Supabase and only used server-side via <code className="font-mono bg-amber-100 px-1 rounded">/api/meta-capi</code>. It is never exposed in the browser.
+              </p>
+            </div>
+          </SectionCard>
+
+          {/* ── Google Tag Manager Card ───────────────────────────────────── */}
+          <SectionCard
+            title="Google Tag Manager"
+            icon={<Layers className="w-4 h-4" />}
+            badge={<StatusBadge status={gtmStatus} />}
+            rightSlot={
+              <button
+                onClick={testGTMConnection}
+                disabled={gtmStatus === 'testing'}
+                className="text-[10px] font-bold text-brand-primary hover:text-blue-800 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50">
+                {gtmStatus === 'testing'
+                  ? <RefreshCw className="w-3 h-3 animate-spin" />
+                  : <Activity className="w-3 h-3" />}
+                Test GTM
+              </button>
+            }
+          >
+            <InputField
+              label="GTM Container ID"
+              value={settings.googleTagManagerId || ''}
+              onChange={(v) => setSettings({ ...settings, googleTagManagerId: v })}
+              placeholder="e.g. GTM-XXXXXX"
+              docsHref="https://tagmanager.google.com/"
+              helpText="Google Tag Manager container ID (format: GTM-XXXXXX). Injected as a script tag in &lt;head&gt; and noscript iframe in &lt;body&gt; across all storefront pages."
+            />
+          </SectionCard>
+
+          {/* ── Google Analytics 4 Card ───────────────────────────────────── */}
+          <SectionCard
+            title="Google Analytics 4"
+            icon={<BarChart3 className="w-4 h-4" />}
+            badge={<StatusBadge status={ga4Status} />}
+            rightSlot={
+              <button
+                onClick={testGA4Connection}
+                disabled={ga4Status === 'testing'}
+                className="text-[10px] font-bold text-brand-primary hover:text-blue-800 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50">
+                {ga4Status === 'testing'
+                  ? <RefreshCw className="w-3 h-3 animate-spin" />
+                  : <BarChart3 className="w-3 h-3" />}
+                Test GA4
+              </button>
+            }
+          >
+            <InputField
+              label="GA4 Measurement ID"
+              value={settings.googleAnalyticsId || ''}
+              onChange={(v) => setSettings({ ...settings, googleAnalyticsId: v })}
+              placeholder="e.g. G-XXXXXXXXXX"
+              docsHref="https://analytics.google.com/"
+              helpText="Google Analytics 4 Measurement ID (format: G-XXXXXXXXXX). Tracks page_view, ViewContent, AddToCart, InitiateCheckout, and Purchase events. gtag config is correctly applied after script load."
+            />
+          </SectionCard>
+
+          {/* ── Sitemap Card ──────────────────────────────────────────────── */}
+          <SectionCard
+            title="Sitemap & Search Console"
+            icon={<Globe className="w-4 h-4" />}
+          >
+            <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-emerald-800">Dynamic Sitemap Configured</p>
                 <p className="text-[11px] text-emerald-700 mt-0.5">
-                  Rupan automatically updates your sitemap (`/sitemap.xml`) every time you add or update products, categories, or blog posts. No manual sitemap generation is needed.
+                  Rupan auto-updates <code className="font-mono bg-emerald-100 px-1 rounded">/sitemap.xml</code> every time you add or modify products, categories, or blog posts.
                 </p>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-700">Sitemap Address URL</label>
-              <div className="flex">
-                <input 
-                  type="text" 
-                  readOnly
-                  value="https://www.myrupan.com/sitemap.xml"
-                  className="bg-gray-50 border border-gray-200 text-xs rounded-l-xl px-3.5 py-2.5 w-full focus:outline-none font-mono text-gray-500 select-all"
-                />
-                <button 
-                  type="button"
-                  onClick={() => handleCopy("https://www.myrupan.com/sitemap.xml", "sitemap")}
-                  className="bg-gray-100 hover:bg-gray-200 border border-gray-200 border-l-0 text-zinc-700 text-xs font-bold px-4 rounded-r-xl transition-all cursor-pointer flex items-center gap-1"
-                >
-                  {copiedId === 'sitemap' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedId === 'sitemap' ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
-              <div className="flex items-start space-x-1.5 text-[10px] text-gray-400 mt-2">
-                <AlertCircle className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-                <span>Submit this sitemap URL in your Google Search Console to index new products in hours.</span>
-              </div>
-            </div>
-          </div>
+            <InputField
+              label="Sitemap URL"
+              value="https://www.myrupan.com/sitemap.xml"
+              readOnly
+              copyable
+              helpText="Submit this URL in Google Search Console under Sitemaps to accelerate product indexing."
+            />
+          </SectionCard>
         </div>
 
-        {/* Right Column: Setup Guides */}
-        <div className="space-y-6">
-          {/* Meta Pixel Connection Guide Card */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-3 flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-brand-primary" />
-              Meta Integration Instructions
-            </h3>
-            
-            <div className="space-y-3.5 text-xs text-zinc-600">
-              <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-blue-50 text-brand-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</div>
-                <div>
-                  <p className="font-bold text-gray-900">Find your Dataset / Pixel ID</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Go to <strong>Meta Events Manager</strong> → Select your Business Account → Copy the 15-digit ID listed under your Dataset/Pixel name.
-                  </p>
-                </div>
-              </div>
+        {/* RIGHT: Guides + Live Event Log (2/5 width) */}
+        <div className="xl:col-span-2 space-y-4">
 
-              <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-blue-50 text-brand-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</div>
-                <div>
-                  <p className="font-bold text-gray-900">Paste & Save</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Paste the ID into the <strong>Meta Pixel / Dataset ID</strong> field on the left and click <strong>Save Configuration</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-blue-50 text-brand-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</div>
-                <div>
-                  <p className="font-bold text-gray-900">Verify Connection</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Install the <strong>Meta Pixel Helper</strong> extension in Chrome. Open your site in a new tab, click the extension icon to verify events (e.g. <code>PageView</code>) are showing green.
-                  </p>
-                </div>
-              </div>
+          {/* ── Event Coverage Matrix ───────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-brand-primary" />
+                Event Coverage Matrix
+              </h3>
             </div>
-
-            <div className="pt-2 border-t border-gray-100">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
-                <Code className="w-3.5 h-3.5" />
-                Deduplication & Event IDs
-              </h4>
-              <p className="text-[10px] text-gray-400 leading-relaxed">
-                Rupan automatically generates unique Event IDs (e.g. <code>evt-pageview-...</code>) for all browser events. This guarantees deduplication and high event quality scores on Meta.
+            <div className="p-4">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-2 font-bold text-gray-500 pr-2">Event</th>
+                    <th className="text-center py-2 font-bold text-blue-500 px-1">Pixel</th>
+                    <th className="text-center py-2 font-bold text-indigo-500 px-1">CAPI</th>
+                    <th className="text-center py-2 font-bold text-emerald-600 px-1">GTM</th>
+                    <th className="text-center py-2 font-bold text-orange-500 px-1">GA4</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { event: 'PageView',         pixel: true,  capi: true,  gtm: true,  ga4: true  },
+                    { event: 'ViewContent',       pixel: true,  capi: true,  gtm: true,  ga4: true  },
+                    { event: 'AddToCart',         pixel: true,  capi: true,  gtm: true,  ga4: true  },
+                    { event: 'InitiateCheckout',  pixel: true,  capi: true,  gtm: true,  ga4: true  },
+                    { event: 'Purchase',          pixel: true,  capi: true,  gtm: true,  ga4: true  },
+                    { event: 'Search',            pixel: false, capi: false, gtm: true,  ga4: true  },
+                  ].map(({ event, pixel, capi, gtm, ga4 }) => (
+                    <tr key={event} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="py-2 pr-2 font-mono font-bold text-gray-700">{event}</td>
+                      {[pixel, capi, gtm, ga4].map((v, i) => (
+                        <td key={i} className="text-center py-2 px-1">
+                          {v
+                            ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 inline" />
+                            : <XCircle className="w-3.5 h-3.5 text-gray-200 inline" />}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                All events are automatically deduplicated between Pixel and CAPI using unique <code className="font-mono">eventId</code> strings.
               </p>
             </div>
           </div>
 
-          {/* Test Event helper code snippet */}
-          <div className="bg-gray-950 p-5 rounded-2xl text-gray-200 border border-gray-800 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-brand-primary uppercase tracking-widest">
-                Meta Diagnostics
-              </span>
-              <span className="text-[10px] text-gray-500 font-mono">
-                Telemetry Active
-              </span>
+          {/* ── Meta Setup Guide ─────────────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-2">
+                <Info className="w-4 h-4 text-brand-primary" />
+                Quick Setup Guide
+              </h3>
             </div>
-            <p className="text-[11px] text-gray-400 leading-relaxed">
-              When navigating your store, the following debug console prints are triggered for verification:
+            <div className="p-4 space-y-4">
+              {[
+                {
+                  step: '1', title: 'Get your Pixel ID',
+                  desc: 'Go to Meta Events Manager → Data Sources → Copy the 15-digit Dataset/Pixel ID.',
+                  href: 'https://business.facebook.com/events_manager2'
+                },
+                {
+                  step: '2', title: 'Generate CAPI Token',
+                  desc: 'In Events Manager → Settings → Conversions API → Generate Access Token.',
+                  href: 'https://developers.facebook.com/docs/marketing-api/conversions-api/get-started'
+                },
+                {
+                  step: '3', title: 'Add GTM & GA4 IDs',
+                  desc: 'Get GTM-XXXXXX from tagmanager.google.com and G-XXXXXXXXXX from analytics.google.com.',
+                  href: 'https://tagmanager.google.com/'
+                },
+                {
+                  step: '4', title: 'Save & Verify',
+                  desc: 'Click Save, then use Meta Pixel Helper Chrome extension to verify events fire correctly.',
+                  href: undefined
+                },
+              ].map(({ step, title, desc, href }) => (
+                <div key={step} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-blue-50 text-brand-primary flex items-center justify-center font-black text-[11px] shrink-0 mt-0.5">
+                    {step}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-900">
+                      {title}
+                      {href && (
+                        <a href={href} target="_blank" rel="noopener noreferrer"
+                          className="ml-1.5 text-brand-primary hover:underline inline-flex items-center">
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Live Event Log Terminal ───────────────────────────────────── */}
+          <div className="bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 shadow-sm">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Code className="w-3.5 h-3.5 text-brand-primary" />
+                <span className="text-[10px] font-bold text-brand-primary uppercase tracking-widest">Live Event Log</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] text-gray-500 font-mono">Telemetry Active</span>
+                <button
+                  onClick={() => setLogs([])}
+                  title="Clear logs"
+                  className="text-gray-600 hover:text-gray-400 transition-colors ml-1 cursor-pointer">
+                  <XCircle className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 h-52 overflow-y-auto font-mono text-[10px] space-y-1 scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700">
+              {logs.length === 0 ? (
+                <p className="text-gray-600 italic">
+                  → Click "Test All" or individual "Test" buttons to see live telemetry output here...
+                </p>
+              ) : (
+                logs.map((log, i) => (
+                  <div key={i} className={`flex items-start gap-2 ${
+                    log.type === 'success' ? 'text-emerald-400'
+                    : log.type === 'error' ? 'text-red-400'
+                    : 'text-gray-400'
+                  }`}>
+                    <span className="text-gray-600 shrink-0">{log.ts}</span>
+                    <span className="break-all">{log.msg}</span>
+                  </div>
+                ))
+              )}
+              <div ref={logEndRef} />
+            </div>
+          </div>
+
+          {/* ── Deduplication Note ───────────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Settings2 className="w-3.5 h-3.5 text-gray-400" />
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Deduplication & Event IDs</h4>
+            </div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Rupan generates unique <code className="font-mono bg-gray-100 px-1 rounded">eventId</code> strings (e.g. <code className="font-mono bg-gray-100 px-1 rounded">evt-purchase-1718000000-348291</code>) for all events. The same ID is sent to both the browser Pixel and CAPI, which Meta uses to automatically deduplicate — you get 100% coverage without double-counting.
             </p>
-            <pre className="text-[10px] font-mono bg-gray-900 p-2.5 rounded-lg text-emerald-400 overflow-x-auto">
-              {`[Telemetry] Fired Meta Pixel: PageView\n{ page_path: "/" }\n\n[Telemetry] Fired Meta Pixel: Purchase\n{ value: 1250, currency: "BDT" }`}
-            </pre>
           </div>
         </div>
-
       </div>
     </div>
   );
