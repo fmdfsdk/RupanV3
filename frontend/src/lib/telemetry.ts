@@ -96,14 +96,9 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
         t.src=v;s=b.getElementsByTagName(e)[0];
         s.parentNode.insertBefore(t,s)}(window, document,'script',
         'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '${metaPixelId}');
       `;
       document.head.appendChild(fbScript);
-
-      // Initialize pixel
-      (window as any).fbq = (window as any).fbq || function() {
-        ((window as any).fbq as any).queue.push(arguments);
-      };
-      (window as any).fbq('init', metaPixelId);
       isPixelLoaded = true;
       console.log(`[Telemetry] Meta Pixel initialized: ${metaPixelId}`);
     } catch (e) {
@@ -157,21 +152,21 @@ const fireEvent = (
   }
 
   // 1. Meta Pixel trigger
-  if (isPixelLoaded && w.fbq) {
+  if (w.fbq) {
     const fbOptions = eventId ? { eventID: eventId } : {};
     w.fbq('track', eventName, payload, fbOptions);
     console.log(`[Telemetry] Fired Meta Pixel: ${eventName}`, payload, fbOptions);
   }
 
   // 2. Google Analytics page view/custom event trigger
-  if (isGAConfigured && w.gtag) {
+  if (w.gtag) {
     const gaEventName = eventName === 'PageView' ? 'page_view' : eventName;
     w.gtag('event', gaEventName, payload);
     console.log(`[Telemetry] Fired GA4 Event: ${gaEventName}`, payload);
   }
 
   // 3. Google Tag Manager Custom Events trigger
-  if (isGTMConfigured && w.dataLayer) {
+  if (w.dataLayer) {
     w.dataLayer.push({
       event: eventName,
       eventId: eventId,
