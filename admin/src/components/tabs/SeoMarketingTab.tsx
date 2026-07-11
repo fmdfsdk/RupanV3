@@ -171,6 +171,23 @@ export default function SeoMarketingTab({
     setGa4Status(settings.googleAnalyticsId     ? 'active' : 'inactive');
   }, [settings]);
 
+  // ── Restore CAPI token from localStorage backup if DB doesn't have it ──
+  // Runs once on mount. Protects against the token disappearing when the
+  // meta_capi_access_token column is missing from Supabase.
+  useEffect(() => {
+    if (!settings.metaCapiAccessToken) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+        const savedToken = cached.meta_capi_access_token;
+        if (savedToken) {
+          setSettings({ ...settings, metaCapiAccessToken: savedToken });
+        }
+      } catch (_) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   const addLog = useCallback((type: LogEntry['type'], msg: string) => {
     const now = new Date();
     const ts  = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -182,18 +199,54 @@ export default function SeoMarketingTab({
   const onSave = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
-    addLog('info', 'Saving SEO & Marketing configuration...');
+    addLog('info', '💾 Saving SEO & Marketing configuration to Supabase...');
+
+    // Always persist CAPI token to localStorage as a local backup
+    // so it survives page reloads even if the DB save fails
+    if (settings.metaCapiAccessToken) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+        cached.meta_capi_access_token = settings.metaCapiAccessToken;
+        cached.meta_pixel_id          = settings.metaPixelId || cached.meta_pixel_id;
+        cached.meta_test_event_code   = settings.metaTestEventCode || cached.meta_test_event_code;
+        cached.google_tag_manager_id  = settings.googleTagManagerId || cached.google_tag_manager_id;
+        cached.google_analytics_id    = settings.googleAnalyticsId || cached.google_analytics_id;
+        localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+        addLog('info', '📌 Token backed up to localStorage (survives page refresh).');
+      } catch (_) {}
+    }
+
     try {
       await handleSaveSettings();
       setSaveSuccess(true);
-      addLog('success', '✅ Configuration saved to Supabase successfully.');
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch {
-      addLog('error', '❌ Failed to save configuration. Check Supabase connection.');
+      addLog('success', '✅ All settings saved to Supabase successfully!');
+      addLog('info', '   ↳ CAPI token, Pixel ID, GTM, GA4 all persisted in DB.');
+      setTimeout(() => setSaveSuccess(false), 4000);
+    } catch (err: any) {
+      setIsSaving(false);
+      const msg: string = err?.message || 'Unknown error';
+
+      // Detect the "column does not exist" error — means migration hasn't been run
+      if (msg.toLowerCase().includes('meta_capi_access_token') || msg.toLowerCase().includes('column') || msg.toLowerCase().includes('does not exist')) {
+        addLog('error', `❌ Supabase Error: ${msg}`);
+        addLog('error', '');
+        addLog('error', '⚠️  The CAPI token column is MISSING from your database.');
+        addLog('info', '👉 You need to run this SQL in Supabase Dashboard → SQL Editor:');
+        addLog('info', '');
+        addLog('info', '   ALTER TABLE public.settings');
+        addLog('info', '   ADD COLUMN IF NOT EXISTS meta_capi_access_token text;');
+        addLog('info', '');
+        addLog('info', '   Then click Save again. Your token is safely backed up in localStorage.');
+      } else {
+        addLog('error', `❌ Save failed: ${msg}`);
+        addLog('info', '💡 Your token is still saved locally. Run the migration SQL and try again.');
+      }
+      return;
     } finally {
       setIsSaving(false);
     }
   };
+
 
   // ── Helper: load a script and wait for it ────────────────────────────────
   const loadScript = (src: string, id: string): Promise<void> =>

@@ -424,37 +424,32 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   };
 
   // Quick Action: Save settings
-  const handleSaveSettings = async () => {
-    try {
-      const payload = {
-        logo_text:              settings.logoText,
-        logo_accent:            settings.logoAccent,
-        tagline:                settings.tagline,
-        whatsapp_number:        settings.whatsappNumber,
-        support_number:         settings.supportNumber,
-        currency_symbol:        settings.currencySymbol,
-        inside_dhaka_shipping:  Number(settings.insideDhakaShipping),
-        outside_dhaka_shipping: Number(settings.outsideDhakaShipping),
-        free_shipping_min_order:Number(settings.freeShippingMinOrder),
-        theme:                  settings.theme,
-        meta_pixel_id:          settings.metaPixelId          || null,
-        meta_test_event_code:   settings.metaTestEventCode    || null,
-        meta_capi_access_token: settings.metaCapiAccessToken  || null,
-        google_tag_manager_id:  settings.googleTagManagerId   || null,
-        google_analytics_id:    settings.googleAnalyticsId    || null,
-      };
+  const handleSaveSettings = async (): Promise<void> => {
+    const payload = {
+      logo_text:              settings.logoText,
+      logo_accent:            settings.logoAccent,
+      tagline:                settings.tagline,
+      whatsapp_number:        settings.whatsappNumber,
+      support_number:         settings.supportNumber,
+      currency_symbol:        settings.currencySymbol,
+      inside_dhaka_shipping:  Number(settings.insideDhakaShipping),
+      outside_dhaka_shipping: Number(settings.outsideDhakaShipping),
+      free_shipping_min_order:Number(settings.freeShippingMinOrder),
+      theme:                  settings.theme,
+      meta_pixel_id:          settings.metaPixelId          || null,
+      meta_test_event_code:   settings.metaTestEventCode    || null,
+      meta_capi_access_token: settings.metaCapiAccessToken  || null,
+      google_tag_manager_id:  settings.googleTagManagerId   || null,
+      google_analytics_id:    settings.googleAnalyticsId    || null,
+    };
 
-      const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
-      if (!error) {
-        alert('✅ SEO & Marketing configuration saved successfully!');
-      } else {
-        alert(`❌ Error saving settings: ${error.message}`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('❌ An unexpected error occurred while saving settings.');
+    const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
+    if (error) {
+      // THROW so callers (SeoMarketingTab, SettingsTab) can catch and surface the real message
+      throw new Error(error.message);
     }
   };
+
 
 
   // Synchronize reseller products page-by-page
