@@ -631,11 +631,11 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
                   </a>
                 )}
               </div>
-              <div className={`flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto`}>
+              <div className="flex-1 w-full min-h-0 p-4 relative bg-gray-100 overflow-auto flex items-center justify-center">
                 <iframe
                   title="Landing Page Preview"
                   srcDoc={getPreviewHtml()}
-                  className={`bg-white shadow-xl border border-gray-300 rounded-lg transition-all duration-300 ${deviceView === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'}`}
+                  className={`bg-white shadow-xl border border-gray-300 rounded-lg transition-all duration-300 ${deviceView === 'mobile' ? 'w-[375px] h-[667px] shrink-0' : 'w-full h-full absolute inset-4 w-[calc(100%-32px)] h-[calc(100%-32px)]'}`}
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 />
               </div>
