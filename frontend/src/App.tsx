@@ -64,22 +64,35 @@ function AppLayout() {
         console.error('Error parsing cached settings for telemetry:', e);
       }
     }
-
   }, []);
 
   // Track page views on route changes
   useEffect(() => {
-    if (dbSettings) {
+    // Read from state or fallback to local storage cache immediately
+    let testCode = dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code;
+    let hasPixel = !!dbSettings?.metaPixelId || !!dbSettings?.meta_pixel_id;
+
+    if (!testCode || !hasPixel) {
+      try {
+        const cachedRaw = localStorage.getItem('rup_db_settings');
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (!testCode) testCode = cached.meta_test_event_code || cached.metaTestEventCode;
+          if (!hasPixel) hasPixel = !!cached.meta_pixel_id || !!cached.metaPixelId;
+        }
+      } catch (_) {}
+    }
+
+    if (hasPixel) {
       const eventId = generateEventId('pageview');
       trackPageView(
         location.pathname + location.search,
         eventId,
-        dbSettings.metaTestEventCode
+        testCode
       );
     }
   }, [location, dbSettings]);
 
-  // Load Zustand state & actions
   const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);
   const setIsSupabaseOnline = useStore((state) => state.setIsSupabaseOnline);
   const loadInitialData = useStore((state) => state.loadInitialData);

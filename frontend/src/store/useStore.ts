@@ -389,17 +389,34 @@ export const useStore = create<StoreState>((set, get) => ({
         localStorage.setItem('rup_db_coupons', JSON.stringify(cResult.data));
       }
       if (sData) {
-        set({ dbSettings: sData });
-        localStorage.setItem('rup_db_settings', JSON.stringify(sData));
+        // Retrieve local backup token and test code if DB doesn't have them
+        let cached: Record<string, any> = {};
+        try {
+          const raw = localStorage.getItem('rup_db_settings');
+          if (raw) cached = JSON.parse(raw);
+        } catch (_) {}
+        
+        const finalToken = sData.meta_capi_access_token || cached.meta_capi_access_token || cached.metaCapiAccessToken;
+        const finalTestCode = sData.meta_test_event_code || cached.meta_test_event_code || cached.metaTestEventCode;
+
+        // Save merged settings back to cache
+        const mergedSettings = {
+          ...sData,
+          meta_capi_access_token: finalToken,
+          meta_test_event_code: finalTestCode
+        };
+        
+        set({ dbSettings: mergedSettings });
+        localStorage.setItem('rup_db_settings', JSON.stringify(mergedSettings));
+
         initializeTelemetry({
           metaPixelId:         sData.meta_pixel_id,
-          metaTestEventCode:   sData.meta_test_event_code,
-          metaCapiAccessToken: sData.meta_capi_access_token,
+          metaTestEventCode:   finalTestCode,
+          metaCapiAccessToken: finalToken,
           googleTagManagerId:  sData.google_tag_manager_id,
           googleAnalyticsId:   sData.google_analytics_id,
         });
       }
-
 
       // TIER 2: Background — fetch full catalog index (all products, minimal fields)
       // This runs AFTER initial data is loaded so it doesn't block the UI
