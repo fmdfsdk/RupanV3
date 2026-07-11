@@ -61,6 +61,14 @@ const getCookie = (name: string): string | undefined => {
 export const initializeTelemetry = (config: TelemetryConfig): void => {
   if (typeof window === 'undefined') return;
 
+  console.log('[Telemetry] 🚀 Initializing with config:', {
+    metaPixelId:         config.metaPixelId,
+    metaTestEventCode:   config.metaTestEventCode,
+    metaCapiAccessToken: config.metaCapiAccessToken ? '***[PRESENT]***' : 'undefined/empty',
+    googleTagManagerId:  config.googleTagManagerId,
+    googleAnalyticsId:   config.googleAnalyticsId,
+  });
+
   const {
     metaPixelId,
     metaTestEventCode,
@@ -91,7 +99,7 @@ export const initializeTelemetry = (config: TelemetryConfig): void => {
 
       _isGTMConfigured             = true;
       w.isGTMConfigured            = true;
-      console.log(`[Telemetry] ✅ GTM initialized: ${googleTagManagerId}`);
+      console.log(`[Telemetry] ✅ GTM script injected: ${googleTagManagerId}`);
     } catch (e) {
       console.error('[Telemetry] ❌ GTM init error:', e);
     }
@@ -117,7 +125,7 @@ export const initializeTelemetry = (config: TelemetryConfig): void => {
       // ⚠️ CRITICAL: gtag('config') must run AFTER the script is loaded
       gaScript.onload = () => {
         w.gtag('config', googleAnalyticsId, { send_page_view: false });
-        console.log(`[Telemetry] ✅ GA4 configured: ${googleAnalyticsId}`);
+        console.log(`[Telemetry] ✅ GA4 configured & config sent: ${googleAnalyticsId}`);
       };
 
       document.head.appendChild(gaScript);
@@ -162,7 +170,7 @@ export const initializeTelemetry = (config: TelemetryConfig): void => {
       if (!_initializedPixels.has(metaPixelId)) {
         w.fbq('init', metaPixelId);
         _initializedPixels.add(metaPixelId);
-        console.log(`[Telemetry] ✅ Meta Pixel linked: ${metaPixelId}`);
+        console.log(`[Telemetry] ✅ Meta Pixel linked & init sent: ${metaPixelId}`);
       }
     } catch (e) {
       console.error('[Telemetry] ❌ Meta Pixel init error:', e);
@@ -192,7 +200,11 @@ const fireServerEvent = async (
   customData: Record<string, any> = {},
   userData:   CAPIUserData        = {}
 ): Promise<void> => {
-  if (!_capiConfig.pixelId || !_capiConfig.accessToken) return;
+  if (!_capiConfig.pixelId || !_capiConfig.accessToken) {
+    console.warn(`[Telemetry CAPI] ⚠️ Skipped server event "${eventName}". Missing pixelId or accessToken in config.`, _capiConfig);
+    return;
+  }
+
 
   try {
     const fbp = getCookie('_fbp');

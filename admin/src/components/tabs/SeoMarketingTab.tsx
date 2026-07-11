@@ -333,7 +333,7 @@ export default function SeoMarketingTab({
         events: [{
           eventName:      'PageView',
           eventId:        evtId,
-          eventSourceUrl: window.location.href,
+          eventSourceUrl: 'https://www.myrupan.com/',
           customData:     { page_path: '/admin/seo-marketing-test' },
         }],
       };
