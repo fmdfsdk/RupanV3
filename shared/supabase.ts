@@ -751,7 +751,7 @@ const allowedColumns: Record<string, string[]> = {
   settings: [
     'id', 'logo_text', 'logo_accent', 'tagline', 'whatsapp_number', 'support_number', 
     'currency_symbol', 'inside_dhaka_shipping', 'outside_dhaka_shipping', 'free_shipping_min_order', 
-    'theme', 'meta_pixel_id', 'meta_test_event_code', 'google_tag_manager_id', 'google_analytics_id', 
+    'theme', 'meta_pixel_id', 'meta_test_event_code', 'meta_capi_access_token', 'google_tag_manager_id', 'google_analytics_id', 
     'homepage_config', 'updated_at'
   ],
   products: [

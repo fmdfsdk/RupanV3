@@ -141,6 +141,7 @@ export interface WebsiteSettings {
   homepageConfig?: any;
   metaPixelId?: string;
   metaTestEventCode?: string;
+  metaCapiAccessToken?: string;
   googleTagManagerId?: string;
   googleAnalyticsId?: string;
 }

@@ -261,52 +261,58 @@ export default function SeoMarketingTab({
       document.head.appendChild(s);
     });
 
-  // ── Test Meta Pixel ──────────────────────────────────────────────────────
+  // ── Test Meta Pixel (Now via CAPI server-side to prevent Admin DOM injection) ──
   const testPixelConnection = async () => {
     if (!settings.metaPixelId) {
       addLog('error', '❌ No Pixel ID entered. Please add a Meta Pixel / Dataset ID first.');
       return;
     }
     setPixelStatus('testing');
-    addLog('info', `🔌 Injecting Meta Pixel script and linking Pixel ID: ${settings.metaPixelId}...`);
+    addLog('info', `📡 Testing Meta Pixel ${settings.metaPixelId} securely via Server-Side CAPI...`);
 
     try {
-      const w = window as any;
-
-      // Bootstrap fbq queue if not already present
-      if (!w.fbq) {
-        w.fbq = function () {
-          w.fbq.callMethod ? w.fbq.callMethod.apply(w.fbq, arguments) : w.fbq.queue.push(arguments);
-        };
-        w._fbq = w.fbq;
-        w.fbq.push    = w.fbq;
-        w.fbq.loaded  = true;
-        w.fbq.version = '2.0';
-        w.fbq.queue   = [];
+      const evtId = `evt-pixel-test-${Date.now()}`;
+      
+      // Use CAPI access token if present, or fall back to a mock/system verification
+      const apiToken = settings.metaCapiAccessToken;
+      if (!apiToken) {
+        addLog('error', '❌ Meta Pixel browser test cannot run secure-server test without a CAPI Access Token.');
+        addLog('info', '💡 Please add your CAPI Access Token first, or test the browser Pixel directly by visiting your main storefront at https://www.myrupan.com.');
+        setPixelStatus('idle');
+        return;
       }
 
-      // Load fbevents.js if not already loaded
-      if (!document.getElementById('fb-pixel-script')) {
-        addLog('info', '📦 Loading fbevents.js from Facebook CDN...');
-        await loadScript('https://connect.facebook.net/en_US/fbevents.js', 'fb-pixel-script');
+      const payload = {
+        pixelId:       settings.metaPixelId,
+        accessToken:   apiToken,
+        testEventCode: settings.metaTestEventCode || undefined,
+        events: [{
+          eventName:      'PageView',
+          eventId:        evtId,
+          eventSourceUrl: 'https://www.myrupan.com/',
+          customData:     { page_path: '/storefront-pixel-test' },
+        }],
+      };
+
+      const response = await fetch('/api/meta-capi', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        addLog('success', `✅ Meta Pixel verification sent via Server CAPI (eventId: ${evtId})`);
+        if (settings.metaTestEventCode) {
+          addLog('info', `   ↳ Test Code "${settings.metaTestEventCode}" applied — check Meta Test Events dashboard under storefront domain.`);
+        }
+        setPixelStatus('active');
+      } else {
+        addLog('error', `❌ secure Meta Pixel server test failed: ${data.error}`);
+        setPixelStatus('error');
       }
-
-      // Init pixel
-      w.fbq('init', settings.metaPixelId);
-      await new Promise(r => setTimeout(r, 600));
-
-      const evtId = `evt-admin-test-${Date.now()}`;
-      const trackOpts: any = { eventID: evtId };
-      if (settings.metaTestEventCode) trackOpts.testEventCode = settings.metaTestEventCode;
-
-      w.fbq('track', 'PageView', {}, trackOpts);
-      addLog('success', `✅ Meta Pixel fired! event: PageView | pixelId: ${settings.metaPixelId} | eventID: ${evtId}`);
-      if (settings.metaTestEventCode) {
-        addLog('info', `   ↳ Test Event Code applied: ${settings.metaTestEventCode} — check Meta Test Events tab.`);
-      }
-      setPixelStatus('active');
     } catch (e: any) {
-      addLog('error', `❌ Pixel test failed: ${e.message}`);
+      addLog('error', `❌ Pixel test connection failed: ${e.message}`);
       setPixelStatus('error');
     }
   };
@@ -374,84 +380,54 @@ export default function SeoMarketingTab({
     }
   };
 
-  // ── Test GTM ─────────────────────────────────────────────────────────────
+  // ── Test GTM (Simulated Container Format verification to protect admin DOM) ──
   const testGTMConnection = async () => {
     if (!settings.googleTagManagerId) {
       addLog('error', '❌ No GTM Container ID entered.');
       return;
     }
     setGtmStatus('testing');
-    addLog('info', `🏷️  Injecting Google Tag Manager: ${settings.googleTagManagerId}...`);
+    addLog('info', `🏷️  Validating GTM container format: ${settings.googleTagManagerId}...`);
+    await new Promise(r => setTimeout(r, 600));
 
-    try {
-      const w = window as any;
-
-      // Bootstrap dataLayer
-      w.dataLayer = w.dataLayer || [];
-
-      // Inject GTM script if not already present
-      if (!document.getElementById('gtm-admin-test')) {
-        w.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-        await loadScript(
-          `https://www.googletagmanager.com/gtm.js?id=${settings.googleTagManagerId}`,
-          'gtm-admin-test'
-        );
-        await new Promise(r => setTimeout(r, 800)); // allow GTM to fully initialize
-      }
-
-      // Fire a test event into dataLayer
-      w.dataLayer.push({ event: 'rupan_admin_test', gtm_id: settings.googleTagManagerId, timestamp: Date.now() });
-      addLog('success', `✅ GTM loaded & dataLayer.push() fired! Container: ${settings.googleTagManagerId}`);
-      addLog('info', `   ↳ Verify in GTM Preview mode that "rupan_admin_test" event appears.`);
+    // Verify format (GTM-XXXXXX or GTM-XXXXXXX)
+    const regex = /^GTM-[A-Z0-9]{6,8}$/;
+    if (regex.test(settings.googleTagManagerId.trim())) {
+      addLog('success', `✅ GTM container configuration "${settings.googleTagManagerId}" is valid!`);
+      addLog('info', '💡 Google Tag Manager will load exclusively on the storefront (https://www.myrupan.com).');
+      addLog('info', '   It is not loaded in the admin panel to prevent tracking admin actions.');
       setGtmStatus('active');
-    } catch (e: any) {
-      addLog('error', `❌ GTM injection failed: ${e.message}`);
+    } else {
+      addLog('error', `❌ Invalid GTM Container ID format: "${settings.googleTagManagerId}". Expected format: GTM-XXXXXX`);
       setGtmStatus('error');
     }
   };
 
-  // ── Test GA4 ─────────────────────────────────────────────────────────────
+  // ── Test GA4 (Simulated Property Format verification to protect admin DOM) ──
   const testGA4Connection = async () => {
     if (!settings.googleAnalyticsId) {
       addLog('error', '❌ No GA4 Measurement ID entered.');
       return;
     }
     setGa4Status('testing');
-    addLog('info', `📊 Injecting Google Analytics 4: ${settings.googleAnalyticsId}...`);
+    addLog('info', `📊 Validating GA4 Measurement ID format: ${settings.googleAnalyticsId}...`);
+    await new Promise(r => setTimeout(r, 600));
 
-    try {
-      const w = window as any;
-
-      // Bootstrap gtag queue
-      if (!w.gtag) {
-        w.dataLayer = w.dataLayer || [];
-        w.gtag = function () { w.dataLayer.push(arguments); };
-        w.gtag('js', new Date());
-      }
-
-      // Load GA4 measurement script if not already loaded
-      if (!document.getElementById('ga4-admin-test')) {
-        await loadScript(
-          `https://www.googletagmanager.com/gtag/js?id=${settings.googleAnalyticsId}`,
-          'ga4-admin-test'
-        );
-        await new Promise(r => setTimeout(r, 800)); // allow GA4 to fully initialize
-        w.gtag('config', settings.googleAnalyticsId, { send_page_view: false });
-      }
-
-      // Fire a test event
-      w.gtag('event', 'rupan_admin_test', {
-        event_category: 'seo_marketing_hub',
-        measurement_id: settings.googleAnalyticsId,
-      });
-      addLog('success', `✅ GA4 event fired! Measurement ID: ${settings.googleAnalyticsId}`);
-      addLog('info', `   ↳ Check Google Analytics → Reports → Real-time to confirm event arrival.`);
+    // Verify format (G-XXXXXXXXXX)
+    const regex = /^G-[A-Z0-9]{8,12}$/;
+    if (regex.test(settings.googleAnalyticsId.trim())) {
+      addLog('success', `✅ GA4 Measurement ID configuration "${settings.googleAnalyticsId}" is valid!`);
+      addLog('info', '💡 Google Analytics will track events exclusively on the storefront (https://www.myrupan.com).');
+      addLog('info', '   It is not loaded in the admin panel to protect your session privacy.');
       setGa4Status('active');
-    } catch (e: any) {
-      addLog('error', `❌ GA4 injection failed: ${e.message}`);
+    } else {
+      addLog('error', `❌ Invalid GA4 Measurement ID format: "${settings.googleAnalyticsId}". Expected format: G-XXXXXXXXXX`);
       setGa4Status('error');
     }
   };
+
+
+
 
   // ── Fire All Test Events ──────────────────────────────────────────────────
   const runFullTest = async () => {
