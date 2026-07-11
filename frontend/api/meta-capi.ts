@@ -9,6 +9,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 // Meta Graph API version
 const META_API_VERSION = 'v21.0';
@@ -97,9 +98,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!body?.pixelId) {
       return res.status(400).json({ error: 'Missing required field: pixelId' });
     }
-    if (!body?.accessToken) {
-      return res.status(400).json({ error: 'Missing required field: accessToken' });
+
+    let accessToken = body?.accessToken;
+    if (!accessToken || accessToken === 'RUPAN_META_CAPI_TOKEN' || accessToken === 'YOUR_META_CAPI_TOKEN') {
+      // Securely fetch accessToken from database settings table
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data } = await supabase.from('settings').select('meta_capi_access_token').maybeSingle();
+        accessToken = data?.meta_capi_access_token || '';
+      }
     }
+
+    if (!accessToken) {
+      return res.status(400).json({ error: 'Missing or unresolvable required field: accessToken' });
+    }
+
     if (!body?.events || !Array.isArray(body.events) || body.events.length === 0) {
       return res.status(400).json({ error: 'Missing or empty events array' });
     }
@@ -148,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const requestPayload: Record<string, any> = {
       data:         capiEvents,
-      access_token: body.accessToken,
+      access_token: accessToken,
     };
 
     if (body.testEventCode) {
