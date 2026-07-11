@@ -8,6 +8,7 @@ import { bannerService } from '../services/bannerService';
 import { settingsService } from '../services/settingsService';
 import { reviewService } from '../services/reviewService';
 import { generateEventId, initializeTelemetry, trackAddToCart, trackPurchase } from '../lib/telemetry';
+import { supabase } from '../lib/supabase';
 
 interface StoreState {
   isSupabaseOnline: boolean;
@@ -23,7 +24,7 @@ interface StoreState {
   wishlist: Product[];
   orders: Order[];
   currentUser: any;
-  appliedCoupon: { code: string; discount: number } | null;
+  appliedCoupon: { code: string; discount: number; type?: string; minOrder?: number } | null;
   lastPlacedOrder: Order | null;
   recentlyViewedIds: string[];
   checkoutForm: {
@@ -90,7 +91,7 @@ interface StoreState {
   setCart: (cart: CartItem[]) => void;
   setWishlist: (wishlist: Product[]) => void;
   setOrders: (orders: Order[]) => void;
-  setAppliedCoupon: (coupon: { code: string; discount: number } | null) => void;
+  setAppliedCoupon: (coupon: { code: string; discount: number; type?: string; minOrder?: number } | null) => void;
   setLastPlacedOrder: (order: Order | null) => void;
   setCheckoutForm: (form: any) => void;
   addRecentlyViewedId: (id: string) => void;
@@ -396,25 +397,36 @@ export const useStore = create<StoreState>((set, get) => ({
           if (raw) cached = JSON.parse(raw);
         } catch (_) {}
         
-        const finalToken = sData.meta_capi_access_token || cached.meta_capi_access_token || cached.metaCapiAccessToken;
-        const finalTestCode = sData.meta_test_event_code || cached.meta_test_event_code || cached.metaTestEventCode;
+        const finalToken = sData.metaCapiAccessToken || sData.meta_capi_access_token || cached.metaCapiAccessToken || cached.meta_capi_access_token;
+        const finalTestCode = sData.metaTestEventCode || sData.meta_test_event_code || cached.metaTestEventCode || cached.meta_test_event_code;
+        const pixelId = sData.metaPixelId || sData.meta_pixel_id || cached.metaPixelId || cached.meta_pixel_id;
+        const gtmId = sData.googleTagManagerId || sData.google_tag_manager_id || cached.googleTagManagerId || cached.google_tag_manager_id;
+        const gaId = sData.googleAnalyticsId || sData.google_analytics_id || cached.googleAnalyticsId || cached.google_analytics_id;
 
-        // Save merged settings back to cache
+        // Save merged settings back to cache (supporting both casings for other components)
         const mergedSettings = {
           ...sData,
+          metaPixelId: pixelId,
+          meta_pixel_id: pixelId,
+          metaCapiAccessToken: finalToken,
           meta_capi_access_token: finalToken,
-          meta_test_event_code: finalTestCode
+          metaTestEventCode: finalTestCode,
+          meta_test_event_code: finalTestCode,
+          googleTagManagerId: gtmId,
+          google_tag_manager_id: gtmId,
+          googleAnalyticsId: gaId,
+          google_analytics_id: gaId
         };
         
         set({ dbSettings: mergedSettings });
         localStorage.setItem('rup_db_settings', JSON.stringify(mergedSettings));
 
         initializeTelemetry({
-          metaPixelId:         sData.meta_pixel_id,
+          metaPixelId:         pixelId,
           metaTestEventCode:   finalTestCode,
           metaCapiAccessToken: finalToken,
-          googleTagManagerId:  sData.google_tag_manager_id,
-          googleAnalyticsId:   sData.google_analytics_id,
+          googleTagManagerId:  gtmId,
+          googleAnalyticsId:   gaId,
         });
       }
 
@@ -472,7 +484,7 @@ export const useStore = create<StoreState>((set, get) => ({
     get().setCart(newCart);
 
     const eventId = generateEventId('AddToCart');
-    trackAddToCart(product, qty, size, color, eventId, dbSettings?.meta_test_event_code);
+    trackAddToCart(product, qty, size, color, eventId, dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code);
   },
 
   updateCartQty: (index, newQty) => {
@@ -631,7 +643,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     }
 
-    trackPurchase(newOrder, purchaseEventId, dbSettings?.meta_test_event_code);
+    trackPurchase(newOrder, purchaseEventId, dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code);
 
     set({
       lastPlacedOrder: newOrder,

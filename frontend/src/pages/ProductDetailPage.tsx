@@ -5,6 +5,7 @@ import ProductDetail from '../components/ProductDetail';
 import { productService } from '../services/productService';
 import { Product } from '../types';
 import { useSEO, buildProductSchema, buildBreadcrumbSchema } from '../hooks/useSEO';
+import { trackViewContent, generateEventId } from '../lib/telemetry';
 
 
 
@@ -93,6 +94,19 @@ export default function ProductDetailPage() {
     resolve();
     return () => { cancelled = true; };
   }, [id, products, catalogIndex]);
+
+  const dbSettings = useStore((state) => state.dbSettings);
+
+  // Track ViewContent event when product details are resolved/loaded
+  const hasTrackedView = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (product && hasTrackedView.current !== product.id) {
+      hasTrackedView.current = product.id;
+      const eventId = generateEventId('ViewContent');
+      const testCode = dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code;
+      trackViewContent(product, eventId, testCode);
+    }
+  }, [product, dbSettings]);
 
   // Product SEO — uses DB seoTitle/seoDescription when available
   const productSlug = product?.slug || id || '';

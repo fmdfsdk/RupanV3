@@ -6,6 +6,7 @@ import { getOptimizedImageUrl } from '../utils/image';
 import ProductImage from '../components/ProductImage';
 import { orderService } from '../services/orderService';
 import { useSEO } from '../hooks/useSEO';
+import { trackInitiateCheckout, generateEventId } from '../lib/telemetry';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -87,6 +88,22 @@ export default function CheckoutPage() {
   const getTotal = () => {
     return getSubtotal() + getShippingFee() - getDiscountAmount();
   };
+
+  // Track InitiateCheckout when the checkout page is loaded
+  const hasTrackedCheckout = React.useRef(false);
+  useEffect(() => {
+    if (cart.length > 0 && !hasTrackedCheckout.current) {
+      hasTrackedCheckout.current = true;
+      const eventId = generateEventId('InitiateCheckout');
+      const testCode = dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code;
+      trackInitiateCheckout(
+        cart,
+        getTotal(),
+        eventId,
+        testCode
+      );
+    }
+  }, [cart, dbSettings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

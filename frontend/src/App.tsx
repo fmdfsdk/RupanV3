@@ -2,7 +2,7 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { checkSupabaseConnection } from './lib/supabase';
-import { trackPageView, generateEventId, initializeTelemetry } from './lib/telemetry';
+import { trackPageView, generateEventId, initializeTelemetry, trackViewContent } from './lib/telemetry';
 
 // Components
 import Header from './components/Header';
@@ -109,6 +109,21 @@ function AppLayout() {
   
   const addToCart = useStore((state) => state.addToCart);
   const toggleWishlist = useStore((state) => state.toggleWishlist);
+
+  // Track ViewContent on Quick View modal open
+  const hasTrackedQuickView = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (quickViewProduct) {
+      if (hasTrackedQuickView.current !== quickViewProduct.id) {
+        hasTrackedQuickView.current = quickViewProduct.id;
+        const eventId = generateEventId('ViewContent');
+        const testCode = dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code;
+        trackViewContent(quickViewProduct, eventId, testCode);
+      }
+    } else {
+      hasTrackedQuickView.current = null;
+    }
+  }, [quickViewProduct, dbSettings]);
 
   // Check Supabase connection on load
   useEffect(() => {
