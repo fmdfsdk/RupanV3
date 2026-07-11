@@ -43,10 +43,7 @@
       t.src=v;s=b.getElementsByTagName(e)[0];
       s.parentNode.insertBefore(t,s)}(window, document,'script',
       'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '1034785765603654');
-      fbq('track', 'PageView');
     </script>
-
 
     <!-- Google Analytics Base Code -->
     <script>
@@ -89,6 +86,7 @@
             // 3. Meta Pixel Inject
             if (pixelId) {
               fbq('init', pixelId);
+              fbq('track', 'PageView');
               window.isPixelLoaded = true;
             }
           }
@@ -99,7 +97,7 @@
     </script>
   </head>
   <body>
-    <!-- Meta Pixel noscript fallback -->
+    <!-- Meta Pixel noscript fallback (Fallback using current active pixel) -->
     <noscript><img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=1034785765603654&ev=PageView&noscript=1"
     /></noscript>
