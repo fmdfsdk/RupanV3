@@ -169,6 +169,19 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
     }
   }
 
+  // 3. Automatically replace placeholder values if they exist in the pasted code
+  if (settings) {
+    if (settings.meta_pixel_id) {
+      modifiedHtml = modifiedHtml.replace(/YOUR_PIXEL_ID|YOUR-PIXEL-ID|YOUR_FACEBOOK_PIXEL_ID/g, settings.meta_pixel_id);
+    }
+    if (settings.google_tag_manager_id) {
+      modifiedHtml = modifiedHtml.replace(/YOUR_GTM_ID|YOUR-GTM-ID/g, settings.google_tag_manager_id);
+    }
+    if (settings.google_analytics_id) {
+      modifiedHtml = modifiedHtml.replace(/YOUR_GA_ID|YOUR-GA-ID|YOUR_GA4_ID|YOUR-GA4-ID/g, settings.google_analytics_id);
+    }
+  }
+
   return modifiedHtml;
 }
 
