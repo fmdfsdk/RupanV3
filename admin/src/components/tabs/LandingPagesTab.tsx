@@ -86,6 +86,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
 
   const ALL_PLACEHOLDERS = [
     { key: 'RUPAN_META_PIXEL_ID', label: 'Meta Pixel ID' },
+    { key: 'RUPAN_META_CAPI_TOKEN', label: 'Meta CAPI Access Token' },
     { key: 'RUPAN_META_TEST_CODE', label: 'Meta CAPI Test Code' },
     { key: 'RUPAN_GTM_ID', label: 'Google Tag Manager ID' },
     { key: 'RUPAN_GA4_ID', label: 'Google Analytics 4 ID' },
@@ -114,6 +115,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
     if (settings) {
       html = html
         .replace(/RUPAN_META_PIXEL_ID/g, settings.meta_pixel_id || 'MOCK_PIXEL_ID')
+        .replace(/RUPAN_META_CAPI_TOKEN/g, settings.meta_capi_access_token || 'MOCK_CAPI_TOKEN')
         .replace(/RUPAN_META_TEST_CODE/g, settings.meta_test_event_code || 'TEST_CODE')
         .replace(/RUPAN_GTM_ID/g, settings.google_tag_manager_id || 'GTM_ID')
         .replace(/RUPAN_GA4_ID/g, settings.google_analytics_id || 'GA4_ID')

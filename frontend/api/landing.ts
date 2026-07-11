@@ -54,6 +54,7 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
   if (settings) {
     modifiedHtml = modifiedHtml
       .replace(/RUPAN_META_PIXEL_ID/g, settings.meta_pixel_id || '')
+      .replace(/RUPAN_META_CAPI_TOKEN/g, settings.meta_capi_access_token || '')
       .replace(/RUPAN_META_TEST_CODE/g, settings.meta_test_event_code || '')
       .replace(/RUPAN_GTM_ID/g, settings.google_tag_manager_id || '')
       .replace(/RUPAN_GA4_ID/g, settings.google_analytics_id || '')
