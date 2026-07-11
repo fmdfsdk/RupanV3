@@ -36,16 +36,11 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
   // 1. Google Tag Manager
   if (googleTagManagerId && !isGTMConfigured) {
     try {
-      // Script tag
-      const gtmScript = document.createElement('script');
-      gtmScript.innerHTML = `
-        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','${googleTagManagerId}');
-      `;
-      document.head.appendChild(gtmScript);
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer',googleTagManagerId);
 
       // Noscript iframe (fallback)
       const gtmNoscript = document.createElement('noscript');
@@ -69,14 +64,10 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
       gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
       document.head.appendChild(gaScript);
 
-      const gaConfigScript = document.createElement('script');
-      gaConfigScript.innerHTML = `
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', '${googleAnalyticsId}', { 'send_page_view': false });
-      `;
-      document.head.appendChild(gaConfigScript);
+      const w = window as any;
+      if (w.gtag) {
+        w.gtag('config', googleAnalyticsId, { 'send_page_view': false });
+      }
       isGAConfigured = true;
       console.log(`[Telemetry] Google Analytics initialized: ${googleAnalyticsId}`);
     } catch (e) {
@@ -88,6 +79,8 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
   if (metaPixelId) {
     try {
       const w = window as any;
+      
+      // Safety fallback in case static script in index.html was blocked
       if (!w.fbq) {
         w.fbq = function() {
           w.fbq.callMethod ? w.fbq.callMethod.apply(w.fbq, arguments) : w.fbq.queue.push(arguments);
@@ -107,9 +100,8 @@ export const initializeTelemetry = (config: TelemetryConfig) => {
       }
       isPixelLoaded = true;
 
-      // Always initialize if this specific Meta Pixel / Dataset ID hasn't been initialized yet
+      // Always initialize if this specific Meta Pixel / Dataset ID hasn't been linked yet in this session
       if (!initializedPixels.has(metaPixelId)) {
-        const w = window as any;
         if (w.fbq) {
           w.fbq('init', metaPixelId);
           initializedPixels.add(metaPixelId);
