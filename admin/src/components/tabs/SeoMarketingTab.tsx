@@ -195,6 +195,19 @@ export default function SeoMarketingTab({
     }
   };
 
+  // ── Helper: load a script and wait for it ────────────────────────────────
+  const loadScript = (src: string, id: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+      if (document.getElementById(id)) { resolve(); return; }
+      const s = document.createElement('script');
+      s.id    = id;
+      s.async = true;
+      s.src   = src;
+      s.onload  = () => resolve();
+      s.onerror = () => reject(new Error(`Failed to load: ${src}`));
+      document.head.appendChild(s);
+    });
+
   // ── Test Meta Pixel ──────────────────────────────────────────────────────
   const testPixelConnection = async () => {
     if (!settings.metaPixelId) {
@@ -202,22 +215,43 @@ export default function SeoMarketingTab({
       return;
     }
     setPixelStatus('testing');
-    addLog('info', `Testing Meta Pixel: ${settings.metaPixelId}...`);
-
-    // Simulate browser pixel fire
-    await new Promise(r => setTimeout(r, 1200));
+    addLog('info', `🔌 Injecting Meta Pixel script and linking Pixel ID: ${settings.metaPixelId}...`);
 
     try {
       const w = window as any;
-      if (w.fbq) {
-        const evtId = `evt-test-${Date.now()}`;
-        w.fbq('track', 'PageView', {}, { eventID: evtId });
-        addLog('success', `✅ Pixel test fired → PageView (eventID: ${evtId})`);
-        setPixelStatus('active');
-      } else {
-        addLog('error', '⚠️ fbq() not loaded yet. Save settings and refresh the storefront page to test.');
-        setPixelStatus('idle');
+
+      // Bootstrap fbq queue if not already present
+      if (!w.fbq) {
+        w.fbq = function () {
+          w.fbq.callMethod ? w.fbq.callMethod.apply(w.fbq, arguments) : w.fbq.queue.push(arguments);
+        };
+        w._fbq = w.fbq;
+        w.fbq.push    = w.fbq;
+        w.fbq.loaded  = true;
+        w.fbq.version = '2.0';
+        w.fbq.queue   = [];
       }
+
+      // Load fbevents.js if not already loaded
+      if (!document.getElementById('fb-pixel-script')) {
+        addLog('info', '📦 Loading fbevents.js from Facebook CDN...');
+        await loadScript('https://connect.facebook.net/en_US/fbevents.js', 'fb-pixel-script');
+      }
+
+      // Init pixel
+      w.fbq('init', settings.metaPixelId);
+      await new Promise(r => setTimeout(r, 600));
+
+      const evtId = `evt-admin-test-${Date.now()}`;
+      const trackOpts: any = { eventID: evtId };
+      if (settings.metaTestEventCode) trackOpts.testEventCode = settings.metaTestEventCode;
+
+      w.fbq('track', 'PageView', {}, trackOpts);
+      addLog('success', `✅ Meta Pixel fired! event: PageView | pixelId: ${settings.metaPixelId} | eventID: ${evtId}`);
+      if (settings.metaTestEventCode) {
+        addLog('info', `   ↳ Test Event Code applied: ${settings.metaTestEventCode} — check Meta Test Events tab.`);
+      }
+      setPixelStatus('active');
     } catch (e: any) {
       addLog('error', `❌ Pixel test failed: ${e.message}`);
       setPixelStatus('error');
@@ -231,14 +265,14 @@ export default function SeoMarketingTab({
       return;
     }
     if (!settings.metaCapiAccessToken) {
-      addLog('error', '❌ No CAPI Access Token entered.');
+      addLog('error', '❌ No CAPI Access Token entered. Generate one from Meta Events Manager → Settings → Conversions API.');
       return;
     }
     setCapiStatus('testing');
-    addLog('info', `Testing CAPI → Pixel: ${settings.metaPixelId}...`);
+    addLog('info', `🌐 Sending server-side CAPI event → Pixel: ${settings.metaPixelId}...`);
 
     try {
-      const evtId = `evt-capi-test-${Date.now()}`;
+      const evtId = `evt-capi-admin-${Date.now()}`;
       const payload = {
         pixelId:       settings.metaPixelId,
         accessToken:   settings.metaCapiAccessToken,
@@ -246,23 +280,39 @@ export default function SeoMarketingTab({
         events: [{
           eventName:      'PageView',
           eventId:        evtId,
-          eventSourceUrl: typeof window !== 'undefined' ? window.location.href : 'https://admin.myrupan.com',
-          customData:     { page_path: '/admin/seo-test' },
+          eventSourceUrl: window.location.href,
+          customData:     { page_path: '/admin/seo-marketing-test' },
         }],
       };
 
-      const res  = await fetch('/api/meta-capi', {
+      const response = await fetch('/api/meta-capi', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       });
-      const data = await res.json();
+
+      // Safe JSON parse — check content-type first
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        addLog('error', `❌ CAPI endpoint returned non-JSON (HTTP ${response.status}). Response: ${text.substring(0, 120)}`);
+        addLog('info', '💡 Ensure /api/meta-capi.ts exists in your admin project and is deployed to Vercel.');
+        setCapiStatus('error');
+        return;
+      }
+
+      const data = await response.json();
 
       if (data.success) {
-        addLog('success', `✅ CAPI event sent! events_received: ${data.events_received}, fbtrace: ${data.fbtrace_id}`);
+        addLog('success', `✅ CAPI event sent successfully!`);
+        addLog('success', `   ↳ events_received: ${data.events_received} | fbtrace_id: ${data.fbtrace_id}`);
+        if (settings.metaTestEventCode) {
+          addLog('info', `   ↳ Test Event Code: ${settings.metaTestEventCode} — verify in Meta Test Events tab.`);
+        }
         setCapiStatus('active');
       } else {
-        addLog('error', `❌ CAPI returned error: ${data.error}`);
+        addLog('error', `❌ CAPI Meta API error: ${data.error}`);
+        if (data.code) addLog('error', `   ↳ Error code: ${data.code} — check your access token is valid.`);
         setCapiStatus('error');
       }
     } catch (e: any) {
@@ -274,21 +324,36 @@ export default function SeoMarketingTab({
   // ── Test GTM ─────────────────────────────────────────────────────────────
   const testGTMConnection = async () => {
     if (!settings.googleTagManagerId) {
-      addLog('error', '❌ No GTM ID entered.');
+      addLog('error', '❌ No GTM Container ID entered.');
       return;
     }
     setGtmStatus('testing');
-    addLog('info', `Testing GTM: ${settings.googleTagManagerId}...`);
-    await new Promise(r => setTimeout(r, 1000));
+    addLog('info', `🏷️  Injecting Google Tag Manager: ${settings.googleTagManagerId}...`);
 
-    const w = window as any;
-    if (w.dataLayer && Array.isArray(w.dataLayer)) {
-      w.dataLayer.push({ event: 'admin_test', source: 'rupan_admin' });
-      addLog('success', `✅ GTM dataLayer.push() fired. Container: ${settings.googleTagManagerId}`);
+    try {
+      const w = window as any;
+
+      // Bootstrap dataLayer
+      w.dataLayer = w.dataLayer || [];
+
+      // Inject GTM script if not already present
+      if (!document.getElementById('gtm-admin-test')) {
+        w.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        await loadScript(
+          `https://www.googletagmanager.com/gtm.js?id=${settings.googleTagManagerId}`,
+          'gtm-admin-test'
+        );
+        await new Promise(r => setTimeout(r, 800)); // allow GTM to fully initialize
+      }
+
+      // Fire a test event into dataLayer
+      w.dataLayer.push({ event: 'rupan_admin_test', gtm_id: settings.googleTagManagerId, timestamp: Date.now() });
+      addLog('success', `✅ GTM loaded & dataLayer.push() fired! Container: ${settings.googleTagManagerId}`);
+      addLog('info', `   ↳ Verify in GTM Preview mode that "rupan_admin_test" event appears.`);
       setGtmStatus('active');
-    } else {
-      addLog('error', '⚠️ dataLayer not found. GTM may not be loaded on this admin panel page. It will work on the storefront.');
-      setGtmStatus('idle');
+    } catch (e: any) {
+      addLog('error', `❌ GTM injection failed: ${e.message}`);
+      setGtmStatus('error');
     }
   };
 
@@ -299,17 +364,39 @@ export default function SeoMarketingTab({
       return;
     }
     setGa4Status('testing');
-    addLog('info', `Testing GA4: ${settings.googleAnalyticsId}...`);
-    await new Promise(r => setTimeout(r, 1000));
+    addLog('info', `📊 Injecting Google Analytics 4: ${settings.googleAnalyticsId}...`);
 
-    const w = window as any;
-    if (w.gtag) {
-      w.gtag('event', 'admin_test', { event_category: 'rupan_admin', value: 1 });
-      addLog('success', `✅ GA4 gtag('event') fired. Property: ${settings.googleAnalyticsId}`);
+    try {
+      const w = window as any;
+
+      // Bootstrap gtag queue
+      if (!w.gtag) {
+        w.dataLayer = w.dataLayer || [];
+        w.gtag = function () { w.dataLayer.push(arguments); };
+        w.gtag('js', new Date());
+      }
+
+      // Load GA4 measurement script if not already loaded
+      if (!document.getElementById('ga4-admin-test')) {
+        await loadScript(
+          `https://www.googletagmanager.com/gtag/js?id=${settings.googleAnalyticsId}`,
+          'ga4-admin-test'
+        );
+        await new Promise(r => setTimeout(r, 800)); // allow GA4 to fully initialize
+        w.gtag('config', settings.googleAnalyticsId, { send_page_view: false });
+      }
+
+      // Fire a test event
+      w.gtag('event', 'rupan_admin_test', {
+        event_category: 'seo_marketing_hub',
+        measurement_id: settings.googleAnalyticsId,
+      });
+      addLog('success', `✅ GA4 event fired! Measurement ID: ${settings.googleAnalyticsId}`);
+      addLog('info', `   ↳ Check Google Analytics → Reports → Real-time to confirm event arrival.`);
       setGa4Status('active');
-    } else {
-      addLog('error', '⚠️ gtag() not found on this page. GA4 will work on the storefront where scripts are loaded.');
-      setGa4Status('idle');
+    } catch (e: any) {
+      addLog('error', `❌ GA4 injection failed: ${e.message}`);
+      setGa4Status('error');
     }
   };
 
@@ -321,9 +408,10 @@ export default function SeoMarketingTab({
     await testCapiConnection();
     await testGTMConnection();
     await testGA4Connection();
-    addLog('info', '✅ Full test suite complete. Check logs below.');
+    addLog('info', '🏁 Full test suite complete. Review results above.');
     setIsTesting(false);
   };
+
 
   // ── Computed values ──────────────────────────────────────────────────────
   const activeCount = [
