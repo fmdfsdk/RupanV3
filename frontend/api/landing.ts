@@ -46,7 +46,21 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
   const seoEnabled = metadata.seoEnabled !== false;
   const marketingEnabled = metadata.marketingEnabled !== false;
 
-  let headInjections = '';
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+
+  let headInjections = `
+    <!-- Dynamic Supabase & Marketing Settings Injection -->
+    <script>
+      window.SUPABASE_URL = "${supabaseUrl}";
+      window.SUPABASE_ANON_KEY = "${supabaseKey}";
+      window.RUPAN_SETTINGS = {
+        metaPixelId: "${settings?.meta_pixel_id || ''}",
+        metaCapiAccessToken: "${settings?.meta_capi_access_token || ''}",
+        metaTestEventCode: "${settings?.meta_test_event_code || ''}"
+      };
+    </script>
+  `;
   let bodyInjections = '';
 
   // 1. Inject SEO Tools if enabled
