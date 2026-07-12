@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Search, Menu, X, Heart, User, Sparkles, HelpCircle, Flame, Grid, MapPin, BookOpen } from 'lucide-react';
 import { productService } from '../services/productService';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
+import { useStore } from '../store/useStore';
 import ProductImage from './ProductImage';
 
 interface HeaderProps {
@@ -29,6 +30,7 @@ export default function Header({
   onOpenSearch,
   currentUser
 }: HeaderProps) {
+  const dbSettings = useStore((state) => state.dbSettings);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [scrolled, setScrolled] = useState(false);
@@ -300,7 +302,7 @@ export default function Header({
           {/* Hotline on the right */}
           <div className="flex items-center gap-1.5 text-xs font-black text-gray-800 tracking-wider">
             <span className="text-[#ff5c00] text-sm">📞</span>
-            <span>HOTLINE: <span className="text-[#ff5c00] font-extrabold">09678 123 456</span></span>
+            <span>HOTLINE: <span className="text-[#ff5c00] font-extrabold">{dbSettings?.supportNumber || dbSettings?.support_number || '09678 123 456'}</span></span>
           </div>
         </div>
       </div>
@@ -376,7 +378,7 @@ export default function Header({
 
             <div className="pt-6 border-t border-gray-100 text-xs text-gray-500 space-y-1">
               <p>📍 Shop Mart Bangladesh Ltd.</p>
-              <p>📞 Phone: 09678 123 456</p>
+              <p>📞 Phone: {dbSettings?.supportNumber || dbSettings?.support_number || '09678 123 456'}</p>
               <p>✉️ Email: support@doraz.com.bd</p>
             </div>
           </div>

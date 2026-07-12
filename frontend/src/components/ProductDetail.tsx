@@ -84,6 +84,7 @@ export default function ProductDetail({
 
   const addRecentlyViewedId = useStore((state) => state.addRecentlyViewedId);
   const recentlyViewedIds = useStore((state) => state.recentlyViewedIds);
+  const dbSettings = useStore((state) => state.dbSettings);
 
   // Sync state if product changes
   useEffect(() => {
@@ -416,7 +417,11 @@ export default function ProductDetail({
 
           {/* WhatsApp Button (Vibrant Green, Full-width, clean style) */}
           <button
-            onClick={() => window.open(`https://wa.me/8809678123456?text=Hi,%20I'm%20interested%20in%20buying%20${encodeURIComponent(product.name)}.%20Product%20Link:%20${encodeURIComponent(window.location.href)}`, '_blank')}
+            onClick={() => {
+              const rawNumber = dbSettings?.whatsappNumber || dbSettings?.whatsapp_number || '+8801711223344';
+              const cleanNumber = rawNumber.replace(/[^\d]/g, '');
+              window.open(`https://wa.me/${cleanNumber}?text=Hi,%20I'm%20interested%20in%20buying%20${encodeURIComponent(product.name)}.%20Product%20Link:%20${encodeURIComponent(window.location.href)}`, '_blank');
+            }}
             className="w-full bg-[#00a82f] hover:bg-[#009028] text-white py-3.5 rounded-sm font-bold text-center flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer text-sm"
           >
             <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">

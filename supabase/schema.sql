@@ -116,7 +116,11 @@ create table public.settings (
   payment_bangla_qr_image text not null default '/assets/BanglaQRcode.jpeg',
   payment_bangla_qr_instruction text not null default 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
   payment_mfs_instruction text not null default 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
-  payment_cod_instruction text not null default 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।'
+  payment_cod_instruction text not null default 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
+  facebook_url text default 'https://www.facebook.com/rupanbd',
+  twitter_url text default 'https://twitter.com',
+  youtube_url text default 'https://youtube.com',
+  instagram_url text default 'https://www.instagram.com/rupanbd'
 );
 
 -- Insert default configurations
@@ -125,7 +129,8 @@ insert into public.settings (
   inside_dhaka_shipping, outside_dhaka_shipping, free_shipping_min_order, theme,
   payment_bangla_qr_enabled, payment_bkash_enabled, payment_nagad_enabled, payment_cod_enabled,
   payment_bkash_number, payment_nagad_number, payment_bangla_qr_image,
-  payment_bangla_qr_instruction, payment_mfs_instruction, payment_cod_instruction
+  payment_bangla_qr_instruction, payment_mfs_instruction, payment_cod_instruction,
+  facebook_url, twitter_url, youtube_url, instagram_url
 )
 values (
   1, 'RUPAN', '.', 'Style That Speaks.', '+8801711223344', '+8809612345678', '৳', 
@@ -134,7 +139,8 @@ values (
   '01600338318', '01600338318', '/assets/BanglaQRcode.jpeg',
   'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
   'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
-  'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।'
+  'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
+  'https://www.facebook.com/rupanbd', 'https://twitter.com', 'https://youtube.com', 'https://www.instagram.com/rupanbd'
 )
 on conflict (id) do nothing;
 

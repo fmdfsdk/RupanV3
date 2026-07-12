@@ -157,6 +157,11 @@ export interface WebsiteSettings {
   paymentBanglaQrInstruction: string;
   paymentMfsInstruction: string;
   paymentCodInstruction: string;
+  // Social Media Configurations
+  socialFacebook?: string;
+  socialTwitter?: string;
+  socialYoutube?: string;
+  socialInstagram?: string;
 }
 
 export interface UserProfile {

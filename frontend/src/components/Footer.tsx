@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { Mail, Phone, MapPin, Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 interface FooterProps {
   onPageChange: (page: string) => void;
@@ -180,6 +181,7 @@ function BrandLogo({ type }: BrandLogoProps) {
 }
 
 export default function Footer({ onPageChange }: FooterProps) {
+  const dbSettings = useStore((state) => state.dbSettings);
   return (
     <footer className="bg-white text-gray-700 pt-16 pb-16 md:pb-0 border-t border-gray-200 font-sans">
       <div className="w-full max-w-[1750px] mx-auto px-4 md:px-12 lg:px-16">
@@ -211,7 +213,7 @@ export default function Footer({ onPageChange }: FooterProps) {
               <div className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-[#ff5c00] shrink-0" />
                 <div>
-                  <p className="font-bold text-gray-900">09678 123 456</p>
+                  <p className="font-bold text-gray-900">{dbSettings?.supportNumber || dbSettings?.support_number || '09678 123 456'}</p>
                   <p className="text-xs text-gray-400">9:00 AM - 11:00 PM</p>
                 </div>
               </div>
@@ -286,16 +288,16 @@ export default function Footer({ onPageChange }: FooterProps) {
               </h4>
               <p className="text-sm text-gray-500 mb-3">Stay connected with us</p>
               <div className="flex items-center gap-2.5">
-                <a href="#facebook" className="w-8 h-8 rounded-full bg-[#3b5998] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Facebook">
+                <a href={dbSettings?.socialFacebook || dbSettings?.facebook_url || "https://www.facebook.com/rupanbd"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#3b5998] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Facebook">
                   <Facebook className="w-4 h-4 fill-current" />
                 </a>
-                <a href="#twitter" className="w-8 h-8 rounded-full bg-black hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Twitter">
+                <a href={dbSettings?.socialTwitter || dbSettings?.twitter_url || "https://twitter.com"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-black hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Twitter">
                   <span className="font-extrabold text-xs">𝕏</span>
                 </a>
-                <a href="#youtube" className="w-8 h-8 rounded-full bg-[#ff0000] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="YouTube">
+                <a href={dbSettings?.socialYoutube || dbSettings?.youtube_url || "https://youtube.com"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#ff0000] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="YouTube">
                   <Youtube className="w-4 h-4 fill-current" />
                 </a>
-                <a href="#instagram" className="w-8 h-8 rounded-full bg-[#c13584] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Instagram">
+                <a href={dbSettings?.socialInstagram || dbSettings?.instagram_url || "https://www.instagram.com/rupanbd"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#c13584] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Instagram">
                   <Instagram className="w-4 h-4" />
                 </a>
               </div>

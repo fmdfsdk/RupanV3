@@ -4,12 +4,16 @@
  */
 
 import { MessageSquareCode } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 export default function WhatsAppButton() {
+  const dbSettings = useStore((state) => state.dbSettings);
   const handleWhatsAppClick = () => {
-    // Open a friendly chat in a new window with a pre-configured message
-    const message = encodeURIComponent("Hello Shop Mart! I would like to query about your latest premium collections.");
-    window.open(`https://wa.me/8801700000000?text=${message}`, '_blank');
+    // Clean international format for WhatsApp redirect (e.g. '+880 1711-223344' -> '8801711223344')
+    const rawNumber = dbSettings?.whatsappNumber || dbSettings?.whatsapp_number || '+8801711223344';
+    const cleanNumber = rawNumber.replace(/[^\d]/g, '');
+    const message = encodeURIComponent("Hello Rupan! I would like to query about your latest premium collections.");
+    window.open(`https://wa.me/${cleanNumber}?text=${message}`, '_blank');
   };
 
   return (

@@ -63,10 +63,14 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     paymentCodEnabled: true,
     paymentBkashNumber: '01600338318',
     paymentNagadNumber: '01600338318',
-    paymentBanglaQrImage: '/assets/logo-banglaqr.svg',
+    paymentBanglaQrImage: '/assets/BanglaQRcode.jpeg',
     paymentBanglaQrInstruction: 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
     paymentMfsInstruction: 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
     paymentCodInstruction: 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
+    socialFacebook: 'https://www.facebook.com/rupanbd',
+    socialTwitter: 'https://twitter.com',
+    socialYoutube: 'https://youtube.com',
+    socialInstagram: 'https://www.instagram.com/rupanbd',
   });
 
   // Sync state variables
@@ -335,10 +339,14 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           paymentCodEnabled: sData.payment_cod_enabled !== undefined ? sData.payment_cod_enabled : (sData.paymentCodEnabled !== undefined ? sData.paymentCodEnabled : true),
           paymentBkashNumber: sData.payment_bkash_number || sData.paymentBkashNumber || '01600338318',
           paymentNagadNumber: sData.payment_nagad_number || sData.paymentNagadNumber || '01600338318',
-          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/logo-banglaqr.svg',
+          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/BanglaQRcode.jpeg',
           paymentBanglaQrInstruction: sData.payment_bangla_qr_instruction || sData.paymentBanglaQrInstruction || 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
           paymentMfsInstruction: sData.payment_mfs_instruction || sData.paymentMfsInstruction || 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
           paymentCodInstruction: sData.payment_cod_instruction || sData.paymentCodInstruction || 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
+          socialFacebook: sData.facebook_url || sData.socialFacebook || 'https://www.facebook.com/rupanbd',
+          socialTwitter: sData.twitter_url || sData.socialTwitter || 'https://twitter.com',
+          socialYoutube: sData.youtube_url || sData.socialYoutube || 'https://youtube.com',
+          socialInstagram: sData.instagram_url || sData.socialInstagram || 'https://www.instagram.com/rupanbd',
         });
         const hConfig = sData.homepageConfig || sData.homepage_config;
         if (hConfig) {
@@ -411,6 +419,10 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         payment_bangla_qr_instruction: settings.paymentBanglaQrInstruction,
         payment_mfs_instruction: settings.paymentMfsInstruction,
         payment_cod_instruction: settings.paymentCodInstruction,
+        facebook_url: settings.socialFacebook || null,
+        twitter_url: settings.socialTwitter || null,
+        youtube_url: settings.socialYoutube || null,
+        instagram_url: settings.socialInstagram || null,
         // Mock compatibility keys
         logoText: settings.logoText,
         logoAccent: settings.logoAccent,
@@ -434,6 +446,10 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         paymentBanglaQrInstruction: settings.paymentBanglaQrInstruction,
         paymentMfsInstruction: settings.paymentMfsInstruction,
         paymentCodInstruction: settings.paymentCodInstruction,
+        socialFacebook: settings.socialFacebook,
+        socialTwitter: settings.socialTwitter,
+        socialYoutube: settings.socialYoutube,
+        socialInstagram: settings.socialInstagram,
       };
       
       const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);

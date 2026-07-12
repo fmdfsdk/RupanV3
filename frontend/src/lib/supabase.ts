@@ -166,6 +166,10 @@ class LocalDatabase {
         paymentBanglaQrInstruction: 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
         paymentMfsInstruction: 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
         paymentCodInstruction: 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
+        socialFacebook: 'https://www.facebook.com/rupanbd',
+        socialTwitter: 'https://twitter.com',
+        socialYoutube: 'https://youtube.com',
+        socialInstagram: 'https://www.instagram.com/rupanbd',
         homepageConfig: {
           featured_categories: [
             { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20' },
@@ -765,7 +769,8 @@ const allowedColumns: Record<string, string[]> = {
     'homepage_config', 'updated_at',
     'payment_bangla_qr_enabled', 'payment_bkash_enabled', 'payment_nagad_enabled', 'payment_cod_enabled',
     'payment_bkash_number', 'payment_nagad_number', 'payment_bangla_qr_image',
-    'payment_bangla_qr_instruction', 'payment_mfs_instruction', 'payment_cod_instruction'
+    'payment_bangla_qr_instruction', 'payment_mfs_instruction', 'payment_cod_instruction',
+    'facebook_url', 'twitter_url', 'youtube_url', 'instagram_url'
   ],
   products: [
     'id', 'name', 'slug', 'sku', 'brand', 'category', 'sub_category', 'tags', 'gender', 'price', 

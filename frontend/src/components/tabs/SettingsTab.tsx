@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save, Image, Smartphone, Truck, UserCheck, Tag, CreditCard } from 'lucide-react';
+import { Save, Image, Smartphone, Truck, UserCheck, Tag, CreditCard, Share2 } from 'lucide-react';
 import { WebsiteSettings } from '../../types';
 
 interface SettingsTabProps {
@@ -92,22 +92,74 @@ export default function SettingsTab({
           </h3>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-zinc-600">Official WhatsApp (International format)</label>
+            <label className="text-xs font-bold text-zinc-650 font-sans">Official WhatsApp (International format)</label>
             <input 
               type="text" 
-              value={settings.whatsappNumber}
+              value={settings.whatsappNumber || ''}
               onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
               className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-zinc-600">Customer Support Hotline</label>
+            <label className="text-xs font-bold text-zinc-655 font-sans">Customer Support Hotline</label>
             <input 
               type="text" 
-              value={settings.supportNumber}
+              value={settings.supportNumber || ''}
               onChange={(e) => setSettings({ ...settings, supportNumber: e.target.value })}
               className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Social Media Links */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-2 flex items-center gap-2">
+            <Share2 className="w-4 h-4 text-blue-500" />
+            Social Media Handles
+          </h3>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-600">Facebook Page URL</label>
+            <input 
+              type="text" 
+              value={settings.socialFacebook || ''}
+              onChange={(e) => setSettings({ ...settings, socialFacebook: e.target.value })}
+              className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+              placeholder="https://www.facebook.com/rupanbd"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-600">Instagram Profile URL</label>
+            <input 
+              type="text" 
+              value={settings.socialInstagram || ''}
+              onChange={(e) => setSettings({ ...settings, socialInstagram: e.target.value })}
+              className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+              placeholder="https://www.instagram.com/rupanbd"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-600">YouTube Channel URL</label>
+            <input 
+              type="text" 
+              value={settings.socialYoutube || ''}
+              onChange={(e) => setSettings({ ...settings, socialYoutube: e.target.value })}
+              className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+              placeholder="https://youtube.com"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-zinc-600">Twitter / X URL</label>
+            <input 
+              type="text" 
+              value={settings.socialTwitter || ''}
+              onChange={(e) => setSettings({ ...settings, socialTwitter: e.target.value })}
+              className="bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+              placeholder="https://twitter.com"
             />
           </div>
         </div>
