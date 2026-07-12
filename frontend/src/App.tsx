@@ -1,3 +1,6 @@
+/**
+ * Rupan Storefront - Stable Production Build
+ */
 import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useStore } from './store/useStore';
