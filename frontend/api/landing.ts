@@ -27,14 +27,38 @@ function isKnownReactRoute(urlPath: string): boolean {
 }
 
 function serveIndexHtml(res: VercelResponse) {
-  try {
-    // Vercel places the built files at project root / dist
-    const indexPath = path.join(process.cwd(), 'dist', 'index.html');
-    const html = fs.readFileSync(indexPath, 'utf-8');
+  const pathsToTry = [
+    path.join(process.cwd(), 'dist', 'index.html'),
+    path.join(process.cwd(), 'index.html'),
+    path.join(__dirname, '..', 'dist', 'index.html'),
+    path.join(__dirname, 'dist', 'index.html'),
+    path.join(__dirname, 'index.html'),
+    path.join(process.cwd(), 'frontend', 'dist', 'index.html'),
+    path.join(process.cwd(), '..', 'dist', 'index.html'),
+  ];
+
+  let html = '';
+  let resolvedPath = '';
+  let lastError: any = null;
+
+  for (const p of pathsToTry) {
+    try {
+      if (fs.existsSync(p)) {
+        html = fs.readFileSync(p, 'utf-8');
+        resolvedPath = p;
+        break;
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+
+  if (html) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
     return res.status(200).send(html);
-  } catch {
+  } else {
+    console.error(`serveIndexHtml failed. Tried paths: ${pathsToTry.join(', ')}. Last error: ${lastError?.message}`);
     // Fallback: redirect to root and let Vercel serve it
     res.setHeader('Location', '/');
     return res.status(302).end();

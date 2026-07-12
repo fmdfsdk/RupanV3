@@ -10,6 +10,82 @@
       "destination": "/api/:path*"
     },
     {
+      "source": "/shop",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/cart",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/checkout",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/account",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/wishlist",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/track-order",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/order-success",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/product-search",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/about-us",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contact-us",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/offers",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/new-arrivals",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/categories",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/faq",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/policy",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/blogs",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/blog",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/blog/:id*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/product/:id*",
+      "destination": "/index.html"
+    },
+    {
       "source": "/:path*",
       "destination": "/api/landing?__path=/:path*"
     }
