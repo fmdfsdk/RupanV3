@@ -141,7 +141,7 @@ export const productService = {
     // Search text filter
     if (search && search.trim()) {
       const queryText = search.trim();
-      query = query.or(`name.ilike.%${queryText}%,category.ilike.%${queryText}%,sku.ilike.%${queryText}%`);
+      query = query.or(`name.ilike.%${queryText}%,category.ilike.%${queryText}%,sku.ilike.%${queryText}%,id.ilike.%${queryText}%,slug.ilike.%${queryText}%`);
     }
     
     // Sort
@@ -255,16 +255,16 @@ export const productService = {
 
     // 2. If results length is less than limit, fetch matching products by SKU directly
     if (results.length < limit) {
-      const { data: skuData } = await supabase
+      const { data: directData } = await supabase
         .from('products')
         .select('*')
         .eq('status', 'published')
-        .ilike('sku', `%${query.trim()}%`)
+        .or(`sku.ilike.%${query.trim()}%,id.ilike.%${query.trim()}%,slug.ilike.%${query.trim()}%`)
         .limit(limit - results.length);
 
-      if (skuData && skuData.length > 0) {
+      if (directData && directData.length > 0) {
         const existingIds = new Set(results.map(p => p.id));
-        for (const p of skuData) {
+        for (const p of directData) {
           if (!existingIds.has(p.id)) {
             results.push(p);
           }

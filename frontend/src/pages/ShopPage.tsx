@@ -30,6 +30,7 @@ export default function ShopPage() {
 
   // Load all store states and actions
   const PRODUCTS = useStore((state) => state.dbProducts);
+  const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);
   const wishlist = useStore((state) => state.wishlist);
   const toggleWishlist = useStore((state) => state.toggleWishlist);
   const addToCart = useStore((state) => state.addToCart);
@@ -199,7 +200,7 @@ export default function ShopPage() {
   useEffect(() => {
     let active = true;
     const loadProducts = async () => {
-      const isOnline = useStore.getState().isSupabaseOnline;
+      const isOnline = isSupabaseOnline;
       if (!isOnline) {
         const clientFiltered = getFilteredProducts();
         const sliced = clientFiltered.slice(0, urlPage * pageSize);
@@ -249,7 +250,7 @@ export default function ShopPage() {
     return () => {
       active = false;
     };
-  }, [searchParams, PRODUCTS]);
+  }, [searchParams, PRODUCTS, isSupabaseOnline]);
 
   function getFilteredProducts() {
     let filtered = PRODUCTS.filter((p) => {

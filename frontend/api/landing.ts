@@ -9,6 +9,8 @@ const REACT_ROUTES = new Set([
   '/', '/shop', '/cart', '/checkout', '/account', '/about', '/contact',
   '/blog', '/search', '/wishlist', '/order-success', '/order-tracking',
   '/offers', '/new-arrivals', '/categories', '/faq', '/policy',
+  '/about-us', '/contact-us', '/track-order', '/offer', '/new-arrival',
+  '/faqs', '/my-account', '/register', '/blogs', '/product-search'
 ]);
 
 const REACT_ROUTE_PREFIXES = [
@@ -16,9 +18,10 @@ const REACT_ROUTE_PREFIXES = [
 ];
 
 function isKnownReactRoute(urlPath: string): boolean {
-  if (REACT_ROUTES.has(urlPath)) return true;
+  const pathname = urlPath.split('?')[0];
+  if (REACT_ROUTES.has(pathname)) return true;
   for (const prefix of REACT_ROUTE_PREFIXES) {
-    if (urlPath.startsWith(prefix)) return true;
+    if (pathname.startsWith(prefix)) return true;
   }
   return false;
 }
@@ -94,11 +97,103 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Get the original URL path (Vercel passes it in req.url)
   // vercel.json rewrites pass the full original URL as ?__path= 
-  const rawPath = (req.query.__path as string) || req.url?.split('?')[0] || '/';
+  const rawUrl = req.url || '/';
+  const urlObj = new URL(rawUrl, 'http://localhost');
+  const pathParam = req.query.__path as string;
+  const rawPath = pathParam ? pathParam.split('?')[0] : urlObj.pathname;
   const urlPath = rawPath.startsWith('/') ? rawPath : '/' + rawPath;
+  const cleanPath = urlPath.split('?')[0];
+
+  // A. Handle redirect for /product?id=Mohasagor8184
+  const productId = req.query.id as string;
+  if (cleanPath === '/product' && productId) {
+    const cleanId = productId.trim();
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+    if (supabaseUrl && supabaseKey) {
+      const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      try {
+        let product: any = null;
+
+        // 1. Try exact match first
+        const { data: exact } = await supabaseClient
+          .from('products')
+          .select('id, slug')
+          .or(`id.eq.${cleanId},slug.eq.${cleanId}`)
+          .maybeSingle();
+
+        if (exact) {
+          product = exact;
+        } else {
+          // 2. If exact match fails, apply 3000 offset tolerance mapping
+          const numMatch = cleanId.match(/\d+$/);
+          if (numMatch) {
+            const searchNum = parseInt(numMatch[0], 10);
+            const prefixMatch = cleanId.match(/^[a-zA-Z]+/);
+            const prefix = prefixMatch ? prefixMatch[0].toLowerCase() : 'mohasagor';
+
+            const offsets = [-3000, 3000];
+            let foundAlt = false;
+            for (const offset of offsets) {
+              const altNum = searchNum + offset;
+              if (altNum > 0) {
+                const altId = `${prefix}-${altNum}`;
+                const { data: altData } = await supabaseClient
+                  .from('products')
+                  .select('id, slug')
+                  .or(`id.eq.${altId},id.eq.${altNum}`)
+                  .maybeSingle();
+
+                if (altData) {
+                  product = altData;
+                  foundAlt = true;
+                  break;
+                }
+              }
+            }
+
+            if (!foundAlt && !prefixMatch) {
+              for (const offset of offsets) {
+                const altNum = searchNum + offset;
+                if (altNum > 0) {
+                  const altId = `mohasagor-${altNum}`;
+                  const { data: altData } = await supabaseClient
+                    .from('products')
+                    .select('id, slug')
+                    .eq('id', altId)
+                    .maybeSingle();
+
+                  if (altData) {
+                    product = altData;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (product) {
+          const destination = `/product/${product.slug || product.id}`;
+          res.setHeader('Location', destination);
+          return res.status(301).end();
+        }
+      } catch (err) {
+        console.error('Error resolving product redirect:', err);
+      }
+    }
+
+    // Fallback: redirect to /shop if product resolution fails
+    res.setHeader('Location', '/shop');
+    return res.status(302).end();
+  }
 
   // 1. If it's a known React SPA route, serve index.html immediately (no DB lookup)
-  if (isKnownReactRoute(urlPath)) {
+  if (isKnownReactRoute(cleanPath)) {
     return serveIndexHtml(res);
   }
 

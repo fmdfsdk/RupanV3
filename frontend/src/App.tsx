@@ -1,8 +1,8 @@
 /**
  * Rupan Storefront - Stable Production Build
  */
-import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import { checkSupabaseConnection } from './lib/supabase';
 import { trackPageView, generateEventId, initializeTelemetry, trackViewContent } from './lib/telemetry';
@@ -238,6 +238,7 @@ function AppLayout() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/shop" element={<ShopPage />} />
+              <Route path="/product" element={<ProductRedirect />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
@@ -351,6 +352,51 @@ function CatchAllRoute() {
       >
         Back to Home
       </Link>
+    </div>
+  );
+}
+
+function ProductRedirect() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const fetchProductByIdFromDB = useStore((state) => state.fetchProductByIdFromDB);
+
+  useEffect(() => {
+    const productId = searchParams.get('id');
+    if (!productId) {
+      navigate('/shop', { replace: true });
+      return;
+    }
+
+    let active = true;
+    const resolveRedirect = async () => {
+      try {
+        const product = await fetchProductByIdFromDB(productId);
+        if (active) {
+          if (product) {
+            navigate(`/product/${product.slug || product.id}`, { replace: true });
+          } else {
+            navigate('/shop', { replace: true });
+          }
+        }
+      } catch (err) {
+        console.error('Client-side redirect error:', err);
+        if (active) {
+          navigate('/shop', { replace: true });
+        }
+      }
+    };
+
+    resolveRedirect();
+    return () => {
+      active = false;
+    };
+  }, [searchParams, fetchProductByIdFromDB, navigate]);
+
+  return (
+    <div className="min-h-[70vh] flex flex-col items-center justify-center gap-4">
+      <div className="w-10 h-10 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Finding product...</p>
     </div>
   );
 }
