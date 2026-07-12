@@ -13,6 +13,8 @@ interface SettingsTabProps {
   };
   setPermissions: (p: any) => void;
   handleSaveSettings: () => void;
+  uploadingQrImage?: boolean;
+  handleUploadQrImage?: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
 }
 
 export default function SettingsTab({
@@ -20,7 +22,9 @@ export default function SettingsTab({
   setSettings,
   permissions,
   setPermissions,
-  handleSaveSettings
+  handleSaveSettings,
+  uploadingQrImage,
+  handleUploadQrImage
 }: SettingsTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -274,16 +278,58 @@ export default function SettingsTab({
                 </div>
               </div>
 
-              {/* Bangla QR Code Image URL */}
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-bold text-zinc-650">Bangla QR Code Image Asset URL / Path</label>
-                <input 
-                  type="text" 
-                  value={settings.paymentBanglaQrImage || ''}
-                  onChange={(e) => setSettings({ ...settings, paymentBanglaQrImage: e.target.value })}
-                  className="bg-gray-50 border border-gray-255 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
-                  placeholder="/assets/BanglaQRcode.jpeg"
-                />
+              {/* Bangla QR Code Image Preview and Upload */}
+              <div className="space-y-2 pt-2">
+                <label className="text-xs font-bold text-zinc-650 block">Bangla QR Code Scanner Image</label>
+                
+                <div className="flex items-center space-x-4">
+                  {/* Image Preview Window */}
+                  <div className="w-20 h-20 rounded-xl border border-gray-250 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0 relative group">
+                    {settings.paymentBanglaQrImage ? (
+                      <img 
+                        src={settings.paymentBanglaQrImage} 
+                        alt="Bangla QR Preview" 
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <span className="text-[9px] text-gray-400 font-bold text-center px-2">No Image</span>
+                    )}
+                  </div>
+
+                  {/* Upload Actions */}
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-center space-x-2">
+                      <label className="bg-zinc-900 text-white hover:bg-zinc-800 text-[10px] font-black uppercase tracking-wider px-3.5 py-2 rounded-xl cursor-pointer shadow-sm transition-all select-none border border-zinc-900">
+                        <span>Upload New QR</span>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={handleUploadQrImage}
+                          disabled={uploadingQrImage}
+                          className="hidden" 
+                        />
+                      </label>
+                      
+                      {uploadingQrImage && (
+                        <span className="text-[10px] text-[#ff5c00] font-extrabold animate-pulse">
+                          Uploading...
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[9.5px] text-gray-400 font-semibold leading-tight">
+                      Upload your Bangla QR image (PNG, JPG, or WEBP). Customers scan this QR to pay.
+                    </p>
+                    
+                    {/* Fallback Manual Text Input (In case they want to paste a URL instead) */}
+                    <input 
+                      type="text" 
+                      value={settings.paymentBanglaQrImage || ''}
+                      onChange={(e) => setSettings({ ...settings, paymentBanglaQrImage: e.target.value })}
+                      placeholder="Or enter image URL path manually"
+                      className="bg-gray-50 border border-gray-255 text-[9.5px] rounded-lg px-2.5 py-1.5 w-full focus:outline-none font-mono mt-1"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

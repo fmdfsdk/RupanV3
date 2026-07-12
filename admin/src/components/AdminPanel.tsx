@@ -120,6 +120,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [bannerModalOpen, setBannerModalOpen] = useState<boolean>(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [uploadingBannerImage, setUploadingBannerImage] = useState<boolean>(false);
+  const [uploadingQrImage, setUploadingQrImage] = useState<boolean>(false);
   const [bannerForm, setBannerForm] = useState<any>({
     title: '',
     subtitle: '',
@@ -477,6 +478,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     if (error) {
       // THROW so callers (SeoMarketingTab, SettingsTab) can catch and surface the real message
       throw new Error(error.message);
+    }
+  };
+
+  const handleUploadQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingQrImage(true);
+    try {
+      // 1. Ensure 'settings' bucket exists
+      try {
+        await supabase.storage.createBucket('settings', {
+          public: true,
+          fileSizeLimit: 5242880 // 5MB
+        });
+      } catch (e) {}
+
+      // 2. Upload file
+      const fileExt = file.name.split('.').pop();
+      const fileName = `banglaqr-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('settings')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) throw error;
+
+      // 3. Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('settings')
+        .getPublicUrl(filePath);
+
+      setSettings((prev: any) => ({
+        ...prev,
+        paymentBanglaQrImage: publicUrl
+      }));
+      alert("Bangla QR Code uploaded successfully! Save configurations to apply.");
+    } catch (err: any) {
+      alert(`QR Code Upload failed: ${err.message}`);
+    } finally {
+      setUploadingQrImage(false);
     }
   };
 
@@ -1804,6 +1850,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   permissions={permissions}
                   setPermissions={setPermissions}
                   handleSaveSettings={handleSaveSettings}
+                  uploadingQrImage={uploadingQrImage}
+                  handleUploadQrImage={handleUploadQrImage}
                 />
               )}
 
