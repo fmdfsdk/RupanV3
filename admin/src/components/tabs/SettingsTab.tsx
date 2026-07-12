@@ -26,6 +26,24 @@ export default function SettingsTab({
   uploadingQrImage,
   handleUploadQrImage
 }: SettingsTabProps) {
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
+
+  const onSave = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+      await handleSaveSettings();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      alert("Website configurations saved successfully!");
+    } catch (err: any) {
+      alert(`Error saving settings: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
       <div className="flex justify-between items-center">
@@ -34,11 +52,12 @@ export default function SettingsTab({
           <p className="text-xs text-gray-500">Calibrate branding layouts, shipping logistics tiers, support channels, and payment settings.</p>
         </div>
         <button
-          onClick={handleSaveSettings}
-          className="bg-brand-primary text-white text-xs font-bold uppercase tracking-wider px-6 py-3 rounded-xl flex items-center space-x-2 hover:bg-blue-900 transition-all cursor-pointer shadow-md"
+          onClick={onSave}
+          disabled={isSaving}
+          className={`${saveSuccess ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-primary hover:bg-blue-900'} text-white text-xs font-bold uppercase tracking-wider px-6 py-3 rounded-xl flex items-center space-x-2 transition-all cursor-pointer shadow-md disabled:opacity-50 select-none`}
         >
           <Save className="w-4 h-4" />
-          <span>Save Configs</span>
+          <span>{isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Configs'}</span>
         </button>
       </div>
 

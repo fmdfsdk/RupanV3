@@ -770,11 +770,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       const { error } = await supabase.from('products').update(finalProduct).eq('id', editingProduct.id);
       if (!error) {
         setProducts(products.map(p => p.id === editingProduct.id ? finalProduct : p));
+        alert("Product updated successfully!");
+      } else {
+        alert(`Error updating product: ${error.message}`);
       }
     } else {
       const { error } = await supabase.from('products').insert([finalProduct]);
       if (!error) {
         setProducts([...products, finalProduct]);
+        alert("Product created successfully!");
+      } else {
+        alert(`Error creating product: ${error.message}`);
       }
     }
     setProductModalOpen(false);
