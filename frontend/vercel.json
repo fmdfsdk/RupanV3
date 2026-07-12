@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/landing.ts": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",

@@ -99,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // vercel.json rewrites pass the full original URL as ?__path= 
   const rawUrl = req.url || '/';
   const urlObj = new URL(rawUrl, 'http://localhost');
-  const pathParam = req.query.__path as string;
+  const pathParam = urlObj.searchParams.get('__path') || (req.query.__path as string);
   const rawPath = pathParam ? pathParam.split('?')[0] : urlObj.pathname;
   const urlPath = rawPath.startsWith('/') ? rawPath : '/' + rawPath;
   const cleanPath = urlPath.split('?')[0];
