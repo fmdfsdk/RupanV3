@@ -87,7 +87,8 @@ export default function CartPage() {
                 <ProductImage
                   src={getOptimizedImageUrl(item.product.images[0], 150)}
                   alt={item.product.name}
-                  className="w-20 h-24 object-cover rounded-xl"
+                  containerClassName="w-20 h-24 shrink-0"
+                  className="w-full h-full object-cover rounded-xl"
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-display font-bold text-sm md:text-base text-brand-text truncate">

@@ -36,7 +36,7 @@ export default function MobileBottomMenu() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200/80 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] sm:hidden px-2 py-1.5 flex justify-around items-center safe-bottom">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200/80 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] md:hidden px-2 py-1.5 flex justify-around items-center safe-bottom">
       {menuItems.map((item) => {
         const Icon = item.icon;
         const isActive = currentPath === item.path;

@@ -105,12 +105,37 @@ create table public.settings (
       "bg_color": "#ff5c00"
     }
   }'::jsonb,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  -- Payment Gateway Configurations
+  payment_bangla_qr_enabled boolean not null default true,
+  payment_bkash_enabled boolean not null default true,
+  payment_nagad_enabled boolean not null default true,
+  payment_cod_enabled boolean not null default true,
+  payment_bkash_number text not null default '01600338318',
+  payment_nagad_number text not null default '01600338318',
+  payment_bangla_qr_image text not null default '/assets/logo-banglaqr.svg',
+  payment_bangla_qr_instruction text not null default 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
+  payment_mfs_instruction text not null default 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
+  payment_cod_instruction text not null default 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।'
 );
 
 -- Insert default configurations
-insert into public.settings (id, logo_text, logo_accent, tagline, whatsapp_number, support_number, currency_symbol, inside_dhaka_shipping, outside_dhaka_shipping, free_shipping_min_order, theme)
-values (1, 'RUPAN', '.', 'Style That Speaks.', '+8801711223344', '+8809612345678', '৳', 60.00, 120.00, 3000.00, 'sleek')
+insert into public.settings (
+  id, logo_text, logo_accent, tagline, whatsapp_number, support_number, currency_symbol, 
+  inside_dhaka_shipping, outside_dhaka_shipping, free_shipping_min_order, theme,
+  payment_bangla_qr_enabled, payment_bkash_enabled, payment_nagad_enabled, payment_cod_enabled,
+  payment_bkash_number, payment_nagad_number, payment_bangla_qr_image,
+  payment_bangla_qr_instruction, payment_mfs_instruction, payment_cod_instruction
+)
+values (
+  1, 'RUPAN', '.', 'Style That Speaks.', '+8801711223344', '+8809612345678', '৳', 
+  60.00, 120.00, 3000.00, 'sleek',
+  true, true, true, true,
+  '01600338318', '01600338318', '/assets/logo-banglaqr.svg',
+  'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
+  'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
+  'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।'
+)
 on conflict (id) do nothing;
 
 alter table public.settings enable row level security;

@@ -371,14 +371,14 @@ export default function ProductDetail({
           )}
 
           {/* Quantity and CTAs Row */}
-          <div className="flex flex-wrap items-center gap-3 pt-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-3">
             
             {/* Quantity Selector */}
-            <div className="flex items-center bg-gray-100 rounded-sm">
+            <div className="flex items-center justify-between bg-gray-100 rounded-sm h-11 px-2 sm:px-0 sm:justify-start shrink-0">
               <button
                 type="button"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-10 h-10 flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors cursor-pointer text-lg font-semibold"
+                className="w-10 h-full flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors cursor-pointer text-lg font-semibold"
               >
                 -
               </button>
@@ -386,30 +386,32 @@ export default function ProductDetail({
               <button
                 type="button"
                 onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                className="w-10 h-10 flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors cursor-pointer text-lg font-semibold"
+                className="w-10 h-full flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors cursor-pointer text-lg font-semibold"
               >
                 +
               </button>
             </div>
 
-            {/* Buy Now Button (Solid Black, sharp corners like in screenshot) */}
-            <button
-              onClick={() => onBuyNow(product, selectedSize, selectedColor)}
-              disabled={product.stock === 0}
-              className="bg-black hover:bg-gray-900 text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-sm transition-all cursor-pointer min-h-[40px]"
-            >
-              Buy Now
-            </button>
+            <div className="flex-1 flex gap-3">
+              {/* Buy Now Button (Solid Black, sharp corners like in screenshot) */}
+              <button
+                onClick={() => onBuyNow(product, selectedSize, selectedColor)}
+                disabled={product.stock === 0}
+                className="flex-1 bg-black hover:bg-gray-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-sm transition-all cursor-pointer min-h-[44px] text-center"
+              >
+                Buy Now
+              </button>
 
-            {/* Add to Cart Button (Solid Orange, sharp corners like in screenshot) */}
-            <button
-              onClick={handleAddToCartClick}
-              disabled={product.stock === 0}
-              className="bg-[#ff5c00] hover:bg-[#e04f00] text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-sm transition-all cursor-pointer min-h-[40px] flex items-center gap-2"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              {addedFeedback ? 'Added!' : 'Add to Cart'}
-            </button>
+              {/* Add to Cart Button (Solid Orange, sharp corners like in screenshot) */}
+              <button
+                onClick={handleAddToCartClick}
+                disabled={product.stock === 0}
+                className="flex-1 bg-[#ff5c00] hover:bg-[#e04f00] text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-sm transition-all cursor-pointer min-h-[44px] flex items-center justify-center gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                {addedFeedback ? 'Added!' : 'Add to Cart'}
+              </button>
+            </div>
           </div>
 
           {/* WhatsApp Button (Vibrant Green, Full-width, clean style) */}

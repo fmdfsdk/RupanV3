@@ -132,7 +132,8 @@ export default function SearchPage() {
                   <ProductImage 
                     src={getOptimizedImageUrl(item.images?.[0], 100)} 
                     alt={item.name} 
-                    className="w-9 h-11 object-cover rounded-md border border-gray-100"
+                    containerClassName="w-9 h-11 shrink-0"
+                    className="w-full h-full object-cover rounded-md border border-gray-100"
                   />
                   <div>
                     <h5 className="font-bold text-xs text-zinc-900 leading-snug line-clamp-1">{item.name}</h5>

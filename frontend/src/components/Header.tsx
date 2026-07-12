@@ -183,7 +183,8 @@ export default function Header({
                     <ProductImage 
                       src={getOptimizedImageUrl(item.images?.[0], 100)} 
                       alt={item.name} 
-                      className="w-8 h-10 object-cover rounded border border-gray-100 flex-shrink-0"
+                      containerClassName="w-8 h-10 shrink-0"
+                      className="w-full h-full object-cover rounded border border-gray-100"
                     />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-xs text-gray-900 leading-snug truncate">{item.name}</h5>

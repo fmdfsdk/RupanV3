@@ -271,7 +271,7 @@ export default function QuickViewModal({
                 onClose();
               }}
               disabled={product.stock === 0}
-              className="col-span-2 border-2 border-brand-primary text-brand-primary hover:bg-blue-50/50 font-bold text-sm py-3 px-4 rounded-xl transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              className="col-span-5 sm:col-span-2 border-2 border-brand-primary text-brand-primary hover:bg-blue-50/50 font-bold text-xs sm:text-sm py-3 px-2 sm:px-4 rounded-xl transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
             >
               Add To Cart
             </button>
@@ -281,7 +281,7 @@ export default function QuickViewModal({
                 onClose();
               }}
               disabled={product.stock === 0}
-              className="col-span-2 bg-brand-primary hover:bg-blue-950 text-white font-bold text-sm py-3 px-4 rounded-xl text-center shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+              className="col-span-4 sm:col-span-2 bg-brand-primary hover:bg-blue-950 text-white font-bold text-xs sm:text-sm py-3 px-2 sm:px-4 rounded-xl text-center shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
             >
               Buy Now
             </button>

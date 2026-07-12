@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save, Image, Smartphone, Truck, UserCheck, Tag } from 'lucide-react';
+import { Save, Image, Smartphone, Truck, UserCheck, Tag, CreditCard } from 'lucide-react';
 import { WebsiteSettings } from '../../types';
 
 interface SettingsTabProps {
@@ -201,6 +201,134 @@ export default function SettingsTab({
             </div>
           </div>
         </div>
+
+        {/* Payment Gateways & Wallets */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4 lg:col-span-2">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-2 flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-orange-500" />
+            Payment Gateways & Wallet Configurations
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Enable/Disable payment methods */}
+            <div className="space-y-3.5">
+              <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider">Active Payment Methods</h4>
+              <div className="grid grid-cols-2 gap-3 font-semibold text-xs text-gray-750">
+                <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-gray-150 hover:border-gray-300 cursor-pointer bg-gray-50/50">
+                  <input 
+                    type="checkbox" 
+                    checked={settings.paymentBanglaQrEnabled} 
+                    onChange={(e) => setSettings({ ...settings, paymentBanglaQrEnabled: e.target.checked })}
+                    className="rounded border-gray-300 text-[#ff5c00]" 
+                  />
+                  <span>Bangla QR</span>
+                </label>
+                <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-gray-150 hover:border-gray-300 cursor-pointer bg-gray-50/50">
+                  <input 
+                    type="checkbox" 
+                    checked={settings.paymentBkashEnabled} 
+                    onChange={(e) => setSettings({ ...settings, paymentBkashEnabled: e.target.checked })}
+                    className="rounded border-gray-300 text-[#ff5c00]" 
+                  />
+                  <span>bKash Wallet</span>
+                </label>
+                <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-gray-150 hover:border-gray-300 cursor-pointer bg-gray-50/50">
+                  <input 
+                    type="checkbox" 
+                    checked={settings.paymentNagadEnabled} 
+                    onChange={(e) => setSettings({ ...settings, paymentNagadEnabled: e.target.checked })}
+                    className="rounded border-gray-300 text-[#ff5c00]" 
+                  />
+                  <span>Nagad Wallet</span>
+                </label>
+                <label className="flex items-center space-x-2.5 p-3 rounded-xl border border-gray-150 hover:border-gray-300 cursor-pointer bg-gray-50/50">
+                  <input 
+                    type="checkbox" 
+                    checked={settings.paymentCodEnabled} 
+                    onChange={(e) => setSettings({ ...settings, paymentCodEnabled: e.target.checked })}
+                    className="rounded border-gray-300 text-[#ff5c00]" 
+                  />
+                  <span>Cash on Delivery</span>
+                </label>
+              </div>
+
+              {/* MFS numbers */}
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-650">bKash Personal Number</label>
+                  <input 
+                    type="text" 
+                    value={settings.paymentBkashNumber || ''}
+                    onChange={(e) => setSettings({ ...settings, paymentBkashNumber: e.target.value })}
+                    className="bg-gray-50 border border-gray-250 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-655">Nagad Personal Number</label>
+                  <input 
+                    type="text" 
+                    value={settings.paymentNagadNumber || ''}
+                    onChange={(e) => setSettings({ ...settings, paymentNagadNumber: e.target.value })}
+                    className="bg-gray-50 border border-gray-250 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Bangla QR Code Image URL */}
+              <div className="space-y-1 pt-1">
+                <label className="text-xs font-bold text-zinc-650">Bangla QR Code Image Asset URL / Path</label>
+                <input 
+                  type="text" 
+                  value={settings.paymentBanglaQrImage || ''}
+                  onChange={(e) => setSettings({ ...settings, paymentBanglaQrImage: e.target.value })}
+                  className="bg-gray-50 border border-gray-255 text-xs rounded-xl px-3 py-2.5 w-full focus:outline-none font-mono"
+                  placeholder="/assets/BanglaQRcode.jpeg"
+                />
+              </div>
+            </div>
+
+            {/* Instruction Texts */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider">Instruction Guidelines</h4>
+              
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-extrabold text-zinc-550 uppercase tracking-wide">Bangla QR Instructions</label>
+                  <textarea 
+                    rows={2}
+                    value={settings.paymentBanglaQrInstruction || ''}
+                    onChange={(e) => setSettings({ ...settings, paymentBanglaQrInstruction: e.target.value })}
+                    className="bg-gray-50 border border-gray-250 text-xs rounded-xl px-3 py-2 w-full focus:outline-none font-sans leading-relaxed"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-extrabold text-zinc-550 uppercase tracking-wide flex items-center justify-between">
+                    <span>MFS Instructions</span>
+                    <span className="text-[9px] text-[#ff5c00] lowercase font-semibold">Use {'{amount}'} template</span>
+                  </label>
+                  <textarea 
+                    rows={2}
+                    value={settings.paymentMfsInstruction || ''}
+                    onChange={(e) => setSettings({ ...settings, paymentMfsInstruction: e.target.value })}
+                    className="bg-gray-50 border border-gray-250 text-xs rounded-xl px-3 py-2 w-full focus:outline-none font-sans leading-relaxed"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-extrabold text-zinc-550 uppercase tracking-wide">Cash on Delivery Instructions</label>
+                  <textarea 
+                    rows={2}
+                    value={settings.paymentCodInstruction || ''}
+                    onChange={(e) => setSettings({ ...settings, paymentCodInstruction: e.target.value })}
+                    className="bg-gray-50 border border-gray-250 text-xs rounded-xl px-3 py-2 w-full focus:outline-none font-sans leading-relaxed"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

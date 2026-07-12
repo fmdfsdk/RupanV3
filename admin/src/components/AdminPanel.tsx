@@ -58,7 +58,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     insideDhakaShipping: 60,
     outsideDhakaShipping: 120,
     freeShippingMinOrder: 3000,
-    theme: 'sleek'
+    theme: 'sleek',
+    paymentBanglaQrEnabled: true,
+    paymentBkashEnabled: true,
+    paymentNagadEnabled: true,
+    paymentCodEnabled: true,
+    paymentBkashNumber: '01600338318',
+    paymentNagadNumber: '01600338318',
+    paymentBanglaQrImage: '/assets/logo-banglaqr.svg',
+    paymentBanglaQrInstruction: 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
+    paymentMfsInstruction: 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
+    paymentCodInstruction: 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
   });
 
   // Sync state variables
@@ -343,6 +353,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           metaCapiAccessToken: sData.meta_capi_access_token || sData.metaCapiAccessToken || '',
           googleTagManagerId:  sData.google_tag_manager_id  || sData.googleTagManagerId  || '',
           googleAnalyticsId:   sData.google_analytics_id    || sData.googleAnalyticsId   || '',
+          paymentBanglaQrEnabled: sData.payment_bangla_qr_enabled !== undefined ? sData.payment_bangla_qr_enabled : (sData.paymentBanglaQrEnabled !== undefined ? sData.paymentBanglaQrEnabled : true),
+          paymentBkashEnabled: sData.payment_bkash_enabled !== undefined ? sData.payment_bkash_enabled : (sData.paymentBkashEnabled !== undefined ? sData.paymentBkashEnabled : true),
+          paymentNagadEnabled: sData.payment_nagad_enabled !== undefined ? sData.payment_nagad_enabled : (sData.paymentNagadEnabled !== undefined ? sData.paymentNagadEnabled : true),
+          paymentCodEnabled: sData.payment_cod_enabled !== undefined ? sData.payment_cod_enabled : (sData.paymentCodEnabled !== undefined ? sData.paymentCodEnabled : true),
+          paymentBkashNumber: sData.payment_bkash_number || sData.paymentBkashNumber || '01600338318',
+          paymentNagadNumber: sData.payment_nagad_number || sData.paymentNagadNumber || '01600338318',
+          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/logo-banglaqr.svg',
+          paymentBanglaQrInstruction: sData.payment_bangla_qr_instruction || sData.paymentBanglaQrInstruction || 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
+          paymentMfsInstruction: sData.payment_mfs_instruction || sData.paymentMfsInstruction || 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
+          paymentCodInstruction: sData.payment_cod_instruction || sData.paymentCodInstruction || 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
         });
 
         const hConfig = sData.homepageConfig || sData.homepage_config || {};
@@ -441,6 +461,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       meta_capi_access_token: settings.metaCapiAccessToken  || null,
       google_tag_manager_id:  settings.googleTagManagerId   || null,
       google_analytics_id:    settings.googleAnalyticsId    || null,
+      payment_bangla_qr_enabled: settings.paymentBanglaQrEnabled,
+      payment_bkash_enabled: settings.paymentBkashEnabled,
+      payment_nagad_enabled: settings.paymentNagadEnabled,
+      payment_cod_enabled: settings.paymentCodEnabled,
+      payment_bkash_number: settings.paymentBkashNumber,
+      payment_nagad_number: settings.paymentNagadNumber,
+      payment_bangla_qr_image: settings.paymentBanglaQrImage,
+      payment_bangla_qr_instruction: settings.paymentBanglaQrInstruction,
+      payment_mfs_instruction: settings.paymentMfsInstruction,
+      payment_cod_instruction: settings.paymentCodInstruction,
     };
 
     const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);

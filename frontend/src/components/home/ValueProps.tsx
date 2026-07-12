@@ -5,7 +5,7 @@ export default function ValueProps() {
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-white border border-gray-100 rounded-2xl p-6 md:p-8 shadow-2xs">
-        <div className="flex items-center gap-4 border-r border-gray-100/70 last:border-0 pr-4">
+        <div className="flex items-center gap-4 border-b lg:border-b-0 md:border-r border-gray-100/70 pb-4 lg:pb-0 pr-4">
           <div className="p-3.5 bg-orange-50 rounded-xl text-[#ff5c00] shrink-0">
             <Truck className="w-7 h-7" />
           </div>
@@ -14,7 +14,7 @@ export default function ValueProps() {
             <p className="text-xs text-gray-400 mt-0.5 font-medium text-left">Free shipping over 5000Tk</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 border-r border-gray-100/70 last:border-0 pr-4">
+        <div className="flex items-center gap-4 border-b lg:border-b-0 lg:border-r border-gray-100/70 pb-4 lg:pb-0 pr-4">
           <div className="p-3.5 bg-orange-50 rounded-xl text-[#ff5c00] shrink-0">
             <ShieldCheck className="w-7 h-7" />
           </div>
@@ -23,7 +23,7 @@ export default function ValueProps() {
             <p className="text-xs text-gray-400 mt-0.5 font-medium text-left">100% Genuine Brands Guaranteed</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 border-r border-gray-100/70 last:border-0 pr-4">
+        <div className="flex items-center gap-4 border-b md:border-b-0 md:border-r border-gray-100/70 pb-4 md:pb-0 pr-4">
           <div className="p-3.5 bg-orange-50 rounded-xl text-[#ff5c00] shrink-0">
             <RotateCcw className="w-7 h-7" />
           </div>

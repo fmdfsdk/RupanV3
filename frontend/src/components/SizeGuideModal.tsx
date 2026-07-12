@@ -47,7 +47,7 @@ export default function SizeGuideModal({ isOpen, onClose, category = 'Panjabi' }
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-center py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
+              className={`flex-1 text-center py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
                 activeTab === tab
                   ? 'bg-brand-primary text-white shadow-sm'
                   : 'text-gray-500 hover:text-brand-text hover:bg-gray-100'

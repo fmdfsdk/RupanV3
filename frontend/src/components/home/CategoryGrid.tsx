@@ -101,7 +101,7 @@ export default function CategoryGrid({
               />
             </div>
             {/* Label name */}
-            <span className="text-[10px] sm:text-[11px] font-bold text-gray-700 group-hover:text-[#ff5c00] transition-colors mt-3 uppercase tracking-tight leading-snug max-w-[90px] line-clamp-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-gray-700 group-hover:text-[#ff5c00] transition-colors mt-3 uppercase tracking-tight leading-snug max-w-full px-1 line-clamp-2">
               {cat.name}
             </span>
           </button>

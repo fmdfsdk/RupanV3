@@ -91,7 +91,7 @@ export default function OrderTrackingPage() {
       </div>
 
       {/* Tracking Search Form */}
-      <form onSubmit={handleTrackQuery} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex flex-col md:flex-row gap-4 items-end">
+      <form onSubmit={handleTrackQuery} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex flex-col md:flex-row gap-4 items-stretch md:items-end">
         <div className="flex-1 space-y-1.5 w-full">
           <label className="text-xs uppercase font-bold text-gray-500">Order ID *</label>
           <input

@@ -86,6 +86,8 @@ export interface Order {
   isGuest?: boolean;
   isIncognitoGuest?: boolean;
   userId?: string;
+  transactionId?: string;
+  paidConfirm?: boolean;
 }
 
 export interface BlogPost {
@@ -144,6 +146,17 @@ export interface WebsiteSettings {
   metaCapiAccessToken?: string;
   googleTagManagerId?: string;
   googleAnalyticsId?: string;
+  // Payment Gateway Configurations
+  paymentBanglaQrEnabled: boolean;
+  paymentBkashEnabled: boolean;
+  paymentNagadEnabled: boolean;
+  paymentCodEnabled: boolean;
+  paymentBkashNumber: string;
+  paymentNagadNumber: string;
+  paymentBanglaQrImage: string;
+  paymentBanglaQrInstruction: string;
+  paymentMfsInstruction: string;
+  paymentCodInstruction: string;
 }
 
 export interface UserProfile {

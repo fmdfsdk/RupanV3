@@ -15,13 +15,40 @@ interface BrandLogoProps {
 }
 
 function BrandLogo({ type }: BrandLogoProps) {
+  const [loadError, setLoadError] = useState(false);
+
+  const srcMap = {
+    bkash: '/assets/logo-bkash.svg',
+    nagad: '/assets/logo-nagad.webp',
+    rocket: '/assets/logo-rocket.svg',
+    visa: '/assets/logo-visa.svg',
+    mastercard: '/assets/logo-mastercard.svg',
+    amex: '/assets/logo-amex.svg',
+    pathao: '/assets/logo-pathao.png',
+    steadfast: '/assets/logo-steadfast.svg',
+    redx: '/assets/logo-redx.svg',
+    paperfly: '/assets/logo-paperfly.svg',
+  };
+
+  if (!loadError) {
+    return (
+      <div className="bg-white hover:opacity-95 border border-gray-200 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1.5 overflow-hidden">
+        <img 
+          src={srcMap[type]} 
+          alt={type} 
+          className="w-full h-full object-contain" 
+          onError={() => setLoadError(true)}
+        />
+      </div>
+    );
+  }
+
   switch (type) {
     case 'bkash':
       return (
         <div className="bg-[#E2125D] hover:opacity-95 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1 border border-pink-700/15">
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(4, 0)">
-              {/* High-fidelity bKash bird origami geometry */}
               <path d="M19 15 L22.5 10.5 L17.5 11 L19 15Z" fill="#FFFFFF" />
               <path d="M11.5 21 L19 15 L14 8.5 L11.5 21Z" fill="#FCE7F3" fillOpacity="0.9" />
               <path d="M19 15 L14 22 L11.5 21 L19 15Z" fill="#FBCFE8" fillOpacity="0.8" />
@@ -36,7 +63,6 @@ function BrandLogo({ type }: BrandLogoProps) {
         <div className="bg-gradient-to-r from-[#F25F22] to-[#D14410] hover:opacity-95 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1 border border-orange-700/15">
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(4, 1)">
-              {/* Nagad logo: stylized sun-burst leaf and dot */}
               <circle cx="16" cy="14" r="7" fill="white" fillOpacity="0.2" />
               <path d="M11 15 C11 11, 15 10, 18 10 C21 10, 21 13, 21 15 C21 19, 17 21, 14 21 C11 21, 11 19, 11 15 Z" fill="white" />
               <path d="M14 11 C15.5 11, 17 12, 17 14 C17 16, 15.5 18, 14 18 C12.5 18, 11.5 16, 11.5 14" stroke="#D14410" strokeWidth="1" />
@@ -51,7 +77,6 @@ function BrandLogo({ type }: BrandLogoProps) {
         <div className="bg-[#8C3494] hover:opacity-95 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1 border border-purple-800/20">
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(6, 1)">
-              {/* High-fidelity Rocket */}
               <path d="M11 20 C11 20, 13.5 15, 17 11.5 C18.5 10, 20.5 9.5 21.5 9.5 C21.5 10.5 21 12.5 19.5 14 C16 17.5 11 20 11 20 Z" fill="white" />
               <path d="M21.5 9.5 C19.5 9.5 17.5 10 16 11.5 L14.5 10 L19 7 L21.5 9.5 Z" fill="#FFC72C" />
               <path d="M11 20 L9.5 22 L11.5 21.5 L11 20 Z" fill="#EF4444" />
@@ -66,7 +91,6 @@ function BrandLogo({ type }: BrandLogoProps) {
         <div className="bg-white border border-gray-200 hover:border-gray-300 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1">
           <svg className="w-full h-full px-1" viewBox="0 0 80 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(5, 1)">
-              {/* Geometric precise VISA wordmark with iconic golden hook on V */}
               <path d="M15 6 L10.5 19.5 H7.2 L4.2 8.5 C3.8 7 3.2 6.5 2.2 6.1 V5.7 H7.5 C8.6 5.7 9.5 6.4 9.8 7.4 L11.5 15.5 L15 6 Z" fill="#1A1F71" />
               <path d="M4.2 8.5 L2.5 5.7 H0 L0.1 6 C1.8 6.5 3.1 7.2 4.2 8.5 Z" fill="#F7B600" />
               <path d="M19.5 5.7 L16.8 19.5 H20 L22.7 5.7 H19.5 Z" fill="#1A1F71" />
@@ -102,7 +126,6 @@ function BrandLogo({ type }: BrandLogoProps) {
         <div className="bg-[#FF5C00] hover:opacity-95 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1 border border-orange-600/15">
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(6, 1)">
-              {/* Dynamic Winged Helmet Wheel */}
               <path d="M16 8 C11 8, 8 11, 7 15 C6 18, 9 21, 13 21 C17 21, 19 18, 19 14 C19 12, 18 9, 16 8 Z M13 18 C11.5 18, 10 17, 10 15 C10 13, 11.5 12, 13 12 C14.5 12, 16 13, 16 15 C16 17, 14.5 18, 13 18 Z" fill="white" />
               <path d="M6 11 L10 12 L8 14 Z" fill="white" fillOpacity="0.7" />
               <path d="M5 15 L9 15 L7 17 Z" fill="white" fillOpacity="0.5" />
@@ -116,7 +139,6 @@ function BrandLogo({ type }: BrandLogoProps) {
         <div className="bg-[#019343] hover:opacity-95 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1 border border-green-700/15">
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g transform="translate(5, 1)">
-              {/* Precise Steadfast Double Arrow Shield */}
               <path d="M6 6 L12 14 L6 22 L9 14 Z" fill="white" />
               <path d="M11 6 L17 14 L11 22 L14 14 Z" fill="white" fillOpacity="0.7" />
               <rect x="6" y="24" width="11" height="1.5" rx="0.5" fill="white" fillOpacity="0.9" />
@@ -132,7 +154,6 @@ function BrandLogo({ type }: BrandLogoProps) {
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <text x="14" y="19.5" fill="white" fontSize="13.5" fontFamily="'Inter', system-ui, -apple-system, sans-serif" fontWeight="900" letterSpacing="0.3">RED</text>
             <g transform="translate(45, 4)">
-              {/* High-fidelity REDX red cross */}
               <path d="M4 3 L9 3 L17 19 L12 19 L4 3 Z" fill="#E51937" />
               <path d="M12 3 L17 3 L9 19 L4 19 L12 3 Z" fill="#E51937" />
             </g>
@@ -143,7 +164,6 @@ function BrandLogo({ type }: BrandLogoProps) {
       return (
         <div className="bg-[#008FBB] hover:opacity-95 transition-all rounded-lg shadow-xs flex items-center justify-center w-[96px] h-[38px] select-none p-1 border border-blue-600/15">
           <svg className="w-full h-full" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* High-fidelity folded paper airplane */}
             <g transform="translate(5, 5)">
               <path d="M0 8 L17 1 L11 11 Z" fill="white" />
               <path d="M17 1 L11 11 L6 11 Z" fill="#D2F4FF" />
@@ -161,7 +181,7 @@ function BrandLogo({ type }: BrandLogoProps) {
 
 export default function Footer({ onPageChange }: FooterProps) {
   return (
-    <footer className="bg-white text-gray-700 pt-16 pb-16 sm:pb-0 border-t border-gray-200 font-sans">
+    <footer className="bg-white text-gray-700 pt-16 pb-16 md:pb-0 border-t border-gray-200 font-sans">
       <div className="w-full max-w-[1750px] mx-auto px-4 md:px-12 lg:px-16">
         
         {/* Main Footer Content Grid */}

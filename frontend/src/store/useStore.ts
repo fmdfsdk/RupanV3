@@ -224,8 +224,10 @@ export const useStore = create<StoreState>((set, get) => ({
     phone: '534534563453',
     address: 'test',
     area: 'Inside Dhaka',
-    paymentMethod: 'Cash on Delivery',
-    email: 'phone-534534563453-nz9rfv2h@borbila.invalid'
+    paymentMethod: 'Bangla QR',
+    email: 'phone-534534563453-nz9rfv2h@borbila.invalid',
+    transactionId: '',
+    paidConfirm: false
   },
   
   // UI & Navigation Initial States
@@ -613,6 +615,8 @@ export const useStore = create<StoreState>((set, get) => ({
       address: formInputs.address,
       area: formInputs.area,
       paymentMethod: formInputs.paymentMethod,
+      transactionId: formInputs.transactionId,
+      paidConfirm: formInputs.paidConfirm,
       items: cart.map((item) => ({
         productId: item.product.id,
         productName: item.product.name,
