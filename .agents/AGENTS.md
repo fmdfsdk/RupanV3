@@ -1,0 +1,18 @@
+# Workspace Customizations & Rules
+
+## Vercel Routing and Rewrites
+
+To maintain compatibility with both static React SPA routing and dynamic Supabase landing pages without causing serverless function overhead or infinite redirects, follow these rules:
+
+1. **Standard SPA Routes (Static CDN Rewrite)**:
+   - All standard React routes (e.g., `/shop`, `/cart`, `/checkout`, `/about-us`, `/product/:id*`, etc.) must be listed explicitly in `vercel.json` rewrites to point directly to `/index.html`.
+   - This ensures Vercel's CDN serves them statically. Bypassing the serverless function prevents direct page refreshes/loads from throwing file-not-found errors and redirecting to the homepage.
+
+2. **Custom Landing Pages & Blogs (Dynamic Fallback Rewrite)**:
+   - Keep the catch-all rewrite rule `"source": "/:path*"` -> `"destination": "/api/landing?__path=/:path*"` at the very bottom of the rewrites list.
+   - Any path not matched by standard SPA routes will fall through to this rule, allowing `api/landing.ts` to query Supabase for dynamic landing pages (`category === '__landing_page__'`) and inject scripts correctly.
+
+3. **Product ID Query Parameter Redirects**:
+   - `/product?id=...` matches the fallback `/api/landing` routing.
+   - `landing.ts` detects `/product` with an `id` query parameter, resolves the target product using offset tolerance mapping (3000 offset, prefix matching), and issues a `301` HTTP redirect to the correct slugged path (e.g., `/product/a9-pro-app-supported-anc-enc-display-touch-control-earbuds-5184`).
+   - A client-side route fallback is registered under `<Route path="/product" element={<ProductRedirect />} />` in `App.tsx` for local dev environment support.
