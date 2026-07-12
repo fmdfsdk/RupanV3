@@ -453,9 +453,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
     setUploadingQrImage(true);
     try {
-      // 1. Ensure 'settings' bucket exists
+      // 1. Ensure 'banners' bucket exists
       try {
-        await supabase.storage.createBucket('settings', {
+        await supabase.storage.createBucket('banners', {
           public: true,
           fileSizeLimit: 5242880 // 5MB
         });
@@ -467,7 +467,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       const filePath = `${fileName}`;
 
       const { data, error } = await supabase.storage
-        .from('settings')
+        .from('banners')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
@@ -477,7 +477,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
       // 3. Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('settings')
+        .from('banners')
         .getPublicUrl(filePath);
 
       setSettings((prev: any) => ({
