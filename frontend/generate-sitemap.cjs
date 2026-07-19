@@ -49,26 +49,50 @@ async function run() {
       console.log(`Connecting to Supabase at: ${supabaseUrl}`);
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-      // Fetch products
-      const { data: dbProducts, error: pErr } = await supabase
-        .from('products')
-        .select('id, name, category, status');
-      
-      if (!pErr && dbProducts) {
+      // Fetch ALL products with range pagination
+      let dbProducts = [];
+      let pPage = 0;
+      let hasMoreProducts = true;
+      while (hasMoreProducts) {
+        const { data: pData, error: pErr } = await supabase
+          .from('products')
+          .select('id, name, category, status')
+          .range(pPage * 1000, (pPage + 1) * 1000 - 1);
+
+        if (pErr || !pData || pData.length === 0) {
+          hasMoreProducts = false;
+        } else {
+          dbProducts = dbProducts.concat(pData);
+          if (pData.length < 1000) hasMoreProducts = false;
+          else pPage++;
+        }
+      }
+      if (dbProducts.length > 0) {
         products = dbProducts;
-        console.log(`Loaded ${products.length} products from Supabase.`);
-      } else if (pErr) {
-        console.warn('Supabase product query error:', pErr.message);
+        console.log(`Loaded ${products.length} products from Supabase for sitemap.`);
       }
 
-      // Fetch blogs
-      const { data: dbBlogs, error: bErr } = await supabase
-        .from('blogs')
-        .select('id, status');
-      
-      if (!bErr && dbBlogs) {
+      // Fetch ALL blogs with range pagination
+      let dbBlogs = [];
+      let bPage = 0;
+      let hasMoreBlogs = true;
+      while (hasMoreBlogs) {
+        const { data: bData, error: bErr } = await supabase
+          .from('blogs')
+          .select('id, status')
+          .range(bPage * 1000, (bPage + 1) * 1000 - 1);
+
+        if (bErr || !bData || bData.length === 0) {
+          hasMoreBlogs = false;
+        } else {
+          dbBlogs = dbBlogs.concat(bData);
+          if (bData.length < 1000) hasMoreBlogs = false;
+          else bPage++;
+        }
+      }
+      if (dbBlogs.length > 0) {
         blogs = dbBlogs.filter(b => b.status === 'published');
-        console.log(`Loaded ${blogs.length} published blogs from Supabase.`);
+        console.log(`Loaded ${blogs.length} published blogs from Supabase for sitemap.`);
       }
 
     } catch (err) {
