@@ -8,7 +8,7 @@ import { MessageSquareCode } from 'lucide-react';
 export default function WhatsAppButton() {
   const handleWhatsAppClick = () => {
     // Open a friendly chat in a new window with a pre-configured message
-    const message = encodeURIComponent("Hello Shop Mart! I would like to query about your latest premium collections.");
+    const message = encodeURIComponent("Hello Rupan! I would like to query about your latest premium collections.");
     window.open(`https://wa.me/8801700000000?text=${message}`, '_blank');
   };
 

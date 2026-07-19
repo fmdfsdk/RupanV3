@@ -818,6 +818,6 @@ export const FAQ = [
   },
   {
     q: 'Are your products 100% authentic?',
-    a: 'Yes, Shop Mart is an official registered brand. We guarantee 100% authenticity and fresh quality on every single purchase.'
+    a: 'Yes, Rupan is an official registered brand. We guarantee 100% authenticity and fresh quality on every single purchase.'
   }
 ];

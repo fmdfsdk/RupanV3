@@ -208,7 +208,7 @@ export const useStore = create<StoreState>((set, get) => ({
   currentUser: {
     username: 'test',
     displayName: 'test',
-    email: 'phone-534534563453-nz9rfv2h@borbila.invalid',
+    email: 'phone-534534563453-nz9rfv2h@rupan.invalid',
     phone: '534534563453',
     billingAddress: 'test',
     shippingAddress: 'test',
@@ -227,7 +227,7 @@ export const useStore = create<StoreState>((set, get) => ({
     address: 'test',
     area: 'Inside Dhaka',
     paymentMethod: 'Bangla QR',
-    email: 'phone-534534563453-nz9rfv2h@borbila.invalid',
+    email: 'phone-534534563453-nz9rfv2h@rupan.invalid',
     transactionId: '',
     paidConfirm: false
   },

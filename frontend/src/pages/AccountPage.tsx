@@ -65,7 +65,7 @@ export default function AccountPage() {
       setCurrentUser({
         username: 'test',
         displayName: 'test',
-        email: 'phone-534534563453-nz9rfv2h@borbila.invalid',
+        email: 'phone-534534563453-nz9rfv2h@rupan.invalid',
         phone: '534534563453',
         billingAddress: 'test',
         shippingAddress: 'test',

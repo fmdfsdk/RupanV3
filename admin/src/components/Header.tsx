@@ -298,9 +298,9 @@ export default function Header({
             </div>
 
             <div className="pt-6 border-t border-gray-100 text-xs text-gray-500 space-y-1">
-              <p>📍 Shop Mart Bangladesh Ltd.</p>
+              <p>📍 Rupan Bangladesh Ltd.</p>
               <p>📞 Phone: 09678 123 456</p>
-              <p>✉️ Email: support@doraz.com.bd</p>
+              <p>✉️ Email: support@rupan.com.bd</p>
             </div>
           </div>
         </div>
