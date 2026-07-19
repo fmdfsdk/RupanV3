@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingBag, RefreshCw } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
@@ -758,6 +758,21 @@ export default function ShopPage() {
                     isWishlisted={wishlist.some((w) => w.id === product.id)}
                   />
                 ))}
+                {/* Skeleton preview cards for inline loading when fetching next page */}
+                {isLoading && urlPage > 1 && (
+                  <>
+                    {[1, 2, 3, 4].map((n) => (
+                      <div key={`skeleton-${n}`} className="bg-white rounded-md p-3.5 border border-gray-100 animate-pulse flex flex-col justify-between h-[340px]">
+                        <div className="bg-gray-100 aspect-square rounded-sm w-full mb-3"></div>
+                        <div className="space-y-2">
+                          <div className="h-3.5 bg-gray-100 rounded w-5/6"></div>
+                          <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+                          <div className="h-4 bg-gray-100 rounded w-1/3 mt-2"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
 
               {/* Load More Button */}
@@ -767,12 +782,19 @@ export default function ShopPage() {
                     onClick={() => {
                       const params = new URLSearchParams(searchParams);
                       params.set('page', String(urlPage + 1));
-                      setSearchParams(params);
+                      setSearchParams(params, { preventScrollReset: true });
                     }}
                     disabled={isLoading}
-                    className="bg-[#ff5c00] hover:bg-[#e04f00] text-white disabled:bg-gray-400 font-extrabold text-xs px-8 py-3.5 rounded-full uppercase tracking-wider transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
+                    className="bg-[#ff5c00] hover:bg-[#e04f00] text-white disabled:bg-orange-300 font-extrabold text-xs px-8 py-3.5 rounded-full uppercase tracking-wider transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
                   >
-                    {isLoading ? 'Loading...' : 'Load More Products'}
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                        <span>Loading Products...</span>
+                      </>
+                    ) : (
+                      'Load More Products'
+                    )}
                   </button>
                 </div>
               )}
