@@ -78,14 +78,33 @@ export default function MarginsTab({
       if (settingsErr) throw settingsErr;
       setDbSettings(updatedSettings);
 
-      // 2. Query all products from Supabase to recalculate prices based on cost (purchase_price)
-      const { data: allDbProducts, error: fetchErr } = await supabase
-        .from('products')
-        .select('id, category, price, discount_price, purchase_price');
+      // 2. Query ALL products from Supabase catalog using paginated ranges (bypasses 1000 default limit)
+      let allDbProducts: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: pageData, error: pageErr } = await supabase
+          .from('products')
+          .select('id, category, price, discount_price, purchase_price')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (pageErr || !pageData || pageData.length === 0) {
+          hasMore = false;
+        } else {
+          allDbProducts = allDbProducts.concat(pageData);
+          if (pageData.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+      }
 
       let updatedCount = 0;
 
-      if (!fetchErr && allDbProducts && allDbProducts.length > 0) {
+      if (allDbProducts && allDbProducts.length > 0) {
         const updates: { id: string; price: number; discount_price: number | null }[] = [];
         const updatedLocalProducts = [...products];
 
