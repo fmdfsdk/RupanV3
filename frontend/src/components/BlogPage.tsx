@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Clock, Calendar, ArrowLeft, BookOpen, MessageSquare, Heart, Share2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Clock, Calendar, ArrowLeft, BookOpen, MessageSquare, Heart, Share2, Rocket, Layers } from 'lucide-react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { BlogPost } from '../types';
@@ -10,6 +10,7 @@ export default function BlogPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const BLOGS = useStore((state) => state.dbBlogs) || [];
+  const [selectedTab, setSelectedTab] = useState<'all' | 'articles' | 'landing'>('all');
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -143,15 +144,21 @@ export default function BlogPage() {
               {activePost.readTime}
             </span>
             <span>•</span>
-            <span className="text-brand-primary">Fashion & Clothing</span>
+            <button 
+              onClick={handleShare}
+              className="flex items-center gap-1 text-brand-primary hover:underline cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Share Article
+            </button>
           </div>
         </div>
 
-        {/* Main Cover Image */}
+        {/* Featured Banner Image */}
         {activePost.image && (
-          <div className="aspect-16/9 rounded-3xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm relative">
-            <img
-              src={activePost.image}
+          <div className="aspect-16/9 rounded-3xl overflow-hidden shadow-sm bg-gray-50 border border-gray-100">
+            <img 
+              src={activePost.image} 
               alt={activePost.title}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -159,14 +166,8 @@ export default function BlogPage() {
           </div>
         )}
 
-        {/* Content body */}
-        <article className="prose max-w-none font-sans text-sm md:text-base text-gray-600 leading-relaxed space-y-6">
-          {activePost.excerpt && (
-            <p className="font-bold text-brand-primary text-base md:text-lg italic border-l-4 border-brand-accent pl-4 py-1 bg-gray-50/50 rounded-r-xl">
-              "{activePost.excerpt}"
-            </p>
-          )}
-          
+        {/* Main Content Area */}
+        <article className="prose prose-lg max-w-none text-gray-700 font-sans leading-relaxed space-y-6">
           {/* Detailed structured content using HTML */}
           <div dangerouslySetInnerHTML={{ __html: activePost.content.replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '') }} />
         </article>
@@ -183,50 +184,63 @@ export default function BlogPage() {
               Comments (12)
             </button>
           </div>
-          <button onClick={handleShare} className="flex items-center gap-1.5 hover:text-brand-primary transition-colors cursor-pointer">
+          <button className="flex items-center gap-1.5 text-brand-primary hover:underline cursor-pointer" onClick={handleShare}>
             <Share2 className="w-4 h-4" />
-            Share Article
+            Share
           </button>
         </div>
 
-        {/* Related Journal pieces */}
-        <div className="space-y-6 pt-6">
-          <h3 className="font-display text-lg font-black text-brand-text uppercase">
-            Related Style Guides
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {otherPosts.map((guide) => (
-              <Link
-                key={guide.id}
-                to={`/blog/${guide.id}`}
-                className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row cursor-pointer"
-              >
-                <img
-                  src={guide.image}
-                  alt={guide.title}
-                  className="w-full md:w-28 h-32 object-cover shrink-0"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                />
-                <div className="p-4 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-gray-400 block mb-1">{guide.date} • {guide.readTime}</span>
-                    <h4 className="text-xs md:text-sm font-bold text-brand-text group-hover:text-brand-primary transition-colors line-clamp-2 uppercase leading-snug">
-                      {guide.title}
-                    </h4>
+        {/* Related Guides */}
+        {otherPosts.length > 0 && (
+          <div className="pt-8 space-y-6 border-t border-gray-100">
+            <h3 className="font-display text-lg font-bold text-brand-text uppercase tracking-wider">
+              More Style Notes & Guides
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {otherPosts.map((guide) => (
+                <Link
+                  key={guide.id}
+                  to={`/blog/${guide.id}`}
+                  className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row cursor-pointer"
+                >
+                  <img
+                    src={guide.image}
+                    alt={guide.title}
+                    className="w-full md:w-28 h-32 object-cover shrink-0"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                  />
+                  <div className="p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[9px] uppercase font-bold text-gray-400 block mb-1">{guide.date} • {guide.readTime}</span>
+                      <h4 className="text-xs md:text-sm font-bold text-brand-text group-hover:text-brand-primary transition-colors line-clamp-2 uppercase leading-snug">
+                        {guide.title}
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-brand-primary font-bold hover:underline block mt-2">
+                      Read Article
+                    </span>
                   </div>
-                  <span className="text-[10px] text-brand-primary font-bold hover:underline block mt-2">
-                    Read Article
-                  </span>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     );
   }
+
+  // Filter posts based on selected tab
+  const filteredPosts = BLOGS.filter((post) => {
+    const isLanding = post.category === '__landing_page__';
+    if (selectedTab === 'articles') return !isLanding;
+    if (selectedTab === 'landing') return isLanding;
+    return true; // 'all'
+  });
+
+  const landingCount = BLOGS.filter(b => b.category === '__landing_page__').length;
+  const articleCount = BLOGS.filter(b => b.category !== '__landing_page__').length;
 
   // Render Full Blog Listing View
   return (
@@ -239,58 +253,106 @@ export default function BlogPage() {
         </span>
         <div className="space-y-1">
           <span className="text-xs font-bold text-brand-primary uppercase tracking-widest block">
-            Style Journal
+            Style Journal & Campaigns
           </span>
           <h1 className="font-display text-3xl md:text-4xl font-extrabold text-[#111] uppercase">
-            Style Guides & Fashion Journal
+            Style Guides, Articles & Landing Pages
           </h1>
         </div>
         <p className="text-sm text-gray-500">
-          Discover premium style notes, traditional fabric care guides, coordination pairings, and insights compiled directly by our master designers.
+          Discover premium style notes, traditional fabric care guides, insights, and exclusive campaign landing pages.
         </p>
+
+        {/* Category Filter Tabs */}
+        <div className="flex flex-wrap justify-center gap-2 pt-4">
+          <button
+            onClick={() => setSelectedTab('all')}
+            className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedTab === 'all'
+                ? 'bg-[#ff5c00] text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>All ({BLOGS.length})</span>
+          </button>
+          <button
+            onClick={() => setSelectedTab('articles')}
+            className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedTab === 'articles'
+                ? 'bg-[#ff5c00] text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Style Journal ({articleCount})</span>
+          </button>
+          <button
+            onClick={() => setSelectedTab('landing')}
+            className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedTab === 'landing'
+                ? 'bg-[#ff5c00] text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <Rocket className="w-3.5 h-3.5 text-amber-300" />
+            <span>Landing Pages ({landingCount})</span>
+          </button>
+        </div>
       </div>
 
-      {/* Blogs list Grid */}
+      {/* Blogs & Landing Pages list Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {BLOGS.filter(p => p.category !== '__landing_page__').map((post) => (
-          <Link
-            key={post.id}
-            to={`/blog/${post.id}`}
-            className="group bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
-          >
-            <div className="aspect-16/10 overflow-hidden bg-gray-50 relative">
-              <img
-                src={post.image}
-                alt={post.title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                referrerPolicy="no-referrer"
-                loading="lazy"
-              />
-              <span className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md text-brand-text font-bold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
-                {post.readTime}
-              </span>
-            </div>
+        {filteredPosts.map((post) => {
+          const isLanding = post.category === '__landing_page__';
+          const targetUrl = isLanding ? (post.id.startsWith('/') ? post.id : `/${post.id}`) : `/blog/${post.id}`;
+          const fallbackImage = isLanding
+            ? 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=600&auto=format&fit=crop'
+            : 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=600&auto=format&fit=crop';
+          const cardImage = post.image || fallbackImage;
 
-            <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold text-brand-accent block uppercase tracking-wider">
-                  {post.date} • FASHION DIARY
+          return (
+            <Link
+              key={post.id}
+              to={targetUrl}
+              className="group bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
+            >
+              <div className="aspect-16/10 overflow-hidden bg-gray-50 relative">
+                <img
+                  src={cardImage}
+                  alt={post.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                />
+                <span className={`absolute bottom-4 left-4 font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider backdrop-blur-md shadow-xs ${
+                  isLanding ? 'bg-[#ff5c00] text-white' : 'bg-white/90 text-gray-900'
+                }`}>
+                  {isLanding ? '🚀 CAMPAIGN PAGE' : (post.readTime || '3 MIN READ')}
                 </span>
-                <h3 className="font-display font-bold text-base md:text-lg text-brand-text group-hover:text-brand-primary transition-colors uppercase leading-snug line-clamp-2">
-                  {post.title}
-                </h3>
-                <p className="text-xs text-gray-500 leading-relaxed font-sans line-clamp-2">
-                  {post.excerpt}
-                </p>
               </div>
 
-              <span className="text-xs text-brand-primary font-bold hover:underline inline-flex items-center gap-1">
-                Read Article
-                <span>→</span>
-              </span>
-            </div>
-          </Link>
-        ))}
+              <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-[#ff5c00] block uppercase tracking-wider">
+                    {isLanding ? 'SPECIAL LANDING PAGE' : `${post.date || 'TODAY'} • FASHION DIARY`}
+                  </span>
+                  <h3 className="font-display font-bold text-base md:text-lg text-gray-900 group-hover:text-[#ff5c00] transition-colors uppercase leading-snug line-clamp-2">
+                    {post.title}
+                  </h3>
+                  <p className="text-xs text-gray-500 leading-relaxed font-sans line-clamp-2">
+                    {post.excerpt || (isLanding ? 'Interactive promotional campaign page.' : 'Discover our latest fashion insights.')}
+                  </p>
+                </div>
+
+                <span className="text-xs text-[#ff5c00] font-bold hover:underline inline-flex items-center gap-1">
+                  {isLanding ? 'Open Campaign Page' : 'Read Article'}
+                  <span>→</span>
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
     </div>
