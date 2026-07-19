@@ -304,16 +304,45 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
   };
 
+  const fetchAllTableRows = async (tableName: string) => {
+    let allRows: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error || !data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allRows = allRows.concat(data);
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+    }
+    return allRows;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: oData } = await supabase.from('orders').select('*');
-      const { data: cData } = await supabase.from('coupons').select('*');
-      const { data: bData } = await supabase.from('banners').select('*');
-      const { data: blData } = await supabase.from('blogs').select('*');
-      const { data: rData } = await supabase.from('reviews').select('*');
-      const { data: uData } = await supabase.from('users').select('*');
-      const { data: sData } = await supabase.from('settings').select('*').single();
+      const [oData, cData, bData, blData, rData, uData, sDataRes] = await Promise.all([
+        fetchAllTableRows('orders'),
+        fetchAllTableRows('coupons'),
+        fetchAllTableRows('banners'),
+        fetchAllTableRows('blogs'),
+        fetchAllTableRows('reviews'),
+        fetchAllTableRows('users'),
+        supabase.from('settings').select('*').single()
+      ]);
+      const sData = sDataRes.data;
 
       if (oData) {
         // Sort orders descending

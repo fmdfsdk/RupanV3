@@ -29,23 +29,30 @@ export const productService = {
   async fetchProductCatalogIndex(): Promise<Product[]> {
     const columns = 'id, name, slug, category, images, price, discount_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale';
     try {
-      // Fetch up to 5000 products in parallel using range queries
-      const promises = [];
-      for (let start = 0; start < 5000; start += 1000) {
-        promises.push(
-          supabase.from('products').select(columns).eq('status', 'published').range(start, start + 999)
-        );
-      }
-      const results = await Promise.all(promises);
-      let allItems: any[] = [];
-      for (const res of results) {
-        if (res.data && Array.isArray(res.data)) {
-          allItems = allItems.concat(res.data);
-          // If the page returned fewer than 1000, we've hit the end
-          if (res.data.length < 1000) break;
+      let allItems: Product[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('products')
+          .select(columns)
+          .eq('status', 'published')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error || !data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allItems = allItems.concat(data as Product[]);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
         }
       }
-      return allItems as Product[];
+      return allItems;
     } catch (error: any) {
       console.error('Failed to fetch catalog index:', error.message);
       return [];
