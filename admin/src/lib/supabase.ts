@@ -770,7 +770,8 @@ const allowedColumns: Record<string, string[]> = {
     'payment_bangla_qr_enabled', 'payment_bkash_enabled', 'payment_nagad_enabled', 'payment_cod_enabled',
     'payment_bkash_number', 'payment_nagad_number', 'payment_bangla_qr_image',
     'payment_bangla_qr_instruction', 'payment_mfs_instruction', 'payment_cod_instruction',
-    'facebook_url', 'twitter_url', 'youtube_url', 'instagram_url'
+    'facebook_url', 'twitter_url', 'youtube_url', 'instagram_url',
+    'telegram_bot_token', 'telegram_chat_id', 'telegram_notifications_enabled'
   ],
   products: [
     'id', 'name', 'slug', 'sku', 'brand', 'category', 'sub_category', 'tags', 'gender', 'price', 
@@ -785,7 +786,7 @@ const allowedColumns: Record<string, string[]> = {
   orders: [
     'id', 'customer_name', 'phone', 'address', 'area', 'payment_method', 'items', 'subtotal', 
     'shipping_fee', 'total', 'status', 'payment_status', 'customer_notes', 'admin_notes', 
-    'meta_event_id', 'is_guest', 'created_at'
+    'meta_event_id', 'is_guest', 'user_id', 'transaction_id', 'paid_confirm', 'created_at'
   ],
   reviews: ['id', 'user_name', 'rating', 'comment', 'verified', 'user_photo', 'product_id', 'status', 'reply', 'created_at'],
   coupons: ['code', 'type', 'value', 'min_order', 'max_discount', 'expiry_date', 'is_active', 'usage_limit', 'used_count', 'created_at'],

@@ -162,6 +162,13 @@ export interface WebsiteSettings {
   socialTwitter?: string;
   socialYoutube?: string;
   socialInstagram?: string;
+  // Telegram Bot Backup Integration
+  telegramBotToken?: string;
+  telegram_bot_token?: string;
+  telegramChatId?: string;
+  telegram_chat_id?: string;
+  telegramNotificationsEnabled?: boolean;
+  telegram_notifications_enabled?: boolean;
 }
 
 export interface UserProfile {

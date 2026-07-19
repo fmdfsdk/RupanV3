@@ -345,8 +345,26 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       const sData = sDataRes.data;
 
       if (oData) {
-        // Sort orders descending
-        const sortedOrders = [...oData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const mappedOrders = oData.map((d: any) => ({
+          id: d.id,
+          customerName: d.customer_name || d.customerName || 'Guest Customer',
+          phone: d.phone || '',
+          address: d.address || '',
+          area: d.area || 'Inside Dhaka',
+          paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
+          transactionId: d.transaction_id || d.transactionId || '',
+          paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
+          items: Array.isArray(d.items) ? d.items : [],
+          subtotal: Number(d.subtotal || 0),
+          shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
+          total: Number(d.total || 0),
+          status: d.status || 'Pending',
+          paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
+          createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+          isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+          userId: d.user_id || d.userId
+        }));
+        const sortedOrders = [...mappedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setOrders(sortedOrders);
       }
       if (cData && cData.length > 0) {

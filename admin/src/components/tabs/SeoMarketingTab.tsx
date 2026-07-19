@@ -3,7 +3,7 @@ import {
   Save, Tag, Globe, Sparkles, AlertCircle, Check, Copy, ExternalLink, Code,
   Shield, Zap, Activity, Eye, EyeOff, Server, Wifi, WifiOff, RefreshCw,
   ChevronRight, Info, CheckCircle2, XCircle, AlertTriangle, Play,
-  BarChart3, Target, Settings2, Layers
+  BarChart3, Target, Settings2, Layers, Send
 } from 'lucide-react';
 import { WebsiteSettings } from '../../types';
 
@@ -160,6 +160,7 @@ export default function SeoMarketingTab({
   const [capiStatus, setCapiStatus]       = useState<StatusType>('idle');
   const [gtmStatus, setGtmStatus]         = useState<StatusType>('idle');
   const [ga4Status, setGa4Status]         = useState<StatusType>('idle');
+  const [telegramStatus, setTelegramStatus] = useState<StatusType>('idle');
   const [isTesting, setIsTesting]         = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -169,6 +170,9 @@ export default function SeoMarketingTab({
     setCapiStatus(settings.metaCapiAccessToken  ? 'active' : 'inactive');
     setGtmStatus(settings.googleTagManagerId    ? 'active' : 'inactive');
     setGa4Status(settings.googleAnalyticsId     ? 'active' : 'inactive');
+    const tgToken = settings.telegramBotToken || settings.telegram_bot_token;
+    const tgChatId = settings.telegramChatId || settings.telegram_chat_id;
+    setTelegramStatus(tgToken && tgChatId ? 'active' : 'inactive');
   }, [settings]);
 
   // ── Restore CAPI token from localStorage backup if DB doesn't have it ──
@@ -426,17 +430,60 @@ export default function SeoMarketingTab({
     }
   };
 
+  // ── Test Telegram Bot Integration ──────────────────────────────────────────
+  const testTelegramBot = async () => {
+    const token = settings.telegramBotToken || settings.telegram_bot_token;
+    const chatId = settings.telegramChatId || settings.telegram_chat_id;
 
+    if (!token) {
+      addLog('error', '❌ No Telegram Bot Token entered. Get one from Telegram @BotFather.');
+      return;
+    }
+    if (!chatId) {
+      addLog('error', '❌ No Telegram Chat ID / User ID entered. Get your ID from @userinfobot.');
+      return;
+    }
 
+    setTelegramStatus('testing');
+    addLog('info', `📡 Testing Telegram Bot Connection to Chat ID: ${chatId}...`);
+
+    try {
+      const msg = `🤖 *RUPAN STORE TELEGRAM BACKUP TEST*\n\n✅ Telegram Bot integration is connected successfully! You will receive instant order alerts here whenever a customer places an order on Rupan.`;
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: msg,
+          parse_mode: 'Markdown'
+        })
+      });
+
+      const data = await response.json();
+      if (data.ok) {
+        addLog('success', '✅ Telegram test order notification sent successfully! Check your Telegram app.');
+        setTelegramStatus('active');
+      } else {
+        addLog('error', `❌ Telegram API error: ${data.description || 'Unknown error'}`);
+        setTelegramStatus('error');
+      }
+    } catch (e: any) {
+      addLog('error', `❌ Telegram test connection failed: ${e.message}`);
+      setTelegramStatus('error');
+    }
+  };
 
   // ── Fire All Test Events ──────────────────────────────────────────────────
   const runFullTest = async () => {
     setIsTesting(true);
-    addLog('info', '🚀 Running full tracking suite test...');
+    addLog('info', '🚀 Running full tracking & backup suite test...');
     await testPixelConnection();
     await testCapiConnection();
     await testGTMConnection();
     await testGA4Connection();
+    await testTelegramBot();
     addLog('info', '🏁 Full test suite complete. Review results above.');
     setIsTesting(false);
   };
@@ -448,6 +495,7 @@ export default function SeoMarketingTab({
     settings.metaCapiAccessToken,
     settings.googleTagManagerId,
     settings.googleAnalyticsId,
+    (settings.telegramBotToken || settings.telegram_bot_token) && (settings.telegramChatId || settings.telegram_chat_id),
   ].filter(Boolean).length;
 
   return (
@@ -664,6 +712,53 @@ export default function SeoMarketingTab({
               placeholder="e.g. G-XXXXXXXXXX"
               docsHref="https://analytics.google.com/"
               helpText="Google Analytics 4 Measurement ID (format: G-XXXXXXXXXX). Tracks page_view, ViewContent, AddToCart, InitiateCheckout, and Purchase events. gtag config is correctly applied after script load."
+            />
+          </SectionCard>
+
+          {/* ── Telegram Bot Backup Integration Card ───────────────────── */}
+          <SectionCard
+            title="Telegram Bot Order Backup"
+            icon={<Send className="w-4 h-4 text-sky-500" />}
+            badge={<StatusBadge status={telegramStatus} />}
+            rightSlot={
+              <button
+                onClick={testTelegramBot}
+                disabled={telegramStatus === 'testing'}
+                className="text-[10px] font-bold text-sky-600 hover:text-sky-800 flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50">
+                {telegramStatus === 'testing'
+                  ? <RefreshCw className="w-3 h-3 animate-spin" />
+                  : <Send className="w-3 h-3" />}
+                Test Telegram
+              </button>
+            }
+          >
+            <div className="p-3.5 bg-sky-50 border border-sky-100 rounded-xl flex items-start gap-2.5">
+              <Send className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-sky-900">Instant Order Notifications to Telegram</p>
+                <p className="text-[11px] text-sky-700 mt-0.5 leading-relaxed">
+                  Connect your custom Telegram Bot to receive instant order backup alerts directly on your phone or team Telegram group whenever a customer places an order!
+                </p>
+              </div>
+            </div>
+
+            <InputField
+              label="Telegram Bot Access Token"
+              value={settings.telegramBotToken || settings.telegram_bot_token || ''}
+              onChange={(v) => setSettings({ ...settings, telegramBotToken: v, telegram_bot_token: v })}
+              placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+              masked
+              docsHref="https://t.me/BotFather"
+              helpText="Create a bot via @BotFather on Telegram to get your HTTP API bot token."
+            />
+
+            <InputField
+              label="Telegram Chat ID / User ID"
+              value={settings.telegramChatId || settings.telegram_chat_id || ''}
+              onChange={(v) => setSettings({ ...settings, telegramChatId: v, telegram_chat_id: v })}
+              placeholder="e.g. 123456789 or -100123456789"
+              docsHref="https://t.me/userinfobot"
+              helpText="Your personal Telegram User ID or Group Chat ID. Use @userinfobot to find your Chat ID."
             />
           </SectionCard>
 

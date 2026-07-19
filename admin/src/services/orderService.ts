@@ -22,7 +22,9 @@ export const orderService = {
       customer_notes: '',
       meta_event_id: metaEventId,
       is_guest: isGuest,
-      user_id: order.userId
+      user_id: order.userId,
+      transaction_id: order.transactionId,
+      paid_confirm: order.paidConfirm
     }]);
 
     if (error) {
