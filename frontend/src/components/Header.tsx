@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, Menu, X, Heart, User, Sparkles, HelpCircle, Flame, Grid, MapPin, BookOpen } from 'lucide-react';
+import { ShoppingCart, Search, Menu, X, Heart, User, Sparkles, HelpCircle, Flame, Grid, MapPin, BookOpen, RefreshCw } from 'lucide-react';
 import { productService } from '../services/productService';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 import { useStore } from '../store/useStore';
@@ -161,45 +161,57 @@ export default function Header({
 
             {/* Header Suggestions Dropdown */}
             {showSuggestions && localSearch.trim().length > 1 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden text-left divide-y divide-gray-50 max-h-[360px] overflow-y-auto">
-                {loadingSuggestions && (
-                  <div className="p-3 text-xs text-gray-400 font-semibold text-center animate-pulse">
-                    Searching catalog...
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-lg shadow-xl z-50 overflow-hidden text-left divide-y divide-gray-50 max-h-[380px] overflow-y-auto">
+                {loadingSuggestions ? (
+                  <div className="p-3.5 text-xs text-gray-500 font-semibold text-center flex items-center justify-center gap-2 animate-pulse bg-gray-50/50">
+                    <RefreshCw className="w-4 h-4 animate-spin text-[#ff5c00]" />
+                    <span>Loading catalog items... Press <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded font-mono font-bold shadow-xs text-gray-700">Enter ↵</kbd> to search</span>
                   </div>
-                )}
-                {!loadingSuggestions && suggestions.length === 0 && (
-                  <div className="p-3 text-xs text-gray-400 font-semibold text-center italic">
-                    No matching products found.
-                  </div>
-                )}
-                {suggestions.map((item) => (
+                ) : suggestions.length === 0 ? (
                   <div 
-                    key={item.id}
-                    onClick={() => {
-                      setLocalSearch('');
-                      setShowSuggestions(false);
-                      navigate(`/product/${getProductSlug(item.name, item.id)}`);
-                    }}
-                    className="p-3 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
+                    onClick={handleSearchSubmit}
+                    className="p-3.5 text-xs text-gray-600 font-bold text-center bg-gray-50/80 hover:bg-orange-50 hover:text-[#ff5c00] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <ProductImage 
-                      src={getOptimizedImageUrl(item.images?.[0], 100)} 
-                      alt={item.name} 
-                      containerClassName="w-8 h-10 shrink-0"
-                      className="w-full h-full object-cover rounded border border-gray-100"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h5 className="font-bold text-xs text-gray-900 leading-snug truncate">{item.name}</h5>
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-[#ff5c00] font-bold uppercase tracking-wider">{item.category}</span>
-                        {item.sku && (
-                          <span className="text-[10px] text-gray-400 font-mono font-medium">({item.sku})</span>
-                        )}
-                        <span className="text-[10px] text-gray-400 font-semibold">{item.discount_price ? item.discount_price : item.price}৳</span>
-                      </div>
-                    </div>
+                    <span>Press <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-300 rounded font-mono text-gray-800 shadow-xs">Enter ↵</kbd> to search full catalog for "{localSearch}"</span>
                   </div>
-                ))}
+                ) : (
+                  <>
+                    {suggestions.map((item) => (
+                      <div 
+                        key={item.id}
+                        onClick={() => {
+                          setLocalSearch('');
+                          setShowSuggestions(false);
+                          navigate(`/product/${getProductSlug(item.name, item.id)}`);
+                        }}
+                        className="p-3 flex items-center gap-3.5 hover:bg-gray-50/70 transition-all cursor-pointer"
+                      >
+                        <ProductImage 
+                          src={getOptimizedImageUrl(item.images?.[0], 100)} 
+                          alt={item.name} 
+                          containerClassName="w-8 h-10 shrink-0"
+                          className="w-full h-full object-cover rounded border border-gray-100"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-bold text-xs text-gray-900 leading-snug truncate">{item.name}</h5>
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-[#ff5c00] font-bold uppercase tracking-wider">{item.category}</span>
+                            {item.sku && (
+                              <span className="text-[10px] text-gray-400 font-mono font-medium">({item.sku})</span>
+                            )}
+                            <span className="text-[10px] text-gray-400 font-semibold">{item.discount_price ? item.discount_price : item.price}৳</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div 
+                      onClick={handleSearchSubmit}
+                      className="p-2.5 bg-gray-50 hover:bg-orange-50 hover:text-[#ff5c00] text-[11px] font-extrabold text-gray-600 text-center cursor-pointer transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
+                    >
+                      <span>Press <kbd className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-300 rounded font-mono text-gray-800 shadow-xs">Enter ↵</kbd> to view all results for "{localSearch}"</span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
