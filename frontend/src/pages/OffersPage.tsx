@@ -38,7 +38,7 @@ export default function OffersPage() {
     : [
         { code: 'EID20', title: 'Flat ৳200 Discount', desc: 'Valid on ordering above ৳1,500. Perfect for Eid outfits and Panjabi sets.', badge: 'FESTIVAL COUPON' },
         { code: 'FREEBD', title: 'Free Home Delivery', desc: 'Get zero shipping costs nationwide on purchasing above ৳2,500.', badge: 'FREE SHIPPING' },
-        { code: 'MART15', title: 'Flat 15% OFF', desc: 'Valid on entire Coordinated Couple Collection matches.', badge: 'COUPLE DEAL' }
+        { code: 'RUPAN15', title: 'Flat 15% OFF', desc: 'Valid on entire Coordinated Couple Collection matches.', badge: 'COUPLE DEAL' }
       ];
 
   return (

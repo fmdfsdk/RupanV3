@@ -340,7 +340,20 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         const sortedOrders = [...oData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setOrders(sortedOrders);
       }
-      if (cData) setCoupons(cData);
+      if (cData && cData.length > 0) {
+        setCoupons(cData);
+      } else {
+        const seedCoupons = [
+          { code: 'EID20', type: 'fixed', value: 200, min_order: 1500, max_discount: 200, is_active: true, usage_limit: 1000, used_count: 0 },
+          { code: 'FREEBD', type: 'free_shipping', value: 0, min_order: 2500, max_discount: 0, is_active: true, usage_limit: 1000, used_count: 0 },
+          { code: 'RUPAN15', type: 'percentage', value: 15, min_order: 0, max_discount: 500, is_active: true, usage_limit: 1000, used_count: 0 }
+        ];
+        try {
+          await supabase.from('coupons').upsert(seedCoupons, { onConflict: 'code' });
+          const { data: seeded } = await supabase.from('coupons').select('*');
+          if (seeded && seeded.length > 0) setCoupons(seeded);
+        } catch (_) {}
+      }
       if (bData) setBanners(bData);
       if (blData) setBlogs(blData);
       if (rData) setReviews(rData);
