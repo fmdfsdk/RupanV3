@@ -364,8 +364,8 @@ export default function Footer({ onPageChange }: FooterProps) {
       {/* Copyright Bottom Bar (Solid Black) */}
       <div className="bg-black text-gray-400 py-5 mt-4 text-xs font-semibold">
         <div className="w-full max-w-[1750px] mx-auto px-4 md:px-12 lg:px-16 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <span>© 2026 Shop Mart</span>
-          <span>Design by <a href="#borbila" className="text-white hover:text-[#ff5c00]">Borbila</a></span>
+          <span>© 2026 Rupan. All rights reserved.</span>
+          <span>Style That Speaks.</span>
         </div>
       </div>
     </footer>

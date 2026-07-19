@@ -34,6 +34,8 @@ interface StoreState {
     area: string;
     paymentMethod: string;
     email: string;
+    transactionId?: string;
+    paidConfirm?: boolean;
   };
   
   // UI & Navigation States

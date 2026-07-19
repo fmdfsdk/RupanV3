@@ -193,6 +193,21 @@ export default async function handler(req: any, res: any) {
     const markup = sourceConfig.config?.markup_percentage || 0;
     const autoPublish = sourceConfig.config?.auto_publish !== false;
 
+    // Fetch site settings to get active category margins and default margin overrides
+    let defaultMargin = markup;
+    let categoryMargins: Record<string, number> = {};
+    try {
+      const { data: settingsData } = await supabase
+        .from('settings')
+        .select('homepage_config')
+        .eq('id', 1)
+        .maybeSingle();
+      
+      const config = settingsData?.homepage_config || {};
+      if (config.default_margin !== undefined) defaultMargin = Number(config.default_margin);
+      if (config.category_margins) categoryMargins = config.category_margins;
+    } catch (_) {}
+
     let importedCount = 0;
     let updatedCount = 0;
     let failedCount = 0;
@@ -256,13 +271,25 @@ export default async function handler(req: any, res: any) {
           sizes.push('M', 'L', 'XL');
         }
 
+        // Parse category for margin lookup
+        const rawCategory = (item.category || 'General').trim();
+        const rawCategoryLower = rawCategory.toLowerCase();
+        
+        let itemMarginPct = defaultMargin;
+        for (const [catKey, marginVal] of Object.entries(categoryMargins)) {
+          if (rawCategoryLower.includes(catKey.toLowerCase()) || catKey.toLowerCase().includes(rawCategoryLower)) {
+            itemMarginPct = Number(marginVal);
+            break;
+          }
+        }
+
         // Pricing calculation (purchase price + markup percentage)
         const purchasePrice = Number(item.sale_price || item.price || 0);
         const regularPrice = Number(item.price || 0);
         
         // Our active selling price (cost + markup)
-        const sellingPrice = markup > 0
-          ? Math.round(purchasePrice * (1 + markup / 100))
+        const sellingPrice = itemMarginPct > 0
+          ? Math.round(purchasePrice * (1 + itemMarginPct / 100))
           : regularPrice;
 
         let finalPrice = sellingPrice;

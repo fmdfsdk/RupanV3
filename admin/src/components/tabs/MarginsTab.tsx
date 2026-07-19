@@ -67,17 +67,100 @@ export default function MarginsTab({
         category_margins: categoryMargins
       };
 
-      const { data, error } = await supabase
+      // 1. Persist updated configuration to settings table
+      const { data: updatedSettings, error: settingsErr } = await supabase
         .from('settings')
         .update({ homepage_config: updatedConfig })
         .eq('id', 1)
         .select()
         .single();
 
-      if (error) throw error;
+      if (settingsErr) throw settingsErr;
+      setDbSettings(updatedSettings);
 
-      setDbSettings(data);
-      setMessage({ type: 'success', text: 'Category profit margins updated successfully!' });
+      // 2. Query all products from Supabase to recalculate prices based on cost (purchase_price)
+      const { data: allDbProducts, error: fetchErr } = await supabase
+        .from('products')
+        .select('id, category, price, discount_price, purchase_price');
+
+      let updatedCount = 0;
+
+      if (!fetchErr && allDbProducts && allDbProducts.length > 0) {
+        const updates: { id: string; price: number; discount_price: number | null }[] = [];
+        const updatedLocalProducts = [...products];
+
+        for (const p of allDbProducts) {
+          const cost = Number(p.purchase_price || p.purchasePrice || 0);
+          if (cost <= 0) continue; // Skip products without cost price
+
+          const catName = (p.category || '').toLowerCase();
+          
+          // Match category override or fallback to default margin
+          let marginPct = defaultMargin;
+          for (const [catKey, marginVal] of Object.entries(categoryMargins)) {
+            if (catName.includes(catKey.toLowerCase()) || catKey.toLowerCase().includes(catName)) {
+              marginPct = Number(marginVal);
+              break;
+            }
+          }
+
+          const sellingPrice = Math.round(cost * (1 + marginPct / 100));
+          const regularPrice = Number(p.price || 0);
+
+          let newPrice = sellingPrice;
+          let newDiscountPrice: number | null = null;
+
+          if (regularPrice > sellingPrice) {
+            newPrice = regularPrice;
+            newDiscountPrice = sellingPrice;
+          } else {
+            newPrice = sellingPrice;
+            newDiscountPrice = null;
+          }
+
+          // Queue update if price changed
+          if (newPrice !== p.price || newDiscountPrice !== p.discount_price) {
+            updates.push({
+              id: p.id,
+              price: newPrice,
+              discount_price: newDiscountPrice
+            });
+
+            // Update in local state
+            const localIdx = updatedLocalProducts.findIndex(lp => lp.id === p.id);
+            if (localIdx > -1) {
+              updatedLocalProducts[localIdx] = {
+                ...updatedLocalProducts[localIdx],
+                price: newPrice,
+                discountPrice: newDiscountPrice
+              };
+            }
+          }
+        }
+
+        // 3. Batch update products in Supabase in chunks of 50
+        if (updates.length > 0) {
+          const chunkSize = 50;
+          for (let i = 0; i < updates.length; i += chunkSize) {
+            const chunk = updates.slice(i, i + chunkSize);
+            await Promise.all(
+              chunk.map(u =>
+                supabase
+                  .from('products')
+                  .update({ price: u.price, discount_price: u.discount_price })
+                  .eq('id', u.id)
+              )
+            );
+          }
+          updatedCount = updates.length;
+          setProducts(updatedLocalProducts);
+        }
+      }
+
+      setMessage({
+        type: 'success',
+        text: `Category profit margins updated successfully! Calculated and applied new selling prices for ${updatedCount} products.`
+      });
     } catch (err: any) {
       console.error(err);
       setMessage({ type: 'error', text: `Failed to save: ${err.message}` });
