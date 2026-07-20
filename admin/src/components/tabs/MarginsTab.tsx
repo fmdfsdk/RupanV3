@@ -32,11 +32,18 @@ export default function MarginsTab({
   const [editingMargin, setEditingMargin] = useState<string>('');
   const [savingProduct, setSavingProduct] = useState<boolean>(false);
 
-  // Initialize category margins from dbSettings
+  // Initialize category margins from dbSettings or local storage backup
   useEffect(() => {
-    if (dbSettings) {
-      const config = dbSettings.homepageConfig || dbSettings.homepage_config || {};
-      setDefaultMargin(config.default_margin !== undefined ? config.default_margin : 25);
+    let settingsToUse = dbSettings;
+    if (!settingsToUse) {
+      try {
+        const raw = localStorage.getItem('rup_db_settings');
+        if (raw) settingsToUse = JSON.parse(raw);
+      } catch (_) {}
+    }
+    if (settingsToUse) {
+      const config = settingsToUse.homepageConfig || settingsToUse.homepage_config || {};
+      setDefaultMargin(config.default_margin !== undefined ? Number(config.default_margin) : 25);
       setCategoryMargins(config.category_margins || {
         "men's fashion": 25,
         "women's fashion": 25,
@@ -47,36 +54,69 @@ export default function MarginsTab({
     }
   }, [dbSettings]);
 
-  // Categories list
-  const categoriesList = [
-    { id: "men's fashion", name: "Men Fashions" },
-    { id: "women's fashion", name: "Women Fashions" },
-    { id: "couple collection", name: "Couple Collection" },
-    { id: "kids zone", name: "Kids Fashions" },
-    { id: "watch", name: "Accessories" }
-  ];
+  // Dynamic Categories list
+  const categoriesList = Array.from(
+    new Set([
+      "men's fashion",
+      "women's fashion",
+      "couple collection",
+      "kids zone",
+      "watch",
+      ...products.map(p => (p.category || '').trim().toLowerCase()).filter(Boolean)
+    ])
+  ).map(catKey => ({
+    id: catKey,
+    name: catKey.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }));
 
   const handleSaveCategoryMargins = async () => {
     setSavingCategory(true);
     setMessage(null);
     try {
-      const currentConfig = dbSettings.homepageConfig || dbSettings.homepage_config || {};
+      const currentConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config || {};
       const updatedConfig = {
         ...currentConfig,
         default_margin: defaultMargin,
         category_margins: categoryMargins
       };
 
+      const settingsId = dbSettings?.id || 1;
+
       // 1. Persist updated configuration to settings table
-      const { data: updatedSettings, error: settingsErr } = await supabase
+      let updatedSettings: any = null;
+      const { data: updateRes, error: settingsErr } = await supabase
         .from('settings')
         .update({ homepage_config: updatedConfig })
-        .eq('id', 1)
+        .eq('id', settingsId)
         .select()
-        .single();
+        .maybeSingle();
 
-      if (settingsErr) throw settingsErr;
-      setDbSettings(updatedSettings);
+      if (!settingsErr && updateRes) {
+        updatedSettings = updateRes;
+      } else {
+        // Fallback update without ID restriction
+        const { data: fallbackRes } = await supabase
+          .from('settings')
+          .update({ homepage_config: updatedConfig })
+          .select()
+          .maybeSingle();
+        updatedSettings = fallbackRes;
+      }
+
+      // Also persist to localStorage backup
+      try {
+        const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+        cached.homepage_config = updatedConfig;
+        cached.homepageConfig = updatedConfig;
+        localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+      } catch (_) {}
+
+      const newSettings = updatedSettings || {
+        ...(dbSettings || {}),
+        homepage_config: updatedConfig,
+        homepageConfig: updatedConfig
+      };
+      setDbSettings(newSettings);
 
       // 2. Query ALL products from Supabase catalog using paginated ranges (bypasses 1000 default limit)
       let allDbProducts: any[] = [];
