@@ -17,6 +17,12 @@ interface HeroCarouselProps {
   setHeroSlide: React.Dispatch<React.SetStateAction<number>>;
   setSelectedCategory: (cat: string) => void;
   navigate: (path: string) => void;
+  sideBanner?: {
+    image?: string;
+    link?: string;
+    button_text?: string;
+    is_enabled?: boolean;
+  };
 }
 
 export default function HeroCarousel({
@@ -24,7 +30,8 @@ export default function HeroCarousel({
   heroSlide,
   setHeroSlide,
   setSelectedCategory,
-  navigate
+  navigate,
+  sideBanner
 }: HeroCarouselProps) {
   const currentBanner = heroBanners[heroSlide] || heroBanners[0];
   const opacityVal = currentBanner.overlayOpacity !== undefined ? currentBanner.overlayOpacity : 50;
@@ -158,39 +165,36 @@ export default function HeroCarousel({
           </button>
         </div>
 
-        {/* Right Promo Banner */}
-        <div className="hidden lg:flex bg-gradient-to-b from-[#ff8c00] to-[#ff5c00] rounded-lg p-6 flex-col justify-between text-white relative overflow-hidden h-[340px] sm:h-[420px] shadow-sm">
-          <div className="relative z-10 flex flex-col justify-between h-full">
-            <div className="space-y-1">
-              <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-sm">Our New Product!</span>
-              <h3 className="font-sans font-black text-xl uppercase tracking-tight">LUXURY SERUM</h3>
-            </div>
-            
-            <div className="flex-1 flex items-center justify-center py-2 pointer-events-none">
-              <img 
-                src="https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=400&auto=format&fit=crop" 
-                alt="Luxury Serum" 
-                className="h-40 object-contain" 
-                referrerPolicy="no-referrer" 
-              />
-            </div>
+        {/* Right Side Promo Banner (Image-Only with Optional CTA Button) */}
+        {sideBanner?.is_enabled !== false && (
+          <div 
+            onClick={() => handleTargetNavigation(sideBanner?.link)}
+            className="hidden lg:flex relative rounded-xl overflow-hidden h-[340px] sm:h-[420px] shadow-sm group cursor-pointer bg-zinc-950 select-none border border-gray-100"
+          >
+            <img 
+              src={sideBanner?.image || 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=400&auto=format&fit=crop'} 
+              alt="Side Promo Banner" 
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+              referrerPolicy="no-referrer" 
+            />
 
-            <div className="space-y-2 text-left">
-              <p className="text-[10px] text-orange-100 font-semibold leading-relaxed">
-                Organic formulation with advanced hydration properties. Discover ultimate radiance.
-              </p>
-              <button
-                onClick={() => {
-                  setSelectedCategory('Beauty');
-                  navigate('/shop');
-                }}
-                className="w-full bg-black text-white hover:bg-gray-900 font-black text-[10px] py-2.5 rounded-lg uppercase tracking-wider transition-all cursor-pointer text-center"
-              >
-                Explore Beauty
-              </button>
-            </div>
+            {/* Optional Floating CTA Button */}
+            {sideBanner?.button_text && sideBanner.button_text.trim() !== '' && (
+              <div className="absolute bottom-5 inset-x-5 z-10">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTargetNavigation(sideBanner.link);
+                  }}
+                  className="w-full bg-black/85 hover:bg-black text-white font-extrabold text-[11px] py-3 rounded-xl uppercase tracking-wider transition-all cursor-pointer shadow-lg backdrop-blur-xs text-center border border-white/10"
+                >
+                  {sideBanner.button_text}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

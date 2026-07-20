@@ -102,6 +102,161 @@ export default function HomepageTab({
         </div>
       </div>
 
+      {/* Section 1b: Homepage Hero Side Banner (Desktop Side Card) */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
+        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 flex items-center gap-2">
+            <Image className="w-4 h-4 text-purple-500" />
+            Homepage Hero Side Banner (Desktop Side Card)
+          </h3>
+          <span className="text-[10px] text-gray-400 font-semibold">Image-Only Promo Banner next to Hero Slider</span>
+        </div>
+
+        {(() => {
+          const side = homepageConfig?.side_banner || {
+            image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=400&auto=format&fit=crop',
+            link: '/shop',
+            button_text: 'Explore Collection',
+            is_enabled: true
+          };
+
+          const updateSide = (fields: any) => {
+            setHomepageConfig({
+              ...homepageConfig,
+              side_banner: { ...side, ...fields }
+            });
+          };
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 text-xs font-semibold text-zinc-700">
+              {/* Preview Card */}
+              <div className="md:col-span-4 space-y-2">
+                <label className="text-[10px] uppercase font-bold text-gray-400 block">Live Preview</label>
+                <div className="relative h-64 rounded-xl overflow-hidden border border-gray-200 bg-zinc-950 shadow-sm flex flex-col justify-end p-4 group">
+                  {side.image ? (
+                    <img 
+                      src={side.image} 
+                      alt="Side Banner Preview" 
+                      className="absolute inset-0 w-full h-full object-cover" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">No Image Provided</div>
+                  )}
+                  {side.button_text && side.button_text.trim() !== '' && (
+                    <div className="relative z-10">
+                      <div className="w-full bg-black/80 backdrop-blur-xs text-white text-center font-bold text-[10px] py-2 rounded-lg uppercase tracking-wider border border-white/10">
+                        {side.button_text}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Form Controls */}
+              <div className="md:col-span-8 space-y-4">
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-500">Upload Banner Image to Supabase</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        try { await supabase.storage.createBucket('banners', { public: true }); } catch (_) {}
+                        const fileExt = file.name.split('.').pop();
+                        const fileName = `side-banner-${Date.now()}.${fileExt}`;
+                        const { error: upErr } = await supabase.storage.from('banners').upload(fileName, file, { upsert: true });
+                        if (upErr) throw upErr;
+                        const { data: { publicUrl } } = supabase.storage.from('banners').getPublicUrl(fileName);
+                        updateSide({ image: publicUrl });
+                        alert("Side banner image uploaded successfully!");
+                      } catch (err: any) {
+                        alert(`Upload failed: ${err.message}`);
+                      }
+                    }}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-zinc-800 font-medium focus:outline-none file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#ff5c00]/10 file:text-[#ff5c00] hover:file:bg-[#ff5c00]/20 file:cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="uppercase font-bold text-gray-500">Image URL (or Paste External Image Link)</label>
+                  <input
+                    type="text"
+                    value={side.image || ''}
+                    onChange={(e) => updateSide({ image: e.target.value })}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="uppercase font-bold text-gray-500">Target Link / URL (Optional)</label>
+                    <input
+                      type="text"
+                      value={side.link || ''}
+                      onChange={(e) => updateSide({ link: e.target.value })}
+                      placeholder="e.g. /offers or /shop?category=Beauty or Beauty"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="uppercase font-bold text-gray-500">CTA Button Text (Optional - Leave blank for image-only)</label>
+                    <input
+                      type="text"
+                      value={side.button_text || ''}
+                      onChange={(e) => updateSide({ button_text: e.target.value })}
+                      placeholder="e.g. Explore Collection (Optional)"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="sideBannerEnabled"
+                    checked={side.is_enabled !== false}
+                    onChange={(e) => updateSide({ is_enabled: e.target.checked })}
+                    className="w-4 h-4 rounded text-brand-primary accent-brand-primary cursor-pointer"
+                  />
+                  <label htmlFor="sideBannerEnabled" className="text-xs text-zinc-700 font-bold cursor-pointer">
+                    Enable Side Banner on Homepage Desktop View
+                  </label>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        <div className="flex justify-end pt-3 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={async () => {
+              const settingsIdTarget = settingsId || 1;
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig, homepageConfig: homepageConfig }).eq('id', settingsIdTarget);
+              if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
+                alert("Homepage Side Banner configuration saved successfully!");
+              } else {
+                alert(`Failed to save side banner: ${error.message}`);
+              }
+            }}
+            className="bg-[#ff5c00] text-white text-xs font-bold uppercase tracking-wider px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+          >
+            Save Side Banner Configuration
+          </button>
+        </div>
+      </div>
+
       {/* Section 2: Featured Collections */}
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
         <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-3 flex items-center gap-2">

@@ -225,6 +225,14 @@ export default function HomePage() {
     bg_color: '#ff5c00'
   };
 
+  const hConfig = dbSettings?.homepageConfig || dbSettings?.homepage_config || {};
+  const sideBanner = hConfig.side_banner || {
+    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=400&auto=format&fit=crop',
+    link: '/shop',
+    button_text: 'Explore Collection',
+    is_enabled: true
+  };
+
   return (
     <div className="bg-gray-50/50 pb-16 space-y-14">
       {isDebugMode && (
@@ -251,6 +259,7 @@ export default function HomePage() {
         setHeroSlide={setHeroSlide}
         setSelectedCategory={setSelectedCategory}
         navigate={navigate}
+        sideBanner={sideBanner}
       />
 
       {/* 2. Product Categories Section */}
