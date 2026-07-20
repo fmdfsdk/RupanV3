@@ -228,7 +228,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus);
   }, [productsPage, searchQuery, filterCategory, filterStatus]);
 
-  const fetchProductsPage = async (page: number, search: string, category: string, status: string) => {
+  const fetchProductsPage = async (page: number, search: string, category: string, status: string, onlyManual: boolean = false) => {
     try {
       if (!isSupabaseOnline) {
         // --- OFFLINE MOCK MODE ---
@@ -237,6 +237,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         if (stored) {
           try { localData = JSON.parse(stored); } catch (e) {}
         }
+
+        const isManualProduct = (p: any) => {
+          if (!p) return false;
+          const sId = String(p.source_id || p.sourceId || '').trim();
+          const spId = String(p.source_product_id || p.sourceProductId || '').trim();
+          const hasNoSource = !sId || sId === 'manual' || sId === 'none';
+          const hasNoSourceProd = !spId;
+          return hasNoSource && hasNoSourceProd;
+        };
         
         // Filter in memory
         const filtered = localData.filter(p => {
@@ -250,7 +259,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                                 idStr.toLowerCase().includes(search.toLowerCase());
           const matchesCategory = category === 'All' || p.category === category;
           const matchesStatus = status === 'All' || p.status === status;
-          return matchesSearch && matchesCategory && matchesStatus;
+          const matchesManual = !onlyManual || isManualProduct(p);
+          return matchesSearch && matchesCategory && matchesStatus && matchesManual;
         });
         
         setTotalProductsCount(filtered.length);
@@ -269,6 +279,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       }
       if (category !== 'All') {
         dbQuery = dbQuery.eq('category', category);
+      }
+      if (onlyManual) {
+        dbQuery = dbQuery.or('source_id.is.null,source_id.eq.,source_id.eq.manual').is('source_product_id', null);
       }
       
       // Search query (fuzzy search on name/sku/id)

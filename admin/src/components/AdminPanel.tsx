@@ -243,6 +243,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           try { localData = JSON.parse(stored); } catch (e) {}
         }
         
+        const isManualProduct = (p: any) => {
+          if (!p) return false;
+          const sId = String(p.source_id || p.sourceId || '').trim();
+          const spId = String(p.source_product_id || p.sourceProductId || '').trim();
+          const hasNoSource = !sId || sId === 'manual' || sId === 'none';
+          const hasNoSourceProd = !spId;
+          return hasNoSource && hasNoSourceProd;
+        };
+
         // Filter in memory
         const filtered = localData.filter(p => {
           if (!p) return false;
@@ -255,7 +264,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                                 idStr.toLowerCase().includes(search.toLowerCase());
           const matchesCategory = category === 'All' || p.category === category;
           const matchesStatus = status === 'All' || p.status === status;
-          const matchesManual = !onlyManual || (!p.source_id && !p.sourceId);
+          const matchesManual = !onlyManual || isManualProduct(p);
           return matchesSearch && matchesCategory && matchesStatus && matchesManual;
         });
         
@@ -277,7 +286,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         dbQuery = dbQuery.eq('category', category);
       }
       if (onlyManual) {
-        dbQuery = dbQuery.is('source_id', null);
+        dbQuery = dbQuery.or('source_id.is.null,source_id.eq.,source_id.eq.manual').is('source_product_id', null);
       }
       
       // Search query (fuzzy search on name/sku/id)
