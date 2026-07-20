@@ -1433,7 +1433,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
     setLoading(true);
     try {
-      const payload = {
+      let payload: any = {
         title: bannerForm.title || '',
         subtitle: bannerForm.subtitle || '',
         image: bannerForm.image,
@@ -1441,26 +1441,50 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         category: bannerForm.category || '',
         type: bannerForm.type || 'homepage',
         is_active: bannerForm.is_active ?? true,
-        publish_date: bannerForm.publish_date || null,
-        overlay_opacity: bannerForm.overlay_opacity !== undefined ? Number(bannerForm.overlay_opacity) : 50
+        publish_date: bannerForm.publish_date || null
       };
 
+      if (bannerForm.overlay_opacity !== undefined) {
+        payload.overlay_opacity = Number(bannerForm.overlay_opacity);
+      }
+
       if (editingBanner) {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('banners')
           .update(payload)
           .eq('id', editingBanner.id)
           .select();
+
+        if (error && (error.message?.includes('overlay_opacity') || error.message?.includes('column'))) {
+          delete payload.overlay_opacity;
+          const retryRes = await supabase
+            .from('banners')
+            .update(payload)
+            .eq('id', editingBanner.id)
+            .select();
+          error = retryRes.error;
+          data = retryRes.data;
+        }
 
         if (error) throw error;
         if (data && data[0]) {
           setBanners(prev => prev.map(b => b.id === editingBanner.id ? data[0] : b));
         }
       } else {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('banners')
           .insert([payload])
           .select();
+
+        if (error && (error.message?.includes('overlay_opacity') || error.message?.includes('column'))) {
+          delete payload.overlay_opacity;
+          const retryRes = await supabase
+            .from('banners')
+            .insert([payload])
+            .select();
+          error = retryRes.error;
+          data = retryRes.data;
+        }
 
         if (error) throw error;
         if (data && data[0]) {
