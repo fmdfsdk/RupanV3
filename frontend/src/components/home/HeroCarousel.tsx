@@ -79,7 +79,7 @@ export default function HeroCarousel({
             <img 
               src={currentBanner.bgUrl} 
               alt={currentBanner.highlight || currentBanner.title || 'Hero Banner'}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-top"
               referrerPolicy="no-referrer"
             />
             {/* Custom Opacity Overlay */}
@@ -176,7 +176,7 @@ export default function HeroCarousel({
             <img 
               src={sideBanner?.image || 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=400&auto=format&fit=crop'} 
               alt="Side Promo Banner" 
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+              className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" 
               referrerPolicy="no-referrer" 
             />
 

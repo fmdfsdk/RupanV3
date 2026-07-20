@@ -54,7 +54,7 @@ export default function HomepageTab({
                   <img 
                     src={b.image || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=600'} 
                     alt={b.title} 
-                    className="w-full h-full object-cover opacity-75"
+                    className="w-full h-full object-cover object-top opacity-75"
                     referrerPolicy="no-referrer"
                   />
                   <span className="absolute top-2 left-2 bg-brand-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
@@ -137,7 +137,7 @@ export default function HomepageTab({
                     <img 
                       src={side.image} 
                       alt="Side Banner Preview" 
-                      className="absolute inset-0 w-full h-full object-cover" 
+                      className="absolute inset-0 w-full h-full object-cover object-top" 
                       referrerPolicy="no-referrer"
                     />
                   ) : (
