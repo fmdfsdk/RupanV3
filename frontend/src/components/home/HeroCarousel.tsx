@@ -35,6 +35,32 @@ export default function HeroCarousel({
   const hasCta = Boolean(currentBanner.ctaText && currentBanner.ctaText.trim());
   const hasAnyText = hasTitle || hasHighlight || hasSubtitle || hasCta;
 
+  const handleTargetNavigation = (targetLink?: string) => {
+    if (!targetLink || !targetLink.trim()) {
+      setSelectedCategory('All');
+      navigate('/shop');
+      return;
+    }
+
+    const link = targetLink.trim();
+
+    // 1. External URL (e.g. https://...)
+    if (link.startsWith('http://') || link.startsWith('https://')) {
+      window.location.href = link;
+      return;
+    }
+
+    // 2. Relative internal path (e.g. /offers, /blog/landing-page, /shop?category=panjabi)
+    if (link.startsWith('/')) {
+      navigate(link);
+      return;
+    }
+
+    // 3. Category name fallback (e.g. Panjabi, Saree, Watch)
+    setSelectedCategory(link);
+    navigate('/shop');
+  };
+
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12 pt-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -56,12 +82,11 @@ export default function HeroCarousel({
             <div 
               onClick={() => {
                 if (!hasAnyText && currentBanner.category) {
-                  setSelectedCategory(currentBanner.category);
-                  navigate('/shop');
+                  handleTargetNavigation(currentBanner.category);
                 }
               }}
               className={`absolute inset-0 p-8 md:p-12 flex flex-col justify-between text-white z-10 text-left ${
-                !hasAnyText ? 'cursor-pointer' : ''
+                !hasAnyText && currentBanner.category ? 'cursor-pointer' : ''
               }`}
             >
               {hasAnyText ? (
@@ -86,8 +111,7 @@ export default function HeroCarousel({
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedCategory(currentBanner.category || 'All');
-                          navigate('/shop');
+                          handleTargetNavigation(currentBanner.category);
                         }}
                         className="bg-white text-[#ff5c00] hover:bg-gray-100 font-extrabold text-[11px] sm:text-xs px-5 py-2.5 rounded-full uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-md"
                       >

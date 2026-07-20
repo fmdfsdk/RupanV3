@@ -2277,24 +2277,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
             <form onSubmit={handleSaveBanner} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="uppercase font-bold text-gray-400">Slide Title</label>
+                <label className="uppercase font-bold text-gray-400">Slide Title (Optional - Leave blank if text is in image)</label>
                 <input
                   type="text"
-                  required
                   value={bannerForm.title}
                   onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
-                  placeholder="e.g. EID UL ADHA FESTIVAL COLLECTION"
+                  placeholder="e.g. EID UL ADHA FESTIVAL COLLECTION (Optional)"
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="uppercase font-bold text-gray-400">Subtitle / Highlight Text</label>
+                <label className="uppercase font-bold text-gray-400">Subtitle / Highlight Text (Optional)</label>
                 <input
                   type="text"
                   value={bannerForm.subtitle}
                   onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
-                  placeholder="e.g. Royal Jacquard Panjabi"
+                  placeholder="e.g. Royal Jacquard Panjabi (Optional)"
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                 />
               </div>
@@ -2325,25 +2324,46 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
               </div>
 
+              {/* Dark Overlay Opacity Slider */}
+              <div className="space-y-1 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="uppercase font-bold text-gray-500">Dark Overlay Opacity / Darkening</label>
+                  <span className="font-mono font-black text-[#ff5c00] text-sm bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                    {bannerForm.overlay_opacity ?? 50}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={bannerForm.overlay_opacity ?? 50}
+                  onChange={(e) => setBannerForm({ ...bannerForm, overlay_opacity: Number(e.target.value) })}
+                  className="w-full accent-[#ff5c00] cursor-pointer"
+                />
+                <p className="text-[10px] text-gray-500 font-semibold">
+                  💡 Set to <strong>0%</strong> for a 100% clean & clear image with zero dark overlay (recommended if your banner design already has text/graphics printed on the image). Set up to <strong>100%</strong> for full dark contrast.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="uppercase font-bold text-gray-400">CTA Button Text</label>
+                  <label className="uppercase font-bold text-gray-400">CTA Button Text (Optional)</label>
                   <input
                     type="text"
                     value={bannerForm.cta_text}
                     onChange={(e) => setBannerForm({ ...bannerForm, cta_text: e.target.value })}
-                    placeholder="e.g. SHOP NOW"
+                    placeholder="e.g. SHOP NOW (Optional)"
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="uppercase font-bold text-gray-400">Target Category Link</label>
+                  <label className="uppercase font-bold text-gray-400">Target Link / URL (Optional)</label>
                   <input
                     type="text"
                     value={bannerForm.category}
                     onChange={(e) => setBannerForm({ ...bannerForm, category: e.target.value })}
-                    placeholder="e.g. Panjabi"
+                    placeholder="Paste link or URL e.g. /offers or /blog/landing-page or Panjabi"
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                   />
                 </div>

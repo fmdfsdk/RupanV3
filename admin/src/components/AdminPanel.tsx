@@ -2629,12 +2629,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
 
                 <div className="space-y-1">
-                  <label className="uppercase font-bold text-gray-400">Target Category Link (Optional)</label>
+                  <label className="uppercase font-bold text-gray-400">Target Link / URL (Optional)</label>
                   <input
                     type="text"
                     value={bannerForm.category}
                     onChange={(e) => setBannerForm({ ...bannerForm, category: e.target.value })}
-                    placeholder="e.g. Panjabi (Optional)"
+                    placeholder="Paste link or URL e.g. /offers or /blog/landing-page or Panjabi"
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                   />
                 </div>
