@@ -1352,26 +1352,29 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bannerForm.title || !bannerForm.image) {
-      alert("Please enter at least Title and Image URL.");
+    if (!bannerForm.image) {
+      alert("Please enter or upload a Banner Image URL.");
       return;
     }
 
     setLoading(true);
     try {
+      const payload = {
+        title: bannerForm.title || '',
+        subtitle: bannerForm.subtitle || '',
+        image: bannerForm.image,
+        cta_text: bannerForm.cta_text || '',
+        category: bannerForm.category || '',
+        type: bannerForm.type || 'homepage',
+        is_active: bannerForm.is_active ?? true,
+        publish_date: bannerForm.publish_date || null,
+        overlay_opacity: bannerForm.overlay_opacity !== undefined ? Number(bannerForm.overlay_opacity) : 50
+      };
+
       if (editingBanner) {
         const { data, error } = await supabase
           .from('banners')
-          .update({
-            title: bannerForm.title,
-            subtitle: bannerForm.subtitle,
-            image: bannerForm.image,
-            cta_text: bannerForm.cta_text,
-            category: bannerForm.category,
-            type: bannerForm.type,
-            is_active: bannerForm.is_active,
-            publish_date: bannerForm.publish_date || null
-          })
+          .update(payload)
           .eq('id', editingBanner.id)
           .select();
 
@@ -1382,16 +1385,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       } else {
         const { data, error } = await supabase
           .from('banners')
-          .insert([{
-            title: bannerForm.title,
-            subtitle: bannerForm.subtitle,
-            image: bannerForm.image,
-            cta_text: bannerForm.cta_text,
-            category: bannerForm.category,
-            type: bannerForm.type,
-            is_active: bannerForm.is_active,
-            publish_date: bannerForm.publish_date || null
-          }])
+          .insert([payload])
           .select();
 
         if (error) throw error;

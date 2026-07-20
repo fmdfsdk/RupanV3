@@ -118,14 +118,16 @@ export interface Coupon {
 
 export interface Banner {
   id: string;
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
   image: string;
-  ctaText: string;
+  ctaText?: string;
   category?: string;
   isActive: boolean;
   type: 'homepage' | 'category' | 'popup' | 'flash_sale';
   publishDate?: string;
+  overlayOpacity?: number;
+  overlay_opacity?: number;
 }
 
 export interface WebsiteSettings {

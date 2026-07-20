@@ -1,12 +1,14 @@
 import React from 'react';
 
 interface HeroBanner {
-  title: string;
-  highlight: string;
-  subtitle: string;
+  id?: string;
+  title?: string;
+  highlight?: string;
+  subtitle?: string;
   bgUrl: string;
-  ctaText: string;
-  category: string;
+  ctaText?: string;
+  category?: string;
+  overlayOpacity?: number;
 }
 
 interface HeroCarouselProps {
@@ -24,6 +26,15 @@ export default function HeroCarousel({
   setSelectedCategory,
   navigate
 }: HeroCarouselProps) {
+  const currentBanner = heroBanners[heroSlide] || heroBanners[0];
+  const opacityVal = currentBanner.overlayOpacity !== undefined ? currentBanner.overlayOpacity : 50;
+
+  const hasTitle = Boolean(currentBanner.title && currentBanner.title.trim());
+  const hasHighlight = Boolean(currentBanner.highlight && currentBanner.highlight.trim());
+  const hasSubtitle = Boolean(currentBanner.subtitle && currentBanner.subtitle.trim());
+  const hasCta = Boolean(currentBanner.ctaText && currentBanner.ctaText.trim());
+  const hasAnyText = hasTitle || hasHighlight || hasSubtitle || hasCta;
+
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12 pt-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -31,36 +42,63 @@ export default function HeroCarousel({
         <div className="col-span-1 lg:col-span-3 relative rounded-lg overflow-hidden h-[340px] sm:h-[420px] shadow-sm select-none group">
           <div className="absolute inset-0 transition-all duration-700 ease-in-out">
             <img 
-              src={heroBanners[heroSlide].bgUrl} 
-              alt={heroBanners[heroSlide].highlight}
+              src={currentBanner.bgUrl} 
+              alt={currentBanner.highlight || currentBanner.title || 'Hero Banner'}
               className="absolute inset-0 w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
+            {/* Custom Opacity Overlay */}
+            <div 
+              className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent transition-opacity duration-300 pointer-events-none" 
+              style={{ opacity: opacityVal / 100 }}
+            />
             
-            <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-between text-white z-10 text-left">
-              <div className="space-y-3.5 max-w-md sm:max-w-lg">
-                <span className="inline-block bg-[#ff5c00] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-sm">
-                  {heroBanners[heroSlide].title}
-                </span>
-                <h2 className="font-sans font-black text-2xl sm:text-4xl tracking-tight leading-none uppercase">
-                  {heroBanners[heroSlide].highlight}
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-200 font-medium tracking-wide">
-                  {heroBanners[heroSlide].subtitle}
-                </p>
-                <div className="pt-2">
-                  <button 
-                    onClick={() => {
-                      setSelectedCategory(heroBanners[heroSlide].category);
-                      navigate('/shop');
-                    }}
-                    className="bg-white text-[#ff5c00] hover:bg-gray-100 font-extrabold text-[11px] sm:text-xs px-5 py-2.5 rounded-full uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-md"
-                  >
-                    {heroBanners[heroSlide].ctaText}
-                  </button>
+            <div 
+              onClick={() => {
+                if (!hasAnyText && currentBanner.category) {
+                  setSelectedCategory(currentBanner.category);
+                  navigate('/shop');
+                }
+              }}
+              className={`absolute inset-0 p-8 md:p-12 flex flex-col justify-between text-white z-10 text-left ${
+                !hasAnyText ? 'cursor-pointer' : ''
+              }`}
+            >
+              {hasAnyText ? (
+                <div className="space-y-3.5 max-w-md sm:max-w-lg">
+                  {hasTitle && (
+                    <span className="inline-block bg-[#ff5c00] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-sm">
+                      {currentBanner.title}
+                    </span>
+                  )}
+                  {hasHighlight && (
+                    <h2 className="font-sans font-black text-2xl sm:text-4xl tracking-tight leading-none uppercase">
+                      {currentBanner.highlight}
+                    </h2>
+                  )}
+                  {hasSubtitle && (
+                    <p className="text-xs sm:text-sm text-gray-200 font-medium tracking-wide">
+                      {currentBanner.subtitle}
+                    </p>
+                  )}
+                  {hasCta && (
+                    <div className="pt-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCategory(currentBanner.category || 'All');
+                          navigate('/shop');
+                        }}
+                        className="bg-white text-[#ff5c00] hover:bg-gray-100 font-extrabold text-[11px] sm:text-xs px-5 py-2.5 rounded-full uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-md"
+                      >
+                        {currentBanner.ctaText}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div />
+              )}
               <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-mono tracking-widest text-white/50">
                 <span>WWW.RUPAN.COM</span>
               </div>

@@ -1108,11 +1108,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         title: banner.title || '',
         subtitle: banner.subtitle || '',
         image: banner.image || '',
-        cta_text: banner.cta_text || 'SHOP NOW',
+        cta_text: banner.cta_text || banner.ctaText || '',
         category: banner.category || '',
         type: banner.type || 'homepage',
         is_active: banner.is_active ?? true,
-        publish_date: banner.publish_date || ''
+        publish_date: banner.publish_date || '',
+        overlay_opacity: banner.overlay_opacity !== undefined ? Number(banner.overlay_opacity) : (banner.overlayOpacity !== undefined ? Number(banner.overlayOpacity) : 50)
       });
     } else {
       setEditingBanner(null);
@@ -1120,11 +1121,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         title: '',
         subtitle: '',
         image: '',
-        cta_text: 'SHOP NOW',
+        cta_text: '',
         category: '',
         type: 'homepage',
         is_active: true,
-        publish_date: ''
+        publish_date: '',
+        overlay_opacity: 50
       });
     }
     setBannerModalOpen(true);
@@ -1424,26 +1426,29 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bannerForm.title || !bannerForm.image) {
-      alert("Please enter at least Title and Image URL.");
+    if (!bannerForm.image) {
+      alert("Please enter or upload a Banner Image URL.");
       return;
     }
 
     setLoading(true);
     try {
+      const payload = {
+        title: bannerForm.title || '',
+        subtitle: bannerForm.subtitle || '',
+        image: bannerForm.image,
+        cta_text: bannerForm.cta_text || '',
+        category: bannerForm.category || '',
+        type: bannerForm.type || 'homepage',
+        is_active: bannerForm.is_active ?? true,
+        publish_date: bannerForm.publish_date || null,
+        overlay_opacity: bannerForm.overlay_opacity !== undefined ? Number(bannerForm.overlay_opacity) : 50
+      };
+
       if (editingBanner) {
         const { data, error } = await supabase
           .from('banners')
-          .update({
-            title: bannerForm.title,
-            subtitle: bannerForm.subtitle,
-            image: bannerForm.image,
-            cta_text: bannerForm.cta_text,
-            category: bannerForm.category,
-            type: bannerForm.type,
-            is_active: bannerForm.is_active,
-            publish_date: bannerForm.publish_date || null
-          })
+          .update(payload)
           .eq('id', editingBanner.id)
           .select();
 
@@ -1454,16 +1459,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       } else {
         const { data, error } = await supabase
           .from('banners')
-          .insert([{
-            title: bannerForm.title,
-            subtitle: bannerForm.subtitle,
-            image: bannerForm.image,
-            cta_text: bannerForm.cta_text,
-            category: bannerForm.category,
-            type: bannerForm.type,
-            is_active: bannerForm.is_active,
-            publish_date: bannerForm.publish_date || null
-          }])
+          .insert([payload])
           .select();
 
         if (error) throw error;
@@ -2528,24 +2524,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
             <form onSubmit={handleSaveBanner} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="uppercase font-bold text-gray-400">Slide Title</label>
+                <label className="uppercase font-bold text-gray-400">Slide Title (Optional - Leave blank if text is in image)</label>
                 <input
                   type="text"
-                  required
                   value={bannerForm.title}
                   onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
-                  placeholder="e.g. EID UL ADHA FESTIVAL COLLECTION"
+                  placeholder="e.g. EID UL ADHA FESTIVAL COLLECTION (Optional)"
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="uppercase font-bold text-gray-400">Subtitle / Highlight Text</label>
+                <label className="uppercase font-bold text-gray-400">Subtitle / Highlight Text (Optional)</label>
                 <input
                   type="text"
                   value={bannerForm.subtitle}
                   onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
-                  placeholder="e.g. Royal Jacquard Panjabi"
+                  placeholder="e.g. Royal Jacquard Panjabi (Optional)"
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                 />
               </div>
@@ -2576,25 +2571,46 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
               </div>
 
+              {/* Dark Overlay Opacity Slider */}
+              <div className="space-y-1 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="uppercase font-bold text-gray-500">Dark Overlay Opacity / Darkening</label>
+                  <span className="font-mono font-black text-[#ff5c00] text-sm bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                    {bannerForm.overlay_opacity ?? 50}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={bannerForm.overlay_opacity ?? 50}
+                  onChange={(e) => setBannerForm({ ...bannerForm, overlay_opacity: Number(e.target.value) })}
+                  className="w-full accent-[#ff5c00] cursor-pointer"
+                />
+                <p className="text-[10px] text-gray-500 font-semibold">
+                  💡 Set to <strong>0%</strong> for a 100% clean & clear image with zero dark overlay (recommended if your banner design already has text/graphics printed on the image). Set up to <strong>100%</strong> for full dark contrast.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="uppercase font-bold text-gray-400">CTA Button Text</label>
+                  <label className="uppercase font-bold text-gray-400">CTA Button Text (Optional)</label>
                   <input
                     type="text"
                     value={bannerForm.cta_text}
                     onChange={(e) => setBannerForm({ ...bannerForm, cta_text: e.target.value })}
-                    placeholder="e.g. SHOP NOW"
+                    placeholder="e.g. SHOP NOW (Optional)"
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="uppercase font-bold text-gray-400">Target Category Link</label>
+                  <label className="uppercase font-bold text-gray-400">Target Category Link (Optional)</label>
                   <input
                     type="text"
                     value={bannerForm.category}
                     onChange={(e) => setBannerForm({ ...bannerForm, category: e.target.value })}
-                    placeholder="e.g. Panjabi"
+                    placeholder="e.g. Panjabi (Optional)"
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-zinc-800 font-medium focus:outline-none"
                   />
                 </div>

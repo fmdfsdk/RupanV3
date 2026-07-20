@@ -790,7 +790,7 @@ const allowedColumns: Record<string, string[]> = {
   ],
   reviews: ['id', 'user_name', 'rating', 'comment', 'verified', 'user_photo', 'product_id', 'status', 'reply', 'created_at'],
   coupons: ['code', 'type', 'value', 'min_order', 'max_discount', 'expiry_date', 'is_active', 'usage_limit', 'used_count', 'created_at'],
-  banners: ['id', 'title', 'subtitle', 'image', 'cta_text', 'category', 'is_active', 'type', 'publish_date', 'created_at'],
+  banners: ['id', 'title', 'subtitle', 'image', 'cta_text', 'category', 'is_active', 'type', 'publish_date', 'overlay_opacity', 'created_at'],
   blogs: ['id', 'title', 'excerpt', 'content', 'image', 'read_time', 'category', 'status', 'seo_title', 'seo_description', 'created_at']
 };
 

@@ -51,12 +51,14 @@ export default function HomePage() {
 
   const heroBanners = dbBanners && dbBanners.length > 0
     ? dbBanners.map((b: any) => ({
-        title: b.title || 'EXCLUSIVE',
+        id: b.id,
+        title: b.title || '',
         highlight: b.title || '',
         subtitle: b.subtitle || '',
         bgUrl: b.image || 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?q=80&w=1200&auto=format&fit=crop',
-        ctaText: 'SHOP NOW',
-        category: b.category || 'All'
+        ctaText: b.cta_text || b.ctaText || '',
+        category: b.category || 'All',
+        overlayOpacity: b.overlay_opacity !== undefined ? Number(b.overlay_opacity) : (b.overlayOpacity !== undefined ? Number(b.overlayOpacity) : 50)
       }))
     : [
         {
