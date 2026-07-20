@@ -68,11 +68,13 @@ export default function HeroCarousel({
     navigate('/shop');
   };
 
+  const isSideBannerActive = sideBanner?.is_enabled !== false;
+
   return (
     <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12 pt-6 animate-in fade-in duration-700">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left Sliding Hero Carousel */}
-        <div className="col-span-1 lg:col-span-3 relative rounded-lg overflow-hidden h-[340px] sm:h-[420px] shadow-sm select-none group">
+      <div className={`grid grid-cols-1 ${isSideBannerActive ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-4`}>
+        {/* Main Sliding Hero Carousel */}
+        <div className={`col-span-1 ${isSideBannerActive ? 'lg:col-span-3' : 'lg:col-span-1 w-full'} relative rounded-lg overflow-hidden h-[340px] sm:h-[420px] shadow-sm select-none group`}>
           <div className="absolute inset-0 transition-all duration-700 ease-in-out">
             <img 
               src={currentBanner.bgUrl} 
