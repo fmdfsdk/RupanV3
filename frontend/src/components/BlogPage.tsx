@@ -5,6 +5,14 @@ import { useStore } from '../store/useStore';
 import { BlogPost } from '../types';
 import { useSEO, buildBlogPostingSchema } from '../hooks/useSEO';
 
+export const getBlogTargetUrl = (blog: BlogPost) => {
+  if (!blog || !blog.id) return '/blog';
+  const id = String(blog.id).trim();
+  if (id.startsWith('/')) return id;
+  if (blog.category === '__landing_page__') return `/${id}`;
+  return `/blog/${id}`;
+};
+
 export default function BlogPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -200,7 +208,7 @@ export default function BlogPage() {
               {otherPosts.map((guide) => (
                 <Link
                   key={guide.id}
-                  to={`/blog/${guide.id}`}
+                  to={getBlogTargetUrl(guide)}
                   className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row cursor-pointer"
                 >
                   <img
@@ -305,7 +313,7 @@ export default function BlogPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {filteredPosts.map((post) => {
           const isLanding = post.category === '__landing_page__';
-          const targetUrl = isLanding ? (post.id.startsWith('/') ? post.id : `/${post.id}`) : `/blog/${post.id}`;
+          const targetUrl = getBlogTargetUrl(post);
           const fallbackImage = isLanding
             ? 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=600&auto=format&fit=crop'
             : 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=600&auto=format&fit=crop';
