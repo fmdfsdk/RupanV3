@@ -2803,6 +2803,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               </div>
 
               <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="couponIsActive"
+                  checked={couponForm.isActive}
+                  onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
                   className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
                 />
                 <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
@@ -3293,6 +3298,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   >
                     {editingBlog ? "Save Article" : "Publish Article"}
                   </button>
+                </div>
+
               </div>
             </form>
           </div>

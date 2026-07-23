@@ -37,6 +37,10 @@ export interface Product {
   flashSaleSold?: number;
   seoTitle?: string;
   seoDescription?: string;
+  purchasePrice?: number;
+  purchase_price?: number;
+  sourceProductId?: string;
+  source_product_id?: string;
 }
 
 export interface CartItem {
