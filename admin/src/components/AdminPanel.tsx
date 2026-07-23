@@ -228,62 +228,81 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Supabase Realtime: auto-inject new orders the moment they are inserted into the DB
   useEffect(() => {
-    const channel = supabase
-      .channel('admin-orders-realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders' },
-        (payload) => {
-          const d: any = payload.new;
-          const newOrder: Order = {
-            id: d.id,
-            customerName: d.customer_name || d.customerName || 'Guest Customer',
-            phone: d.phone || '',
-            address: d.address || '',
-            area: d.area || 'Inside Dhaka',
-            paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
-            transactionId: d.transaction_id || d.transactionId || '',
-            paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
-            items: Array.isArray(d.items) ? d.items : [],
-            subtotal: Number(d.subtotal || 0),
-            shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
-            total: Number(d.total || 0),
-            status: d.status || 'Pending',
-            paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
-            createdAt: d.created_at || d.createdAt || new Date().toISOString(),
-            isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
-            isIncognitoGuest: d.is_incognito_guest !== undefined ? d.is_incognito_guest : (d.isIncognitoGuest !== undefined ? d.isIncognitoGuest : false),
-            userId: d.user_id || d.userId
-          };
-          // Prepend to orders list (newest first), avoid duplicates
-          setOrders((prev) => {
-            if (prev.some((o) => o.id === newOrder.id)) return prev;
-            return [newOrder, ...prev];
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'orders' },
-        (payload) => {
-          const d: any = payload.new;
-          setOrders((prev) =>
-            prev.map((o) =>
-              o.id === d.id
-                ? {
-                    ...o,
-                    status: d.status || o.status,
-                    paymentStatus: d.payment_status || d.paymentStatus || o.paymentStatus,
-                  }
-                : o
-            )
-          );
-        }
-      )
-      .subscribe();
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel('admin-orders-realtime')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'orders' },
+          (payload: any) => {
+            try {
+              const d: any = payload?.new;
+              if (!d || !d.id) return;
+              const newOrder: Order = {
+                id: d.id,
+                customerName: d.customer_name || d.customerName || 'Guest Customer',
+                phone: d.phone || '',
+                address: d.address || '',
+                area: d.area || 'Inside Dhaka',
+                paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
+                transactionId: d.transaction_id || d.transactionId || '',
+                paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
+                items: Array.isArray(d.items) ? d.items : [],
+                subtotal: Number(d.subtotal || 0),
+                shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
+                total: Number(d.total || 0),
+                status: d.status || 'Pending',
+                paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
+                createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+                isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+                isIncognitoGuest: d.is_incognito_guest !== undefined ? d.is_incognito_guest : (d.isIncognitoGuest !== undefined ? d.isIncognitoGuest : false),
+                userId: d.user_id || d.userId
+              };
+              // Prepend to orders list (newest first), avoid duplicates
+              setOrders((prev) => {
+                if (prev.some((o) => o.id === newOrder.id)) return prev;
+                return [newOrder, ...prev];
+              });
+            } catch (innerErr) {
+              console.warn('[Realtime] Failed to process INSERT payload:', innerErr);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'orders' },
+          (payload: any) => {
+            try {
+              const d: any = payload?.new;
+              if (!d || !d.id) return;
+              setOrders((prev) =>
+                prev.map((o) =>
+                  o.id === d.id
+                    ? {
+                        ...o,
+                        status: d.status || o.status,
+                        paymentStatus: d.payment_status || d.paymentStatus || o.paymentStatus,
+                      }
+                    : o
+                )
+              );
+            } catch (innerErr) {
+              console.warn('[Realtime] Failed to process UPDATE payload:', innerErr);
+            }
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn('[Realtime] Could not subscribe to orders channel:', err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        if (channel && supabase.removeChannel) {
+          supabase.removeChannel(channel);
+        }
+      } catch (_) {}
     };
   }, []);
 

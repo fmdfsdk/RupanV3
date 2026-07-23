@@ -719,6 +719,11 @@ class MockSupabaseClient {
     return new MockChannel(name);
   }
 
+  removeChannel(_channel: any) {
+    // no-op in mock mode
+    return Promise.resolve();
+  }
+
   rpc(fn: string, args?: any) {
     if (fn === 'search_products') {
       const query = args?.search_query || '';
