@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save, Tag, Globe, Sparkles, AlertCircle } from 'lucide-react';
+import { Save, Tag, Globe, Sparkles, AlertCircle, Database } from 'lucide-react';
 import { WebsiteSettings } from '../../types';
 
 interface SeoMarketingTabProps {

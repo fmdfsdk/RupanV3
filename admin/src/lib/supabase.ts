@@ -2,22 +2,28 @@ import { createClient } from '@supabase/supabase-js';
 import { PRODUCTS, REVIEWS, BLOGS } from '../data';
 import { Product, Order, Review, BlogPost, Coupon } from '../types';
 
-const getEnvVar = (key: string): string => {
+const getSupabaseUrl = (): string => {
+  const metaEnv = (import.meta as any).env;
+  if (metaEnv?.VITE_SUPABASE_URL) return metaEnv.VITE_SUPABASE_URL;
+  if (typeof process !== 'undefined' && (process as any).env?.VITE_SUPABASE_URL) return (process as any).env.VITE_SUPABASE_URL;
   try {
-    if ((import.meta as any).env?.[key]) return (import.meta as any).env[key];
-  } catch (_) {}
-  try {
-    if ((window as any)?.[key]) return (window as any)[key];
-  } catch (_) {}
-  try {
-    const localVal = localStorage.getItem(key) || localStorage.getItem(key.toLowerCase());
-    if (localVal) return localVal;
+    return localStorage.getItem('VITE_SUPABASE_URL') || '';
   } catch (_) {}
   return '';
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+const getSupabaseAnonKey = (): string => {
+  const metaEnv = (import.meta as any).env;
+  if (metaEnv?.VITE_SUPABASE_ANON_KEY) return metaEnv.VITE_SUPABASE_ANON_KEY;
+  if (typeof process !== 'undefined' && (process as any).env?.VITE_SUPABASE_ANON_KEY) return (process as any).env.VITE_SUPABASE_ANON_KEY;
+  try {
+    return localStorage.getItem('VITE_SUPABASE_ANON_KEY') || '';
+  } catch (_) {}
+  return '';
+};
+
+const supabaseUrl = getSupabaseUrl();
+const supabaseAnonKey = getSupabaseAnonKey();
 
 // Check if keys are actually provided (and are not empty strings or placeholders)
 const hasRealKeys = 

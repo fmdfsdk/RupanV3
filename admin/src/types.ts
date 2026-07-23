@@ -168,6 +168,8 @@ export interface WebsiteSettings {
   socialTwitter?: string;
   socialYoutube?: string;
   socialInstagram?: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
   // Telegram Bot Backup Integration
   telegramBotToken?: string;
   telegram_bot_token?: string;

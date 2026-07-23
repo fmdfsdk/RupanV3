@@ -3,7 +3,7 @@ import {
   Save, Tag, Globe, Sparkles, AlertCircle, Check, Copy, ExternalLink, Code,
   Shield, Zap, Activity, Eye, EyeOff, Server, Wifi, WifiOff, RefreshCw,
   ChevronRight, Info, CheckCircle2, XCircle, AlertTriangle, Play,
-  BarChart3, Target, Settings2, Layers, Send
+  BarChart3, Target, Settings2, Layers, Send, Database
 } from 'lucide-react';
 import { WebsiteSettings } from '../../types';
 
@@ -499,7 +499,7 @@ export default function SeoMarketingTab({
       } else {
         addLog('error', `❌ Telegram API error: ${data.description || 'Unknown error'}`);
         if (data.description?.includes('chat not found')) {
-          addLog('warning', '⚠️  "chat not found" means Telegram cannot locate this Personal Account or Group Chat.');
+          addLog('info', '⚠️  "chat not found" means Telegram cannot locate this Personal Account or Group Chat.');
           addLog('info', '👉 FOR PERSONAL TELEGRAM ACCOUNT:');
           addLog('info', '   1. Open your bot in Telegram and click START (/start).');
           addLog('info', '   2. Use your positive Personal User ID without minus (e.g. 4381024450).');
