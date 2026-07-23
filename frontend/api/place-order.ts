@@ -59,6 +59,7 @@ export default async function handler(req: any, res: any) {
         customer_notes: '',
         meta_event_id: metaEventId || '',
         is_guest: isGuest !== undefined ? isGuest : true,
+        is_incognito_guest: (isGuest !== undefined ? isGuest : true) && !order.userId,
         user_id: order.userId || null,
         transaction_id: order.transactionId || '',
         paid_confirm: order.paidConfirm || false

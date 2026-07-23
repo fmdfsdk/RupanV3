@@ -51,6 +51,7 @@ export const orderService = {
       customer_notes: '',
       meta_event_id: metaEventId,
       is_guest: isGuest,
+      is_incognito_guest: isGuest && !order.userId, // guest with no account = incognito
       user_id: order.userId || null,
       transaction_id: order.transactionId || '',
       paid_confirm: order.paidConfirm || false

@@ -983,6 +983,10 @@ class SupabaseClientWrapper {
     return this.client.channel(name);
   }
 
+  removeChannel(channel: any) {
+    return this.client.removeChannel(channel);
+  }
+
   rpc(fn: string, args?: any) {
     return this.client.rpc(fn, args);
   }

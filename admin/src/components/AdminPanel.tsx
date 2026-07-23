@@ -226,6 +226,67 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     fetchData();
   }, []);
 
+  // Supabase Realtime: auto-inject new orders the moment they are inserted into the DB
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          const d: any = payload.new;
+          const newOrder: Order = {
+            id: d.id,
+            customerName: d.customer_name || d.customerName || 'Guest Customer',
+            phone: d.phone || '',
+            address: d.address || '',
+            area: d.area || 'Inside Dhaka',
+            paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
+            transactionId: d.transaction_id || d.transactionId || '',
+            paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
+            items: Array.isArray(d.items) ? d.items : [],
+            subtotal: Number(d.subtotal || 0),
+            shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
+            total: Number(d.total || 0),
+            status: d.status || 'Pending',
+            paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
+            createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+            isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+            isIncognitoGuest: d.is_incognito_guest !== undefined ? d.is_incognito_guest : (d.isIncognitoGuest !== undefined ? d.isIncognitoGuest : false),
+            userId: d.user_id || d.userId
+          };
+          // Prepend to orders list (newest first), avoid duplicates
+          setOrders((prev) => {
+            if (prev.some((o) => o.id === newOrder.id)) return prev;
+            return [newOrder, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload) => {
+          const d: any = payload.new;
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === d.id
+                ? {
+                    ...o,
+                    status: d.status || o.status,
+                    paymentStatus: d.payment_status || d.paymentStatus || o.paymentStatus,
+                  }
+                : o
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Reset pagination page on search/filter changes
   useEffect(() => {
     setProductsPage(1);
@@ -405,6 +466,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
         createdAt: d.created_at || d.createdAt || new Date().toISOString(),
         isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+        isIncognitoGuest: d.is_incognito_guest !== undefined ? d.is_incognito_guest : (d.isIncognitoGuest !== undefined ? d.isIncognitoGuest : false),
         userId: d.user_id || d.userId
       }));
       const sortedOrders = [...mappedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -946,7 +1008,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return o;
     });
 
-    const { error } = await supabase.from('orders').update({ paymentStatus: newPaymentStatus }).eq('id', orderId);
+    const { error } = await supabase.from('orders').update({ payment_status: newPaymentStatus }).eq('id', orderId);
     if (!error) {
       setOrders(updatedOrders);
     }
@@ -1903,6 +1965,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   setOrderTimeline={setOrderTimeline}
                   handleUpdateOrderStatus={handleUpdateOrderStatus}
                   handleUpdateOrderPayment={handleUpdateOrderPayment}
+                  onRefresh={fetchData}
                 />
               )}
 
