@@ -13,6 +13,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile } from '../types';
 import { PRODUCTS } from '../data';
+import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
 
 // Import Decomposed Tab Components
 import OverviewTab from './tabs/OverviewTab';
@@ -37,6 +38,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [versionModalOpen, setVersionModalOpen] = useState<boolean>(false);
+  const [versionCopied, setVersionCopied] = useState<boolean>(false);
   
   // Database state fetched from Supabase (or fallback)
   const [products, setProducts] = useState<Product[]>([]);
@@ -1479,12 +1482,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               />
             </div>
             <div className="flex flex-col">
-              <span className="font-display font-black text-xs md:text-sm tracking-tight text-white uppercase">
+              <span className="font-display font-black text-xs md:text-sm tracking-tight text-white uppercase flex items-center gap-1.5">
                 ADMIN ZONE
               </span>
-              <span className="text-[8px] md:text-[9px] text-zinc-400 font-mono tracking-widest uppercase -mt-0.5">
-                v3.0 // Role: {adminRole}
-              </span>
+              <button
+                onClick={() => setVersionModalOpen(true)}
+                className="flex items-center gap-1.5 text-[8px] md:text-[9px] text-zinc-300 hover:text-white font-mono tracking-wider uppercase -mt-0.5 transition-colors cursor-pointer group"
+                title="Click to view System Build & Version Verification"
+              >
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-bold underline decoration-zinc-600 group-hover:decoration-emerald-400">v{APP_VERSION}</span>
+                <span className="text-zinc-500">// {adminRole}</span>
+              </button>
             </div>
           </div>
           
@@ -2978,8 +2987,104 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
 
               </div>
-              
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* VERSION VERIFICATION MODAL */}
+      {versionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-zinc-900 text-white rounded-3xl w-full max-w-md p-6 space-y-5 border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-150">
+            
+            <div className="flex justify-between items-start border-b border-zinc-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm uppercase tracking-wide">System Build & Version</h3>
+                  <p className="text-[10px] text-zinc-400 font-mono">Live Deployment Status</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setVersionModalOpen(false)}
+                className="p-1 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-zinc-500 block">Version Tag</span>
+                  <span className="text-xl font-black font-mono text-emerald-400">v{APP_VERSION}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] uppercase font-bold text-zinc-500 block">Status</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    DEPLOYED
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 space-y-2 text-xs">
+                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500 font-bold uppercase text-[10px]">Build Timestamp:</span>
+                  <span className="font-mono text-zinc-300 font-semibold">{BUILD_TIMESTAMP}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500 font-bold uppercase text-[10px]">Git Branch:</span>
+                  <span className="font-mono text-emerald-400 font-bold">{SYSTEM_BRANCH}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500 font-bold uppercase text-[10px]">Version Increment:</span>
+                  <span className="text-zinc-300 font-medium">Patch Digit (.X) per push</span>
+                </div>
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl text-[11px] text-blue-300 space-y-1">
+                <p className="font-bold uppercase text-[10px] flex items-center gap-1 text-blue-400">
+                  <Info className="w-3.5 h-3.5" /> Verification Rule
+                </p>
+                <p className="text-zinc-400 leading-relaxed text-[10px]">
+                  After each Git push, compare this version badge with the version reported by Antigravity in your chat to verify successful deployment!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3 pt-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`Rupan Admin Version: v${APP_VERSION} (Build: ${BUILD_TIMESTAMP})`);
+                  setVersionCopied(true);
+                  setTimeout(() => setVersionCopied(false), 2000);
+                }}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer border border-zinc-700"
+              >
+                {versionCopied ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>Copied Details!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-zinc-400" />
+                    <span>Copy Build Specs</span>
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setVersionModalOpen(false)}
+                className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-black px-5 py-2.5 rounded-xl text-xs transition-all cursor-pointer shadow-md"
+              >
+                Done
+              </button>
+            </div>
+
           </div>
         </div>
       )}
