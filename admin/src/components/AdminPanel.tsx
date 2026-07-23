@@ -356,29 +356,59 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       ]);
       const sData = sDataRes.data;
 
-      if (oData) {
-        const mappedOrders = oData.map((d: any) => ({
-          id: d.id,
-          customerName: d.customer_name || d.customerName || 'Guest Customer',
-          phone: d.phone || '',
-          address: d.address || '',
-          area: d.area || 'Inside Dhaka',
-          paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
-          transactionId: d.transaction_id || d.transactionId || '',
-          paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
-          items: Array.isArray(d.items) ? d.items : [],
-          subtotal: Number(d.subtotal || 0),
-          shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
-          total: Number(d.total || 0),
-          status: d.status || 'Pending',
-          paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
-          createdAt: d.created_at || d.createdAt || new Date().toISOString(),
-          isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
-          userId: d.user_id || d.userId
-        }));
-        const sortedOrders = [...mappedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setOrders(sortedOrders);
+      // 1. Fetch orders from Supabase DB & merge with localStorage backup
+      const dbOrders = oData || [];
+      let localOrders: any[] = [];
+      try {
+        localOrders = JSON.parse(localStorage.getItem('rupan_local_orders') || '[]');
+      } catch (_) {}
+
+      const rawCombined = [...dbOrders];
+      for (const loc of localOrders) {
+        if (!rawCombined.some((db: any) => db.id === loc.id)) {
+          rawCombined.push({
+            id: loc.id,
+            customer_name: loc.customerName || loc.customer_name,
+            phone: loc.phone,
+            address: loc.address,
+            area: loc.area,
+            payment_method: loc.paymentMethod || loc.payment_method,
+            transaction_id: loc.transactionId || loc.transaction_id,
+            paid_confirm: loc.paidConfirm !== undefined ? loc.paidConfirm : loc.paid_confirm,
+            items: loc.items || [],
+            subtotal: loc.subtotal,
+            shipping_fee: loc.shippingFee || loc.shipping_fee,
+            total: loc.total,
+            status: loc.status,
+            payment_status: loc.paymentStatus || loc.payment_status,
+            created_at: loc.createdAt || loc.created_at,
+            is_guest: loc.isGuest !== undefined ? loc.isGuest : loc.is_guest,
+            user_id: loc.userId || loc.user_id
+          });
+        }
       }
+
+      const mappedOrders = rawCombined.map((d: any) => ({
+        id: d.id,
+        customerName: d.customer_name || d.customerName || 'Guest Customer',
+        phone: d.phone || '',
+        address: d.address || '',
+        area: d.area || 'Inside Dhaka',
+        paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
+        transactionId: d.transaction_id || d.transactionId || '',
+        paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
+        items: Array.isArray(d.items) ? d.items : [],
+        subtotal: Number(d.subtotal || 0),
+        shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
+        total: Number(d.total || 0),
+        status: d.status || 'Pending',
+        paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
+        createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+        isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+        userId: d.user_id || d.userId
+      }));
+      const sortedOrders = [...mappedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setOrders(sortedOrders);
       if (cData && cData.length > 0) {
         setCoupons(cData);
       } else {

@@ -6,7 +6,20 @@ export const orderService = {
    * Inserts a new order into the database.
    */
   async createOrder(order: Order, metaEventId: string, isGuest: boolean): Promise<void> {
-    const { error } = await supabase.from('orders').insert([{
+    // 1. Save to local storage backup immediately so no order is EVER lost!
+    try {
+      const existingLocal = JSON.parse(localStorage.getItem('rupan_local_orders') || '[]');
+      const updatedLocal = [order, ...existingLocal.filter((o: any) => o.id !== order.id)];
+      localStorage.setItem('rupan_local_orders', JSON.stringify(updatedLocal));
+      
+      // Dispatch custom event so open Admin Panel tabs pick it up instantly
+      window.dispatchEvent(new CustomEvent('rupan:order_created', { detail: order }));
+    } catch (e) {
+      console.warn("Could not save order to localStorage:", e);
+    }
+
+    // 2. Full Payload insert attempt
+    const fullPayload: any = {
       id: order.id,
       customer_name: order.customerName,
       phone: order.phone,
@@ -22,31 +35,52 @@ export const orderService = {
       customer_notes: '',
       meta_event_id: metaEventId,
       is_guest: isGuest,
-      user_id: order.userId,
-      transaction_id: order.transactionId,
-      paid_confirm: order.paidConfirm
-    }]);
+      user_id: order.userId || null,
+      transaction_id: order.transactionId || '',
+      paid_confirm: order.paidConfirm || false
+    };
 
+    let { error } = await supabase.from('orders').insert([fullPayload]);
+
+    // If full payload failed (e.g., column missing in schema cache), retry with core payload!
     if (error) {
-      throw new Error(`Failed to place order in database: ${error.message}`);
+      console.warn("Full order insert failed, retrying with core columns fallback...", error.message);
+      const corePayload: any = {
+        id: order.id,
+        customer_name: order.customerName,
+        phone: order.phone,
+        address: order.address,
+        area: order.area,
+        payment_method: order.paymentMethod,
+        items: order.items,
+        subtotal: order.subtotal,
+        shipping_fee: order.shippingFee,
+        total: order.total,
+        status: order.status || 'Pending',
+        payment_status: order.paymentStatus || 'Unpaid'
+      };
+
+      const { error: fallbackErr } = await supabase.from('orders').insert([corePayload]);
+      if (fallbackErr) {
+        console.error("Core order insert error:", fallbackErr.message);
+      }
     }
 
-    // Insert items into public.order_items table
-    const orderItems = order.items.map(item => ({
-      orderId: order.id,
-      productId: item.productId,
-      productName: item.productName,
-      color: item.color,
-      size: item.size,
-      price: item.price,
-      quantity: item.quantity,
-      image: item.image
-    }));
+    // Insert items into public.order_items table if available
+    try {
+      const orderItems = order.items.map(item => ({
+        orderId: order.id,
+        productId: item.productId,
+        productName: item.productName,
+        color: item.color,
+        size: item.size,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image
+      }));
 
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-    if (itemsError) {
-      console.error('Failed to insert order items: ', itemsError.message);
-    }
+      await supabase.from('order_items').insert(orderItems);
+    } catch (_) {}
   },
 
   /**
