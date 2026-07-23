@@ -468,40 +468,42 @@ export default function SeoMarketingTab({
     try {
       let data = await trySendMessage(chatId);
 
-      // Smart fallback: if -100 prefix failed with chat not found, try without -100 (or vice versa)
+      // Smart fallback: if chat not found, try Personal Account User ID format (stripping leading -100 or -)
       if (!data.ok && data.description?.includes('chat not found')) {
-        if (chatId.startsWith('-100')) {
+        const personalChatId = chatId.replace(/^-100/, '').replace(/^-/, '');
+        if (personalChatId && personalChatId !== chatId) {
+          addLog('info', `🔄 Retrying with Personal Account User ID format (${personalChatId})...`);
+          const altData = await trySendMessage(personalChatId);
+          if (altData.ok) {
+            data = altData;
+            chatId = personalChatId;
+            setSettings({ ...settings, telegramChatId: personalChatId, telegram_chat_id: personalChatId });
+          }
+        }
+
+        if (!data.ok && chatId.startsWith('-100')) {
           const altChatId = '-' + chatId.substring(4);
           addLog('info', `🔄 Retrying with standard group ID format (${altChatId})...`);
           const altData = await trySendMessage(altChatId);
           if (altData.ok) {
             data = altData;
             chatId = altChatId;
-            setSettings({ ...settings, telegramChatId: altChatId });
-          }
-        } else if (chatId.startsWith('-') && !chatId.startsWith('-100')) {
-          const altChatId = '-100' + chatId.substring(1);
-          addLog('info', `🔄 Retrying with supergroup ID format (${altChatId})...`);
-          const altData = await trySendMessage(altChatId);
-          if (altData.ok) {
-            data = altData;
-            chatId = altChatId;
-            setSettings({ ...settings, telegramChatId: altChatId });
+            setSettings({ ...settings, telegramChatId: altChatId, telegram_chat_id: altChatId });
           }
         }
       }
 
       if (data.ok) {
-        addLog('success', `✅ Telegram test order notification sent successfully to ${chatId}! Check your Telegram app.`);
+        addLog('success', `✅ Telegram test notification sent successfully to ${chatId}! Check your Telegram app.`);
         setTelegramStatus('active');
       } else {
         addLog('error', `❌ Telegram API error: ${data.description || 'Unknown error'}`);
         if (data.description?.includes('chat not found')) {
-          addLog('warning', '⚠️  "chat not found" means the Bot cannot message this Chat ID yet.');
-          addLog('info', '👉 STEP-BY-STEP FIX INSTRUCTIONS:');
-          addLog('info', '   1. Open your Telegram bot in Telegram app and click START (/start).');
-          addLog('info', '   2. If sending to a group/channel, ADD THE BOT to the group/channel as ADMIN.');
-          addLog('info', '   3. Get your exact Chat ID by messaging @userinfobot or @raw_data_bot.');
+          addLog('warning', '⚠️  "chat not found" means Telegram cannot locate this Personal Account or Group Chat.');
+          addLog('info', '👉 FOR PERSONAL TELEGRAM ACCOUNT:');
+          addLog('info', '   1. Open your bot in Telegram and click START (/start).');
+          addLog('info', '   2. Use your positive Personal User ID without minus (e.g. 4381024450).');
+          addLog('info', '   3. Get your exact User ID by messaging @userinfobot in Telegram.');
         }
         setTelegramStatus('error');
       }
