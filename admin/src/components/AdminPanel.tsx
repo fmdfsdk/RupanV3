@@ -2794,11 +2794,6 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               </div>
 
               <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="couponIsActive"
-                  checked={couponForm.isActive}
-                  onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
                   className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
                 />
                 <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
@@ -2825,167 +2820,203 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           </div>
         </div>
       )}
-      {/* MODAL 8: BLOG EDIT / CREATE FORM */}
+      {/* MODAL 8: BLOG & LANDING PAGE COMPOSER */}
       {blogModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-              <h2 className="text-xl font-black tracking-tight text-zinc-900 uppercase">
-                {editingBlog ? `Edit Article: ${editingBlog.title}` : 'Compose New Article'}
-              </h2>
-              <button 
-                onClick={() => setBlogModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveBlog} className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-xs">
-              
-              {/* Left Column: Metadata & Media Preview (4 cols) */}
-              <div className="lg:col-span-4 space-y-4">
-                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">Article Metadata</h3>
-                  
-                  <div className="space-y-1">
-                    <label className="uppercase font-bold text-zinc-600">Article Title</label>
-                    <input
-                      type="text"
-                      required
-                      value={blogForm.title}
-                      onChange={(e) => {
-                        const newTitle = e.target.value;
-                        const generatedSlug = `/blog/${newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
-                        setBlogForm({ 
-                          ...blogForm, 
-                          title: newTitle, 
-                          id: editingBlog ? blogForm.id : generatedSlug,
-                          seoTitle: editingBlog ? blogForm.seoTitle : newTitle
-                        });
-                      }}
-                      placeholder="e.g. 5 Summer Fashion Trends in Bangladesh"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-semibold focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="uppercase font-bold text-zinc-600 block mb-0.5">Full URL Path (Must start with /)</label>
-                    <input
-                      type="text"
-                      required
-                      value={blogForm.id}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        let sanitized = val.toLowerCase().replace(/[^a-z0-9\-/]/g, '');
-                        if (sanitized && !sanitized.startsWith('/')) {
-                          sanitized = '/' + sanitized;
-                        }
-                        setBlogForm({ ...blogForm, id: sanitized });
-                      }}
-                      placeholder="e.g. /offers/eid-campaign or /blog/my-slug"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-mono focus:outline-none font-bold"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="uppercase font-bold text-zinc-600">Category</label>
-                      <input
-                        type="text"
-                        value={blogForm.category}
-                        onChange={(e) => setBlogForm({ ...blogForm, category: e.target.value })}
-                        placeholder="e.g. Fashion"
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="uppercase font-bold text-zinc-600">Read Time</label>
-                      <input
-                        type="text"
-                        value={blogForm.readTime}
-                        onChange={(e) => setBlogForm({ ...blogForm, readTime: e.target.value })}
-                        placeholder="e.g. 4 min read"
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="uppercase font-bold text-zinc-600">Excerpt / Short Description</label>
-                    <textarea
-                      value={blogForm.excerpt}
-                      onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
-                      placeholder="A short snippet that summarizes the article for listings."
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none h-20 resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="uppercase font-bold text-zinc-600">Publish Status</label>
-                      <select
-                        value={blogForm.status}
-                        onChange={(e) => setBlogForm({ ...blogForm, status: e.target.value })}
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
-                      >
-                        <option value="published">Published</option>
-                        <option value="draft">Draft</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="uppercase font-bold text-zinc-600">Featured Photo Link</label>
-                      <input
-                        type="text"
-                        value={blogForm.image}
-                        onChange={(e) => setBlogForm({ ...blogForm, image: e.target.value })}
-                        placeholder="e.g. https://images.unsplash.com/..."
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="uppercase font-bold text-zinc-600 block mb-0.5">Page Layout Mode</label>
-                    <select
-                      value={blogLayoutMode}
-                      onChange={(e) => setBlogLayoutMode(e.target.value as 'standard' | 'blank')}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
-                    >
-                      <option value="standard">Standard Article (Includes Header, Footer, Cover Image)</option>
-                      <option value="blank">Blank Canvas (Custom HTML Landing Page - Hides Header/Footer)</option>
-                    </select>
-                  </div>
-
-                  {blogLayoutMode === 'blank' && (
-                    <div className="space-y-2 pt-2 border-t border-gray-100">
-                      <label className="uppercase font-extrabold text-[10px] text-gray-400 block tracking-wider">Canvas Customizations</label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
-                          <input 
-                            type="checkbox" 
-                            checked={blogSeoEnabled} 
-                            onChange={(e) => setBlogSeoEnabled(e.target.checked)}
-                            className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                          />
-                          <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable SEO</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
-                          <input 
-                            type="checkbox" 
-                            checked={blogMarketingEnabled} 
-                            onChange={(e) => setBlogMarketingEnabled(e.target.checked)}
-                            className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                          />
-                          <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable Tracking</span>
-                        </label>
-                      </div>
-                    </div>
-                  )}
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
+                  (blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? 'bg-orange-50 text-[#ff5c00] border-orange-200' : 'bg-blue-50 text-brand-primary border-blue-200'
+                }`}>
+                  {(blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? '🚀 Campaign Landing Page' : '📝 Style Journal Article'}
+                </span>
+                <h2 className="text-lg font-black tracking-tight text-zinc-900 uppercase">
+                  {editingBlog ? `Edit: ${editingBlog.title}` : ((blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? 'Create Campaign Landing Page' : 'Compose Blog Article')}
+                </h2>
+              </div>
+                  <button 
+                    onClick={() => setBlogModalOpen(false)}
+                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
+
+                <form onSubmit={handleSaveBlog} className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-xs">
+                  
+                  {/* Left Column: Metadata & Media Preview (4 cols) */}
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">Content Settings</h3>
+                      
+                      <div className="space-y-1">
+                        <label className="uppercase font-bold text-zinc-600">Title</label>
+                        <input
+                          type="text"
+                          required
+                          value={blogForm.title}
+                          onChange={(e) => {
+                            const newTitle = e.target.value;
+                            const cleanSlug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                            const isLanding = blogForm.category === '__landing_page__' || blogLayoutMode === 'blank';
+                            const generatedSlug = isLanding ? `/${cleanSlug}` : `/blog/${cleanSlug}`;
+                            setBlogForm({ 
+                              ...blogForm, 
+                              title: newTitle, 
+                              id: editingBlog ? blogForm.id : generatedSlug,
+                              seoTitle: editingBlog ? blogForm.seoTitle : newTitle
+                            });
+                          }}
+                          placeholder={blogForm.category === '__landing_page__' || blogLayoutMode === 'blank' ? "e.g. Eid Ul Adha Special Festival Collection" : "e.g. 5 Summer Fashion Trends in Bangladesh"}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-semibold focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600 block mb-0.5">Target URL Path (Must start with /)</label>
+                          <input
+                            type="text"
+                            required
+                            value={blogForm.id}
+                            onChange={(e) => {
+                              let val = e.target.value.toLowerCase().replace(/[^a-z0-9\-/]/g, '');
+                              if (val && !val.startsWith('/')) {
+                                val = '/' + val;
+                              }
+                              setBlogForm({ ...blogForm, id: val });
+                            }}
+                            placeholder={blogForm.category === '__landing_page__' || blogLayoutMode === 'blank' ? "e.g. /eid-sale or /offers/coupon" : "e.g. /blog/my-article"}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-mono focus:outline-none font-bold text-xs"
+                          />
+                        </div>
+
+                        {(blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') && (
+                          <div className="space-y-1.5 bg-orange-50/70 p-3 rounded-xl border border-orange-200/70">
+                            <label className="uppercase font-bold text-[10px] text-orange-800 block">
+                              ⚡ Select Premade Slug Option:
+                            </label>
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  setBlogForm({ ...blogForm, id: e.target.value });
+                                }
+                              }}
+                              className="w-full bg-white border border-orange-200 text-xs rounded-lg px-3 py-2 text-zinc-800 font-mono font-bold focus:outline-none cursor-pointer"
+                            >
+                              <option value="">-- Premade Slug Presets --</option>
+                              <option value="/offers">/offers (Deals & Offers Page)</option>
+                              <option value="/eid-sale">/eid-sale (Eid Festival Campaign)</option>
+                              <option value="/couple-deal">/couple-deal (Matching Couple Match)</option>
+                              <option value="/festival">/festival (Festival Discount Page)</option>
+                              <option value="/campaign">/campaign (Promotional Campaign)</option>
+                              <option value="/landing/promo">/landing/promo (Landing Showcase)</option>
+                              <option value="/vip-discount">/vip-discount (VIP Exclusive Deal)</option>
+                            </select>
+                            <p className="text-[9px] text-orange-700 font-medium">Selecting a preset automatically sets your target URL. You can also edit it manually above.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600">Category</label>
+                          <input
+                            type="text"
+                            value={blogForm.category}
+                            onChange={(e) => setBlogForm({ ...blogForm, category: e.target.value })}
+                            placeholder="e.g. Fashion or __landing_page__"
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600">Read Time</label>
+                          <input
+                            type="text"
+                            value={blogForm.readTime}
+                            onChange={(e) => setBlogForm({ ...blogForm, readTime: e.target.value })}
+                            placeholder="e.g. 4 min read"
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="uppercase font-bold text-zinc-600">Excerpt / Short Description</label>
+                        <textarea
+                          value={blogForm.excerpt}
+                          onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
+                          placeholder="A short snippet that summarizes the article or campaign for listings."
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none h-20 resize-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600">Publish Status</label>
+                          <select
+                            value={blogForm.status}
+                            onChange={(e) => setBlogForm({ ...blogForm, status: e.target.value })}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                          >
+                            <option value="published">Published</option>
+                            <option value="draft">Draft</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600">Featured Photo Link</label>
+                          <input
+                            type="text"
+                            value={blogForm.image}
+                            onChange={(e) => setBlogForm({ ...blogForm, image: e.target.value })}
+                            placeholder="e.g. https://images.unsplash.com/..."
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="uppercase font-bold text-zinc-600 block mb-0.5">Page Layout Mode</label>
+                        <select
+                          value={blogLayoutMode}
+                          onChange={(e) => setBlogLayoutMode(e.target.value as 'standard' | 'blank')}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="standard">Standard Article (Header + Footer + Article Wrapper)</option>
+                          <option value="blank">Blank Canvas (Full Custom HTML Landing Page - Hides Header/Footer)</option>
+                        </select>
+                      </div>
+
+                      {blogLayoutMode === 'blank' && (
+                        <div className="space-y-2 pt-2 border-t border-gray-100">
+                          <label className="uppercase font-extrabold text-[10px] text-gray-400 block tracking-wider">Canvas Customizations</label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={blogSeoEnabled} 
+                                onChange={(e) => setBlogSeoEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                              />
+                              <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable SEO</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={blogMarketingEnabled} 
+                                onChange={(e) => setBlogMarketingEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                              />
+                              <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable Tracking</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                 {/* Media Preview Card */}
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-3">
