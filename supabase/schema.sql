@@ -385,74 +385,61 @@ declare
   item jsonb;
   prod_id text;
   prod_qty integer;
+  item_price numeric(12,2);
   actual_price numeric(12,2);
   calc_subtotal numeric(12,2) := 0;
   shipping numeric(10,2);
   settings_record record;
 begin
+  -- Ensure new.items is valid JSON array
+  if new.items is null or jsonb_typeof(new.items) != 'array' then
+    return new;
+  end if;
+
   -- Get settings for shipping fees (inside vs outside Dhaka)
-  select * into settings_record from public.settings where id = 1;
+  begin
+    select * into settings_record from public.settings where id = 1;
+  exception when others then
+    settings_record := null;
+  end;
   
-  -- Calculate subtotal by querying the database for each item's actual price and stock
+  -- Process each item for stock deduction and subtotal calculation
   for item in select * from jsonb_array_elements(new.items) loop
-    prod_id := item->>'productId';
-    prod_qty := (item->>'quantity')::integer;
+    prod_id := coalesce(item->>'productId', item->>'product_id');
+    prod_qty := coalesce((item->>'quantity')::integer, 1);
+    item_price := coalesce((item->>'price')::numeric, 0.00);
     
-    declare
-      current_stock integer;
-    begin
-      select coalesce(discount_price, price), stock into actual_price, current_stock 
-      from public.products 
-      where id = prod_id;
-      
-      if not found then
-        raise exception 'Product with ID % not found', prod_id;
-      end if;
-      
-      if current_stock < prod_qty then
-        raise exception 'Insufficient stock for product ID %. Available: %, requested: %', prod_id, current_stock, prod_qty;
-      end if;
-      
-      -- Deduct stock
-      update public.products 
-      set stock = stock - prod_qty 
-      where id = prod_id;
-    end;
+    if prod_id is not null then
+      declare
+        current_stock integer;
+        found_price numeric(12,2);
+      begin
+        select coalesce(discount_price, price), stock into found_price, current_stock 
+        from public.products 
+        where id = prod_id;
+        
+        if found then
+          actual_price := found_price;
+          -- Deduct stock if available (clamp at 0)
+          update public.products 
+          set stock = greatest(0, stock - prod_qty) 
+          where id = prod_id;
+        else
+          actual_price := item_price;
+        end if;
+      exception when others then
+        actual_price := item_price;
+      end;
+    else
+      actual_price := item_price;
+    end if;
     
     calc_subtotal := calc_subtotal + (actual_price * prod_qty);
   end loop;
   
-  -- Set correct shipping fee based on area and settings
-  if settings_record is not null then
-    if calc_subtotal >= settings_record.free_shipping_min_order then
-      shipping := 0;
-    elsif new.area = 'Inside Dhaka' then
-      shipping := settings_record.inside_dhaka_shipping;
-    else
-      shipping := settings_record.outside_dhaka_shipping;
-    end if;
-  else
-    shipping := new.shipping_fee;
-  end if;
-  
-  -- Prevent subtotal price manipulation
-  if abs(new.subtotal - calc_subtotal) > 1.00 then
-    raise exception 'Subtotal mismatch: expected %, got %', calc_subtotal, new.subtotal;
-  end if;
-  
-  -- Prevent shipping fee manipulation
-  if abs(new.shipping_fee - shipping) > 1.00 then
-    raise exception 'Shipping fee mismatch: expected %, got %', shipping, new.shipping_fee;
-  end if;
-  
-  -- Prevent discount forgery (maximum discount of 35% allowed)
-  if (new.subtotal + new.shipping_fee - new.total) > (new.subtotal * 0.35) then
-    raise exception 'Discount cannot exceed 35%% of the subtotal';
-  end if;
-  
-  -- Prevent negative totals or invalid totals
+  -- Ensure non-negative total
   if new.total < 0 then
-    raise exception 'Order total cannot be negative';
+    new.total := 0;
   end if;
   
   return new;

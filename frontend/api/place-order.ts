@@ -117,9 +117,12 @@ export default async function handler(req: any, res: any) {
       // Insert items into order_items table
       try {
         const orderItems = (order.items || []).map((item: any) => ({
+          order_id: order.id,
           orderId: order.id,
-          productId: item.productId,
-          productName: item.productName,
+          product_id: item.productId || item.product_id,
+          productId: item.productId || item.product_id,
+          product_name: item.productName || item.product_name,
+          productName: item.productName || item.product_name,
           color: item.color,
           size: item.size,
           price: item.price,

@@ -86,8 +86,11 @@ export const orderService = {
     // Insert items into public.order_items table if available
     try {
       const orderItems = order.items.map(item => ({
+        order_id: order.id,
         orderId: order.id,
+        product_id: item.productId,
         productId: item.productId,
+        product_name: item.productName,
         productName: item.productName,
         color: item.color,
         size: item.size,
