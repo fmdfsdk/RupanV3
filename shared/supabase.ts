@@ -3,8 +3,11 @@ import { PRODUCTS, REVIEWS, BLOGS } from '../data';
 import { Product, Order, Review, BlogPost, Coupon } from '../types';
 
 const getSupabaseUrl = (): string => {
-  const metaEnv = (import.meta as any).env;
-  if (metaEnv?.VITE_SUPABASE_URL) return metaEnv.VITE_SUPABASE_URL;
+  // @ts-ignore
+  if (import.meta.env && import.meta.env.VITE_SUPABASE_URL) {
+    // @ts-ignore
+    return import.meta.env.VITE_SUPABASE_URL;
+  }
   if (typeof process !== 'undefined' && (process as any).env?.VITE_SUPABASE_URL) return (process as any).env.VITE_SUPABASE_URL;
   try {
     return localStorage.getItem('VITE_SUPABASE_URL') || '';
@@ -13,8 +16,11 @@ const getSupabaseUrl = (): string => {
 };
 
 const getSupabaseAnonKey = (): string => {
-  const metaEnv = (import.meta as any).env;
-  if (metaEnv?.VITE_SUPABASE_ANON_KEY) return metaEnv.VITE_SUPABASE_ANON_KEY;
+  // @ts-ignore
+  if (import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    // @ts-ignore
+    return import.meta.env.VITE_SUPABASE_ANON_KEY;
+  }
   if (typeof process !== 'undefined' && (process as any).env?.VITE_SUPABASE_ANON_KEY) return (process as any).env.VITE_SUPABASE_ANON_KEY;
   try {
     return localStorage.getItem('VITE_SUPABASE_ANON_KEY') || '';
