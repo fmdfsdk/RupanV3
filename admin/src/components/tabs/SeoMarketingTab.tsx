@@ -800,6 +800,45 @@ export default function SeoMarketingTab({
             />
           </SectionCard>
 
+          {/* ── Supabase Central Database Connection Card ────────────────── */}
+          <SectionCard
+            title="Supabase Central Database"
+            icon={<Database className="w-4 h-4 text-emerald-500" />}
+          >
+            <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2.5">
+              <Database className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-emerald-800">Central Supabase Database Synchronization</p>
+                <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
+                  To ensure all customer orders placed on any mobile phone or browser are stored centrally in your database, enter your Supabase Project URL & Anon Key below or add them to your Vercel Environment Variables (<code className="font-mono bg-emerald-100 px-1 rounded">VITE_SUPABASE_URL</code> & <code className="font-mono bg-emerald-100 px-1 rounded">VITE_SUPABASE_ANON_KEY</code>).
+                </p>
+              </div>
+            </div>
+
+            <InputField
+              label="Supabase Project URL (VITE_SUPABASE_URL)"
+              value={settings.supabaseUrl || localStorage.getItem('VITE_SUPABASE_URL') || ''}
+              onChange={(v) => {
+                localStorage.setItem('VITE_SUPABASE_URL', v.trim());
+                setSettings({ ...settings, supabaseUrl: v.trim() });
+              }}
+              placeholder="e.g. https://yourproject.supabase.co"
+              helpText="Your Supabase Project URL from Supabase Dashboard -> Project Settings -> API."
+            />
+
+            <InputField
+              label="Supabase Anon Key (VITE_SUPABASE_ANON_KEY)"
+              value={settings.supabaseAnonKey || localStorage.getItem('VITE_SUPABASE_ANON_KEY') || ''}
+              onChange={(v) => {
+                localStorage.setItem('VITE_SUPABASE_ANON_KEY', v.trim());
+                setSettings({ ...settings, supabaseAnonKey: v.trim() });
+              }}
+              placeholder="e.g. eyJhbGciOiJIUzI1NiIsInR5..."
+              masked
+              helpText="Your public anon API key from Supabase Dashboard -> Project Settings -> API."
+            />
+          </SectionCard>
+
           {/* ── Sitemap Card ──────────────────────────────────────────────── */}
           <SectionCard
             title="Sitemap & Search Console"

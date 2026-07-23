@@ -2,8 +2,22 @@ import { createClient } from '@supabase/supabase-js';
 import { PRODUCTS, REVIEWS, BLOGS } from '../data';
 import { Product, Order, Review, BlogPost, Coupon } from '../types';
 
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+const getEnvVar = (key: string): string => {
+  try {
+    if ((import.meta as any).env?.[key]) return (import.meta as any).env[key];
+  } catch (_) {}
+  try {
+    if ((window as any)?.[key]) return (window as any)[key];
+  } catch (_) {}
+  try {
+    const localVal = localStorage.getItem(key) || localStorage.getItem(key.toLowerCase());
+    if (localVal) return localVal;
+  } catch (_) {}
+  return '';
+};
+
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 // Check if keys are actually provided (and are not empty strings or placeholders)
 const hasRealKeys = 
