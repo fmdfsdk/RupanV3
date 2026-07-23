@@ -817,7 +817,7 @@ const allowedColumns: Record<string, string[]> = {
   orders: [
     'id', 'customer_name', 'phone', 'address', 'area', 'payment_method', 'items', 'subtotal', 
     'shipping_fee', 'total', 'status', 'payment_status', 'customer_notes', 'admin_notes', 
-    'meta_event_id', 'is_guest', 'user_id', 'transaction_id', 'paid_confirm', 'created_at'
+    'meta_event_id', 'is_guest', 'is_incognito_guest', 'user_id', 'transaction_id', 'paid_confirm', 'created_at'
   ],
   reviews: ['id', 'user_name', 'rating', 'comment', 'verified', 'user_photo', 'product_id', 'status', 'reply', 'created_at'],
   coupons: ['code', 'type', 'value', 'min_order', 'max_discount', 'expiry_date', 'is_active', 'usage_limit', 'used_count', 'created_at'],

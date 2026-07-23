@@ -33,13 +33,28 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Invalid order payload' });
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    // NOTE: Vercel does NOT expose VITE_* env vars to serverless functions.
+    // You must add SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_ROLE_KEY)
+    // as plain (non-VITE-prefixed) environment variables in your Vercel project settings.
+    const supabaseUrl = 
+      process.env.SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.VITE_SUPABASE_URL ||
+      '';
+    const supabaseKey = 
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      '';
 
     let dbSaved = false;
     let dbErrorMsg = '';
 
-    if (supabaseUrl && supabaseKey) {
+    if (!supabaseUrl || !supabaseKey) {
+      dbErrorMsg = `Missing Supabase env vars. supabaseUrl=${!!supabaseUrl}, supabaseKey=${!!supabaseKey}. Add SUPABASE_URL and SUPABASE_ANON_KEY in Vercel project settings (Settings → Environment Variables).`;
+      console.error('[place-order] CRITICAL:', dbErrorMsg);
+    } else {
       const supabase = createClient(supabaseUrl, supabaseKey);
 
       // 1. Try full payload insert
@@ -69,8 +84,10 @@ export default async function handler(req: any, res: any) {
 
       if (!fullErr) {
         dbSaved = true;
+        console.log('[place-order] Order saved to DB successfully:', order.id);
       } else {
         dbErrorMsg = fullErr.message;
+        console.error('[place-order] Full payload insert failed:', fullErr.message, '| Order ID:', order.id);
         // 2. Retry with core payload fallback if schema mismatch
         const corePayload = {
           id: order.id,
@@ -90,8 +107,10 @@ export default async function handler(req: any, res: any) {
         const { error: coreErr } = await supabase.from('orders').insert([corePayload]);
         if (!coreErr) {
           dbSaved = true;
+          console.log('[place-order] Core payload fallback insert succeeded:', order.id);
         } else {
           dbErrorMsg = coreErr.message;
+          console.error('[place-order] Core payload insert ALSO failed:', coreErr.message, '| This order is NOT in the database!');
         }
       }
 

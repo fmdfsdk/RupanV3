@@ -403,12 +403,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     let hasMore = true;
 
     while (hasMore) {
-      const { data, error } = await supabase
+      let query = supabase
         .from(tableName)
         .select('*')
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      if (error || !data || data.length === 0) {
+      // For orders: sort newest first so admin sees latest orders at top
+      if (tableName === 'orders') {
+        query = (query as any).order('created_at', { ascending: false });
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(`[fetchAllTableRows] Error fetching ${tableName}:`, error.message);
+        hasMore = false;
+      } else if (!data || data.length === 0) {
         hasMore = false;
       } else {
         allRows = allRows.concat(data);
