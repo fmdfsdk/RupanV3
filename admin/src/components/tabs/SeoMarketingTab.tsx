@@ -432,8 +432,8 @@ export default function SeoMarketingTab({
 
   // ── Test Telegram Bot Integration ──────────────────────────────────────────
   const testTelegramBot = async () => {
-    const token = settings.telegramBotToken || settings.telegram_bot_token;
-    const chatId = settings.telegramChatId || settings.telegram_chat_id;
+    const token = (settings.telegramBotToken || settings.telegram_bot_token || '').trim();
+    let chatId = (settings.telegramChatId || settings.telegram_chat_id || '').trim();
 
     if (!token) {
       addLog('error', '❌ No Telegram Bot Token entered. Get one from Telegram @BotFather.');
@@ -447,26 +447,62 @@ export default function SeoMarketingTab({
     setTelegramStatus('testing');
     addLog('info', `📡 Testing Telegram Bot Connection to Chat ID: ${chatId}...`);
 
-    try {
-      const msg = `🤖 *RUPAN STORE TELEGRAM BACKUP TEST*\n\n✅ Telegram Bot integration is connected successfully! You will receive instant order alerts here whenever a customer places an order on Rupan.`;
-      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const msgHtml = `<b>🤖 RUPAN STORE TELEGRAM BACKUP TEST</b>\n\n` +
+      `✅ <b>Telegram Bot integration is connected successfully!</b>\n` +
+      `You will receive instant order alerts here whenever a customer places an order on Rupan.`;
 
+    const trySendMessage = async (targetChatId: string) => {
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
-          text: msg,
-          parse_mode: 'Markdown'
+          chat_id: targetChatId,
+          text: msgHtml,
+          parse_mode: 'HTML'
         })
       });
+      return await response.json();
+    };
 
-      const data = await response.json();
+    try {
+      let data = await trySendMessage(chatId);
+
+      // Smart fallback: if -100 prefix failed with chat not found, try without -100 (or vice versa)
+      if (!data.ok && data.description?.includes('chat not found')) {
+        if (chatId.startsWith('-100')) {
+          const altChatId = '-' + chatId.substring(4);
+          addLog('info', `🔄 Retrying with standard group ID format (${altChatId})...`);
+          const altData = await trySendMessage(altChatId);
+          if (altData.ok) {
+            data = altData;
+            chatId = altChatId;
+            setSettings({ ...settings, telegramChatId: altChatId });
+          }
+        } else if (chatId.startsWith('-') && !chatId.startsWith('-100')) {
+          const altChatId = '-100' + chatId.substring(1);
+          addLog('info', `🔄 Retrying with supergroup ID format (${altChatId})...`);
+          const altData = await trySendMessage(altChatId);
+          if (altData.ok) {
+            data = altData;
+            chatId = altChatId;
+            setSettings({ ...settings, telegramChatId: altChatId });
+          }
+        }
+      }
+
       if (data.ok) {
-        addLog('success', '✅ Telegram test order notification sent successfully! Check your Telegram app.');
+        addLog('success', `✅ Telegram test order notification sent successfully to ${chatId}! Check your Telegram app.`);
         setTelegramStatus('active');
       } else {
         addLog('error', `❌ Telegram API error: ${data.description || 'Unknown error'}`);
+        if (data.description?.includes('chat not found')) {
+          addLog('warning', '⚠️  "chat not found" means the Bot cannot message this Chat ID yet.');
+          addLog('info', '👉 STEP-BY-STEP FIX INSTRUCTIONS:');
+          addLog('info', '   1. Open your Telegram bot in Telegram app and click START (/start).');
+          addLog('info', '   2. If sending to a group/channel, ADD THE BOT to the group/channel as ADMIN.');
+          addLog('info', '   3. Get your exact Chat ID by messaging @userinfobot or @raw_data_bot.');
+        }
         setTelegramStatus('error');
       }
     } catch (e: any) {
