@@ -453,6 +453,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           socialTwitter: sData.twitter_url || sData.socialTwitter || 'https://twitter.com',
           socialYoutube: sData.youtube_url || sData.socialYoutube || 'https://youtube.com',
           socialInstagram: sData.instagram_url || sData.socialInstagram || 'https://www.instagram.com/rupanbd',
+          telegramBotToken: sData.telegram_bot_token || sData.telegramBotToken || '',
+          telegramChatId: sData.telegram_chat_id || sData.telegramChatId || '',
+          telegramNotificationsEnabled: sData.telegram_notifications_enabled !== undefined ? sData.telegram_notifications_enabled : (sData.telegramNotificationsEnabled !== undefined ? sData.telegramNotificationsEnabled : true),
         });
         const hConfig = sData.homepageConfig || sData.homepage_config;
         if (hConfig) {
@@ -556,6 +559,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         socialTwitter: settings.socialTwitter,
         socialYoutube: settings.socialYoutube,
         socialInstagram: settings.socialInstagram,
+        telegram_bot_token: settings.telegramBotToken || settings.telegram_bot_token || null,
+        telegram_chat_id: settings.telegramChatId || settings.telegram_chat_id || null,
+        telegram_notifications_enabled: settings.telegramNotificationsEnabled ?? settings.telegram_notifications_enabled ?? true,
+        telegramBotToken: settings.telegramBotToken || settings.telegram_bot_token,
+        telegramChatId: settings.telegramChatId || settings.telegram_chat_id,
+        telegramNotificationsEnabled: settings.telegramNotificationsEnabled ?? true,
       };
       
       const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
