@@ -641,46 +641,51 @@ export const useStore = create<StoreState>((set, get) => ({
     const updatedOrders = [newOrder, ...orders];
     get().setOrders(updatedOrders);
 
-    if (isSupabaseOnline) {
-      try {
-        await orderService.createOrder(newOrder, purchaseEventId, currentUser === null);
-      } catch (err: any) {
-        console.error("Error writing order to Supabase:", err.message || err);
-      }
+    // ALWAYS write directly to Supabase Database (Guaranteed Order Persistence)
+    try {
+      await orderService.createOrder(newOrder, purchaseEventId, currentUser === null);
+    } catch (err: any) {
+      console.error("Critical: Error writing order to Supabase:", err.message || err);
     }
 
-    // Send Telegram Notification Backup
+    // Send Telegram Notification (Using HTML parse mode to prevent markdown parsing crashes)
     const tgToken = dbSettings?.telegram_bot_token || dbSettings?.telegramBotToken;
     const tgChatId = dbSettings?.telegram_chat_id || dbSettings?.telegramChatId;
     const tgEnabled = dbSettings?.telegram_notifications_enabled ?? dbSettings?.telegramNotificationsEnabled ?? true;
 
     if (tgToken && tgChatId && tgEnabled) {
       try {
-        const itemDetails = newOrder.items.map(i => `• ${i.productName} (${i.size}, ${i.color}) x ${i.quantity} — ৳${i.price * i.quantity}`).join('\n');
-        const tgMessage = `🛍️ *NEW ORDER RECEIVED!* \`#${newOrder.id}\`
-        
-👤 *Customer:* ${newOrder.customerName}
-📞 *Phone:* \`${newOrder.phone}\`
-📍 *Address:* ${newOrder.address}
-🗺️ *Area:* ${newOrder.area}
-💳 *Payment:* ${newOrder.paymentMethod}${newOrder.transactionId ? ` (TxID: \`${newOrder.transactionId}\`)` : ''}
+        const escapeHtml = (text: string) => (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const itemDetailsHtml = newOrder.items.map(i => 
+          `• <b>${escapeHtml(i.productName)}</b> (${escapeHtml(i.size)}, ${escapeHtml(i.color)}) x ${i.quantity} — ৳${i.price * i.quantity}`
+        ).join('\n');
 
-📦 *Items:*
-${itemDetails}
-
-💰 *Subtotal:* ৳${newOrder.subtotal}
-🚚 *Shipping Fee:* ৳${newOrder.shippingFee}
-💵 *TOTAL AMOUNT:* ৳${newOrder.total}`;
+        const tgMessageHtml = `<b>🛍️ NEW ORDER RECEIVED! <code>#${escapeHtml(newOrder.id)}</code></b>\n\n` +
+`👤 <b>Customer:</b> ${escapeHtml(newOrder.customerName)}\n` +
+`📞 <b>Phone:</b> <code>${escapeHtml(newOrder.phone)}</code>\n` +
+`📍 <b>Address:</b> ${escapeHtml(newOrder.address)}\n` +
+`🗺️ <b>Area:</b> ${escapeHtml(newOrder.area)}\n` +
+`💳 <b>Payment:</b> ${escapeHtml(newOrder.paymentMethod)}${newOrder.transactionId ? ` (TxID: <code>${escapeHtml(newOrder.transactionId)}</code>)` : ''}\n\n` +
+`📦 <b>Items (${newOrder.items.length}):</b>\n${itemDetailsHtml}\n\n` +
+`💰 <b>Subtotal:</b> ৳${newOrder.subtotal}\n` +
+`🚚 <b>Shipping Fee:</b> ৳${newOrder.shippingFee}\n` +
+`💵 <b>TOTAL AMOUNT:</b> ৳${newOrder.total}`;
 
         fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: tgChatId,
-            text: tgMessage,
-            parse_mode: 'Markdown'
+            text: tgMessageHtml,
+            parse_mode: 'HTML'
           })
-        }).catch((e) => console.error('Telegram notification error:', e));
+        }).then(res => res.json()).then(resData => {
+          if (!resData.ok) {
+            console.error('Telegram notification error response:', resData);
+          } else {
+            console.log('Telegram notification sent successfully!');
+          }
+        }).catch((e) => console.error('Telegram notification fetch error:', e));
       } catch (tgErr) {
         console.error('Failed to trigger Telegram bot alert:', tgErr);
       }
