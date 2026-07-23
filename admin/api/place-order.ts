@@ -1,0 +1,179 @@
+import { createClient } from '@supabase/supabase-js';
+
+function escapeTelegramHtml(text: string): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { order, metaEventId, isGuest } = req.body || {};
+
+    if (!order || !order.id) {
+      return res.status(400).json({ error: 'Invalid order payload' });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    let dbSaved = false;
+    let dbErrorMsg = '';
+
+    if (supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const fullPayload = {
+        id: order.id,
+        customer_name: order.customerName,
+        phone: order.phone,
+        address: order.address,
+        area: order.area,
+        payment_method: order.paymentMethod,
+        items: order.items,
+        subtotal: order.subtotal,
+        shipping_fee: order.shippingFee,
+        total: order.total,
+        status: order.status || 'Pending',
+        payment_status: order.paymentStatus || 'Unpaid',
+        customer_notes: '',
+        meta_event_id: metaEventId || '',
+        is_guest: isGuest !== undefined ? isGuest : true,
+        user_id: order.userId || null,
+        transaction_id: order.transactionId || '',
+        paid_confirm: order.paidConfirm || false
+      };
+
+      const { error: fullErr } = await supabase.from('orders').insert([fullPayload]);
+
+      if (!fullErr) {
+        dbSaved = true;
+      } else {
+        dbErrorMsg = fullErr.message;
+        const corePayload = {
+          id: order.id,
+          customer_name: order.customerName,
+          phone: order.phone,
+          address: order.address,
+          area: order.area,
+          payment_method: order.paymentMethod,
+          items: order.items,
+          subtotal: order.subtotal,
+          shipping_fee: order.shippingFee,
+          total: order.total,
+          status: order.status || 'Pending',
+          payment_status: order.paymentStatus || 'Unpaid'
+        };
+
+        const { error: coreErr } = await supabase.from('orders').insert([corePayload]);
+        if (!coreErr) {
+          dbSaved = true;
+        } else {
+          dbErrorMsg = coreErr.message;
+        }
+      }
+
+      try {
+        const orderItems = (order.items || []).map((item: any) => ({
+          orderId: order.id,
+          productId: item.productId,
+          productName: item.productName,
+          color: item.color,
+          size: item.size,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image
+        }));
+        await supabase.from('order_items').insert(orderItems);
+      } catch (_) {}
+
+      let tgToken = process.env.TELEGRAM_BOT_TOKEN || '';
+      let tgChatId = process.env.TELEGRAM_CHAT_ID || '';
+
+      try {
+        const { data: settingsData } = await supabase.from('settings').select('*').maybeSingle();
+        if (settingsData) {
+          tgToken = settingsData.telegram_bot_token || settingsData.telegramBotToken || tgToken;
+          tgChatId = settingsData.telegram_chat_id || settingsData.telegramChatId || tgChatId;
+        }
+      } catch (_) {}
+
+      let cleanChatId = (tgChatId || '').trim();
+
+      if (tgToken && cleanChatId) {
+        try {
+          const itemDetailsHtml = (order.items || []).map((i: any) =>
+            `• <b>${escapeTelegramHtml(i.productName)}</b> (${escapeTelegramHtml(i.size)}, ${escapeTelegramHtml(i.color)}) x ${i.quantity} — ৳${i.price * i.quantity}`
+          ).join('\n');
+
+          const tgMessageHtml = `<b>🛍️ NEW ORDER RECEIVED! <code>#${escapeTelegramHtml(order.id)}</code></b>\n\n` +
+            `👤 <b>Customer:</b> ${escapeTelegramHtml(order.customerName)}\n` +
+            `📞 <b>Phone:</b> <code>${escapeTelegramHtml(order.phone)}</code>\n` +
+            `📍 <b>Address:</b> ${escapeTelegramHtml(order.address)}\n` +
+            `🗺️ <b>Area:</b> ${escapeTelegramHtml(order.area)}\n` +
+            `💳 <b>Payment:</b> ${escapeTelegramHtml(order.paymentMethod)}${order.transactionId ? ` (TxID: <code>${escapeTelegramHtml(order.transactionId)}</code>)` : ''}\n\n` +
+            `📦 <b>Items (${(order.items || []).length}):</b>\n${itemDetailsHtml}\n\n` +
+            `💰 <b>Subtotal:</b> ৳${order.subtotal}\n` +
+            `🚚 <b>Shipping Fee:</b> ৳${order.shippingFee}\n` +
+            `💵 <b>TOTAL AMOUNT:</b> ৳${order.total}`;
+
+          let tgRes = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: cleanChatId,
+              text: tgMessageHtml,
+              parse_mode: 'HTML'
+            })
+          });
+          let tgJson = await tgRes.json();
+
+          if (!tgJson.ok && tgJson.description?.includes('chat not found')) {
+            const personalChatId = cleanChatId.replace(/^-100/, '').replace(/^-/, '');
+            if (personalChatId && personalChatId !== cleanChatId) {
+              await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: personalChatId,
+                  text: tgMessageHtml,
+                  parse_mode: 'HTML'
+                })
+              });
+            }
+          }
+        } catch (tgErr) {
+          console.error("Telegram send error in API handler:", tgErr);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      orderId: order.id,
+      dbSaved,
+      dbErrorMsg
+    });
+  } catch (err: any) {
+    console.error("Error in /api/place-order handler:", err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+}

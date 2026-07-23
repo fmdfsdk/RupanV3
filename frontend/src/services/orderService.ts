@@ -18,6 +18,22 @@ export const orderService = {
       console.warn("Could not save order to localStorage:", e);
     }
 
+    // 2. Execute Vercel Serverless Backend API /api/place-order for guaranteed DB insertion & Telegram alerts
+    try {
+      const apiRes = await fetch('/api/place-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, metaEventId, isGuest })
+      });
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        console.log("Vercel Serverless Order Placement Result:", apiData);
+        if (apiData.dbSaved) return;
+      }
+    } catch (apiErr) {
+      console.warn("Vercel Serverless API fetch failed, proceeding with direct client fallback...", apiErr);
+    }
+
     // 2. Full Payload insert attempt
     const fullPayload: any = {
       id: order.id,
