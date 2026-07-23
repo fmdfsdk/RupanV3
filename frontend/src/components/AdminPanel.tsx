@@ -1195,7 +1195,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     alert("Coupon deleted successfully!");
   };
 
-  const openBlogForm = (blog: BlogPost | null = null) => {
+  const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false) => {
     if (blog) {
       setEditingBlog(blog);
       setBlogForm({
@@ -1205,7 +1205,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         content: blog.content || '',
         image: blog.image || '',
         readTime: blog.readTime || '3 min read',
-        category: blog.category || 'Fashion',
+        category: blog.category || (isLandingPage ? '__landing_page__' : 'Fashion'),
         status: blog.status || 'published',
         seoTitle: blog.seoTitle || '',
         seoDescription: blog.seoDescription || ''
@@ -1216,10 +1216,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         id: '',
         title: '',
         excerpt: '',
-        content: '<p>Write your article content here...</p>',
+        content: isLandingPage 
+          ? '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>Landing Page</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-gray-50">\n  <div class="max-w-4xl mx-auto py-16 px-4 text-center">\n    <h1 class="text-4xl font-extrabold text-gray-900">Special Campaign</h1>\n  </div>\n</body>\n</html>'
+          : '<p>Write your article content here...</p>',
         image: '',
         readTime: '3 min read',
-        category: 'Fashion',
+        category: isLandingPage ? '__landing_page__' : 'Fashion',
         status: 'published',
         seoTitle: '',
         seoDescription: ''
@@ -1231,17 +1233,25 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const handleSaveBlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!blogForm.title.trim()) {
-      alert("Please enter a blog title");
+      alert("Please enter a title");
       return;
     }
     if (!blogForm.content.trim()) {
-      alert("Please enter blog content");
+      alert("Please enter content");
       return;
     }
 
-    const finalId = blogForm.id.trim() 
-      ? blogForm.id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-      : blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    let finalId = blogForm.id.trim();
+    const isLanding = blogForm.category === '__landing_page__';
+
+    if (!finalId) {
+      const cleanSlug = blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      finalId = isLanding ? `/${cleanSlug}` : `/blog/${cleanSlug}`;
+    } else {
+      if (!finalId.startsWith('/')) {
+        finalId = '/' + finalId;
+      }
+    }
 
     const payload = {
       id: finalId,
@@ -1250,7 +1260,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       content: blogForm.content,
       image: blogForm.image,
       read_time: blogForm.readTime,
-      category: blogForm.category,
+      category: isLanding ? '__landing_page__' : blogForm.category,
       status: blogForm.status,
       seo_title: blogForm.seoTitle || null,
       seo_description: blogForm.seoDescription || null
@@ -1264,7 +1274,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       image: blogForm.image,
       date: editingBlog ? editingBlog.date : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       readTime: blogForm.readTime,
-      category: blogForm.category,
+      category: isLanding ? '__landing_page__' : blogForm.category,
       status: blogForm.status as any,
       seoTitle: blogForm.seoTitle || undefined,
       seoDescription: blogForm.seoDescription || undefined
@@ -1273,23 +1283,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     if (editingBlog) {
       const { error } = await supabase.from('blogs').update(payload).eq('id', editingBlog.id);
       if (error) {
-        alert("Error updating blog: " + error.message);
+        alert("Error updating item: " + error.message);
         return;
       }
       setBlogs(blogs.map(b => b.id === editingBlog.id ? finalBlog : b));
-      alert("Blog post updated successfully!");
+      alert("Updated successfully!");
     } else {
       if (blogs.some(b => b.id === finalBlog.id)) {
-        alert("An article with this URL slug already exists!");
+        alert("An item with this URL path already exists!");
         return;
       }
       const { error } = await supabase.from('blogs').insert([payload]);
       if (error) {
-        alert("Error creating blog: " + error.message);
+        alert("Error creating item: " + error.message);
         return;
       }
       setBlogs([finalBlog, ...blogs]);
-      alert("Blog post created successfully!");
+      alert("Created successfully!");
     }
     setBlogModalOpen(false);
   };
@@ -1634,8 +1644,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 activeTab === 'blogs' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <FileText className="w-4 h-4" />
-              <span>Blog Management</span>
+              <FileText className="w-4 h-4 text-orange-400" />
+              <span>Blogs & Landing Pages</span>
             </button>
 
             <button

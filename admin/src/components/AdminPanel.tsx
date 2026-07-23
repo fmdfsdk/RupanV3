@@ -1226,28 +1226,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     alert("Coupon deleted successfully!");
   };
 
-  const openBlogForm = (blog: BlogPost | null = null) => {
+  const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false) => {
     if (blog) {
       setEditingBlog(blog);
-      const content = blog.content || '';
-      let layout: 'standard' | 'blank' = 'standard';
+      let layout: 'standard' | 'blank' = blog.category === '__landing_page__' ? 'blank' : 'standard';
       let seo = true;
       let marketing = true;
-      
-      const metaMatch = content.match(/^<!-- metadata:\s*({.*?})\s*-->/s);
-      if (metaMatch) {
+      const match = (blog.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+      if (match) {
         try {
-          const parsed = JSON.parse(metaMatch[1]);
-          layout = parsed.layout || 'standard';
+          const parsed = JSON.parse(match[1]);
+          layout = parsed.layout || layout;
           seo = parsed.seoEnabled !== false;
           marketing = parsed.marketingEnabled !== false;
         } catch (e) {}
-      } else {
-        if (content.startsWith('<!-- layout: blank -->') || content.startsWith('<!-- layout:blank -->')) {
-          layout = 'blank';
-        }
       }
-      
+
       setBlogLayoutMode(layout);
       setBlogSeoEnabled(seo);
       setBlogMarketingEnabled(marketing);
@@ -1258,24 +1252,26 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         content: blog.content || '',
         image: blog.image || '',
         readTime: blog.readTime || '3 min read',
-        category: blog.category || 'Fashion',
+        category: blog.category || (isLandingPage ? '__landing_page__' : 'Fashion'),
         status: blog.status || 'published',
         seoTitle: blog.seoTitle || '',
         seoDescription: blog.seoDescription || ''
       });
     } else {
       setEditingBlog(null);
-      setBlogLayoutMode('standard');
+      setBlogLayoutMode(isLandingPage ? 'blank' : 'standard');
       setBlogSeoEnabled(true);
       setBlogMarketingEnabled(true);
       setBlogForm({
         id: '',
         title: '',
         excerpt: '',
-        content: '<p>Write your article content here...</p>',
+        content: isLandingPage
+          ? '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>Landing Page</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-gray-50">\n  <div class="max-w-4xl mx-auto py-16 px-4 text-center">\n    <h1 class="text-4xl font-extrabold text-gray-900">Special Campaign</h1>\n  </div>\n</body>\n</html>'
+          : '<p>Write your article content here...</p>',
         image: '',
         readTime: '3 min read',
-        category: 'Fashion',
+        category: isLandingPage ? '__landing_page__' : 'Fashion',
         status: 'published',
         seoTitle: '',
         seoDescription: ''
@@ -1287,21 +1283,25 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const handleSaveBlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!blogForm.title.trim()) {
-      alert("Please enter a blog title");
+      alert("Please enter a title");
       return;
     }
     if (!blogForm.content.trim()) {
-      alert("Please enter blog content");
+      alert("Please enter content");
       return;
     }
 
     let finalId = blogForm.id.trim();
+    const isLanding = blogForm.category === '__landing_page__' || blogLayoutMode === 'blank';
+
     if (!finalId) {
-      finalId = `/blog/${blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
-    }
-    // Ensure it starts with a slash
-    if (!finalId.startsWith('/')) {
-      finalId = '/' + finalId;
+      const cleanSlug = blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      finalId = isLanding ? `/${cleanSlug}` : `/blog/${cleanSlug}`;
+    } else {
+      // User provided custom slug/path! Ensure leading slash but NEVER force '/blog/'!
+      if (!finalId.startsWith('/')) {
+        finalId = '/' + finalId;
+      }
     }
 
     // Strip old layout tags and metadata comments
@@ -1324,7 +1324,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       content: finalContent,
       image: blogForm.image,
       read_time: blogForm.readTime,
-      category: blogForm.category,
+      category: isLanding ? '__landing_page__' : blogForm.category,
       status: blogForm.status,
       seo_title: blogForm.seoTitle || null,
       seo_description: blogForm.seoDescription || null
@@ -1338,7 +1338,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       image: blogForm.image,
       date: editingBlog ? editingBlog.date : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       readTime: blogForm.readTime,
-      category: blogForm.category,
+      category: isLanding ? '__landing_page__' : blogForm.category,
       status: blogForm.status as any,
       seoTitle: blogForm.seoTitle || undefined,
       seoDescription: blogForm.seoDescription || undefined
@@ -1720,18 +1720,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 activeTab === 'blogs' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <FileText className="w-4 h-4" />
-              <span>Blog Management</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab('landing-pages'); setMobileSidebarOpen(false); }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                activeTab === 'landing-pages' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <Globe className="w-4 h-4 text-green-500" />
-              <span>Landing Pages</span>
+              <FileText className="w-4 h-4 text-orange-400" />
+              <span>Blogs & Landing Pages</span>
             </button>
 
             <button
