@@ -4,7 +4,7 @@ import {
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
@@ -157,6 +157,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [blogSeoEnabled, setBlogSeoEnabled] = useState<boolean>(true);
   const [blogMarketingEnabled, setBlogMarketingEnabled] = useState<boolean>(true);
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
+  const [showFinalCodeModal, setShowFinalCodeModal] = useState<boolean>(false);
+  const [copiedFinalCode, setCopiedFinalCode] = useState<boolean>(false);
 
   // Close blog composer modal on Escape key
   useEffect(() => {
@@ -183,11 +185,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       const freeShippingMin = String(st.free_shipping_min_order || st.freeShippingMinOrder || '3000');
 
       html = html
-        .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
-        .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
-        .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
-        .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
-        .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+        .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID|YOUR_PIXEL_ID|YOUR_PIXEL_ID_HERE|YOUR_FACEBOOK_PIXEL_ID|FB_PIXEL_ID/g, pixelId)
+        .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN|YOUR_CAPI_TOKEN/g, capiToken)
+        .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE|YOUR_TEST_CODE/g, testCode)
+        .replace(/RUPAN_GTM_ID|GTM_ID|YOUR_GTM_ID|YOUR_GTM_CONTAINER_ID/g, gtmId)
+        .replace(/RUPAN_GA4_ID|GA4_ID|YOUR_GA4_ID|YOUR_GA_ID/g, gaId)
         .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
         .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
         .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
@@ -3291,30 +3293,42 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-3">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400">Editorial Content Composer</h3>
                     
-                    {/* Tab Switcher Button Group */}
-                    <div className="flex bg-gray-250 p-0.5 rounded-xl border border-gray-150">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setEditorMode('visual')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
-                          editorMode === 'visual'
-                            ? 'bg-white text-zinc-800 shadow-sm border border-gray-200'
-                            : 'text-gray-400 hover:text-zinc-700'
-                        }`}
+                        onClick={() => setShowFinalCodeModal(true)}
+                        className="bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-lg flex items-center gap-1 font-bold text-[10px] uppercase transition-all cursor-pointer"
+                        title="View full output HTML code with all injected scripts and replaced variables"
                       >
-                        Visual Rich Text
+                        <Code className="w-3.5 h-3.5" />
+                        <span>View Final Compiled Code</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditorMode('html')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
-                          editorMode === 'html'
-                            ? 'bg-zinc-950 text-green-400 shadow-sm'
-                            : 'text-gray-400 hover:text-zinc-700'
-                        }`}
-                      >
-                        HTML Source Code
-                      </button>
+
+                      {/* Tab Switcher Button Group */}
+                      <div className="flex bg-gray-250 p-0.5 rounded-xl border border-gray-150">
+                        <button
+                          type="button"
+                          onClick={() => setEditorMode('visual')}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                            editorMode === 'visual'
+                              ? 'bg-white text-zinc-800 shadow-sm border border-gray-200'
+                              : 'text-gray-400 hover:text-zinc-700'
+                          }`}
+                        >
+                          Visual Rich Text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditorMode('html')}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                            editorMode === 'html'
+                              ? 'bg-zinc-950 text-green-400 shadow-sm'
+                              : 'text-gray-400 hover:text-zinc-700'
+                          }`}
+                        >
+                          HTML Source Code
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -3516,6 +3530,52 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* FINAL COMPILED CODE MODAL FOR BLOG/LANDING MODAL */}
+      {showFinalCodeModal && (
+        <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-zinc-900 text-white rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col p-6 space-y-4 border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Code className="w-5 h-5 text-brand-primary" />
+                <div>
+                  <h3 className="font-extrabold text-sm uppercase tracking-wide">Final Compiled HTML Code</h3>
+                  <p className="text-[10px] text-zinc-400 font-mono">Output HTML with replaced variables & injected scripts</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(getModalPreviewHtml());
+                    setCopiedFinalCode(true);
+                    setTimeout(() => setCopiedFinalCode(false), 2000);
+                  }}
+                  className="bg-brand-primary hover:bg-blue-600 text-white text-[10px] font-bold uppercase px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {copiedFinalCode ? 'Copied to Clipboard!' : 'Copy Final HTML'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFinalCodeModal(false)}
+                  className="p-1.5 text-zinc-400 hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-zinc-400">
+              This is the exact final HTML document served to your visitors — including replaced variables (<code className="text-green-400">META_PIXEL_ID</code>, <code className="text-green-400">YOUR_PIXEL_ID</code>, <code className="text-green-400">SUPABASE_URL</code>, etc.), injected Meta Pixel scripts, GTM, GA4, and custom header/footer scripts.
+            </p>
+            <textarea
+              readOnly
+              value={getModalPreviewHtml()}
+              className="flex-1 bg-zinc-950 text-green-400 font-mono text-xs p-4 rounded-2xl border border-zinc-800 focus:outline-none resize-none overflow-y-auto leading-relaxed min-h-[350px]"
+            />
           </div>
         </div>
       )}

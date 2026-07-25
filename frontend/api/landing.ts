@@ -90,11 +90,11 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
     const freeShippingMin = String(settings.free_shipping_min_order || '3000');
 
     modifiedHtml = modifiedHtml
-      .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
-      .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
-      .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
-      .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
-      .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+      .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID|YOUR_PIXEL_ID|YOUR_PIXEL_ID_HERE|YOUR_FACEBOOK_PIXEL_ID|FB_PIXEL_ID/g, pixelId)
+      .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN|YOUR_CAPI_TOKEN/g, capiToken)
+      .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE|YOUR_TEST_CODE/g, testCode)
+      .replace(/RUPAN_GTM_ID|GTM_ID|YOUR_GTM_ID|YOUR_GTM_CONTAINER_ID/g, gtmId)
+      .replace(/RUPAN_GA4_ID|GA4_ID|YOUR_GA4_ID|YOUR_GA_ID/g, gaId)
       .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
       .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
       .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);

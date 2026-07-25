@@ -76,22 +76,29 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   const [formSeoEnabled, setFormSeoEnabled] = useState(true);
   const [formMarketingEnabled, setFormMarketingEnabled] = useState(true);
 
-  // Script Preview Drawer state
+  // Script & Final Code Modal state
   const [showScriptPreview, setShowScriptPreview] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
+  const [showFinalCodeModal, setShowFinalCodeModal] = useState(false);
+  const [copiedFinalCode, setCopiedFinalCode] = useState(false);
 
   const previewRef = useRef<HTMLIFrameElement>(null);
   const codeRef = useRef<HTMLTextAreaElement>(null);
   const [saveMsg, setSaveMsg] = useState('');
 
   const ALL_PLACEHOLDERS = [
-    { key: 'RUPAN_META_PIXEL_ID', aliases: ['META_PIXEL_ID'], label: 'Meta Pixel ID', checkRaw: (html: string) => html.includes('fbq(') || html.includes('fbevents.js') || html.includes('connect.facebook.net') },
-    { key: 'RUPAN_META_CAPI_TOKEN', aliases: ['META_CAPI_TOKEN'], label: 'Meta CAPI Access Token' },
-    { key: 'RUPAN_META_TEST_CODE', aliases: ['META_TEST_CODE'], label: 'Meta CAPI Test Code' },
-    { key: 'RUPAN_GTM_ID', aliases: ['GTM_ID'], label: 'Google Tag Manager ID', checkRaw: (html: string) => html.includes('gtm.js') },
-    { key: 'RUPAN_GA4_ID', aliases: ['GA4_ID'], label: 'Google Analytics 4 ID', checkRaw: (html: string) => html.includes('gtag/js') },
-    { key: 'RUPAN_SUPABASE_URL', aliases: ['SUPABASE_URL'], label: 'Supabase Database URL' },
-    { key: 'RUPAN_SUPABASE_KEY', aliases: ['SUPABASE_KEY'], label: 'Supabase Anon Key' },
+    { 
+      key: 'RUPAN_META_PIXEL_ID', 
+      aliases: ['META_PIXEL_ID', 'YOUR_PIXEL_ID', 'YOUR_PIXEL_ID_HERE', 'YOUR_FACEBOOK_PIXEL_ID', 'FB_PIXEL_ID'], 
+      label: 'Meta Pixel ID', 
+      checkRaw: (html: string) => html.includes('fbq(') || html.includes('fbevents.js') || html.includes('connect.facebook.net') 
+    },
+    { key: 'RUPAN_META_CAPI_TOKEN', aliases: ['META_CAPI_TOKEN', 'YOUR_CAPI_TOKEN'], label: 'Meta CAPI Access Token' },
+    { key: 'RUPAN_META_TEST_CODE', aliases: ['META_TEST_CODE', 'YOUR_TEST_CODE'], label: 'Meta CAPI Test Code' },
+    { key: 'RUPAN_GTM_ID', aliases: ['GTM_ID', 'YOUR_GTM_ID', 'YOUR_GTM_CONTAINER_ID'], label: 'Google Tag Manager ID', checkRaw: (html: string) => html.includes('gtm.js') },
+    { key: 'RUPAN_GA4_ID', aliases: ['GA4_ID', 'YOUR_GA4_ID', 'YOUR_GA_ID'], label: 'Google Analytics 4 ID', checkRaw: (html: string) => html.includes('gtag/js') },
+    { key: 'RUPAN_SUPABASE_URL', aliases: ['SUPABASE_URL', 'YOUR_SUPABASE_URL'], label: 'Supabase Database URL' },
+    { key: 'RUPAN_SUPABASE_KEY', aliases: ['SUPABASE_KEY', 'YOUR_SUPABASE_KEY'], label: 'Supabase Anon Key' },
     { key: 'RUPAN_INSIDE_DHAKA_SHIPPING', aliases: [], label: 'Inside Dhaka Shipping Cost' },
     { key: 'RUPAN_OUTSIDE_DHAKA_SHIPPING', aliases: [], label: 'Outside Dhaka Shipping Cost' },
     { key: 'RUPAN_FREE_SHIPPING_MIN', aliases: [], label: 'Free Shipping Min Order' }
@@ -136,11 +143,11 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
     const freeShippingMin = String(settings?.free_shipping_min_order || '3000');
 
     html = html
-      .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
-      .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
-      .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
-      .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
-      .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+      .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID|YOUR_PIXEL_ID|YOUR_PIXEL_ID_HERE|YOUR_FACEBOOK_PIXEL_ID|FB_PIXEL_ID/g, pixelId)
+      .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN|YOUR_CAPI_TOKEN/g, capiToken)
+      .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE|YOUR_TEST_CODE/g, testCode)
+      .replace(/RUPAN_GTM_ID|GTM_ID|YOUR_GTM_ID|YOUR_GTM_CONTAINER_ID/g, gtmId)
+      .replace(/RUPAN_GA4_ID|GA4_ID|YOUR_GA4_ID|YOUR_GA_ID/g, gaId)
       .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
       .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
       .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
@@ -494,6 +501,14 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
                 <span>Injected Script Preview</span>
               </button>
             )}
+            <button
+              onClick={() => setShowFinalCodeModal(true)}
+              className="bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-2.5 py-1 rounded-lg flex items-center gap-1 font-bold text-[10px] uppercase transition-all cursor-pointer"
+              title="View full output HTML code with all injected scripts and replaced variables"
+            >
+              <Code className="w-3.5 h-3.5" />
+              <span>Show Final Compiled Code</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -701,6 +716,50 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
             </div>
           )}
         </div>
+
+        {/* FINAL COMPILED CODE MODAL */}
+        {showFinalCodeModal && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-zinc-900 text-white rounded-3xl w-full max-w-4xl max-h-[85vh] flex flex-col p-6 space-y-4 border border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-150">
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Code className="w-5 h-5 text-brand-primary" />
+                  <div>
+                    <h3 className="font-extrabold text-sm uppercase tracking-wide">Final Compiled HTML Code</h3>
+                    <p className="text-[10px] text-zinc-400 font-mono">Output HTML with replaced variables & injected scripts</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(getPreviewHtml());
+                      setCopiedFinalCode(true);
+                      setTimeout(() => setCopiedFinalCode(false), 2000);
+                    }}
+                    className="bg-brand-primary hover:bg-blue-600 text-white text-[10px] font-bold uppercase px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedFinalCode ? 'Copied to Clipboard!' : 'Copy Final HTML'}
+                  </button>
+                  <button
+                    onClick={() => setShowFinalCodeModal(false)}
+                    className="p-1.5 text-zinc-400 hover:text-white rounded-lg cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                This is the exact final HTML document served to your visitors — including replaced variables (<code className="text-green-400">META_PIXEL_ID</code>, <code className="text-green-400">YOUR_PIXEL_ID</code>, <code className="text-green-400">SUPABASE_URL</code>, etc.), injected Meta Pixel scripts, GTM, GA4, and custom header/footer scripts.
+              </p>
+              <textarea
+                readOnly
+                value={getPreviewHtml()}
+                className="flex-1 bg-zinc-950 text-green-400 font-mono text-xs p-4 rounded-2xl border border-zinc-800 focus:outline-none resize-none overflow-y-auto leading-relaxed min-h-[350px]"
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
