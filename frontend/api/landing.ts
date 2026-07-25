@@ -26,6 +26,41 @@ function isKnownReactRoute(urlPath: string): boolean {
   return false;
 }
 
+function renderErrorHtml(res: VercelResponse, title: string = 'সাময়িক সমস্যা হয়েছে', message: string = 'দুঃখিত, পেজটি লোড করতে সাময়িক টেকনিক্যাল সমস্যা হয়েছে। দয়া করে মেইন ওয়েবসাইটে ফিরে যান।') {
+  const html = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rupan | ${title}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Hind Siliguri', sans-serif; }
+    h1, a { font-family: 'Fredoka', 'Hind Siliguri', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-xl border border-slate-100">
+    <div class="w-20 h-20 bg-orange-50 text-[#ff5c00] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold">
+      ⚠️
+    </div>
+    <h1 class="text-2xl font-bold text-slate-900 mb-2">${title}</h1>
+    <p class="text-slate-500 text-sm mb-8 leading-relaxed">
+      ${message}
+    </p>
+    <a href="https://www.myrupan.com" class="inline-flex items-center justify-center gap-2 bg-[#ff5c00] hover:bg-orange-600 text-white font-bold text-base px-8 py-3.5 rounded-full transition-all shadow-lg hover:shadow-orange-200 cursor-pointer">
+      🏠 হোমপেজে ফিরে যান (Return to Homepage)
+    </a>
+  </div>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  return res.status(200).send(html);
+}
+
 function serveIndexHtml(res: VercelResponse) {
   const pathsToTry = [
     path.join(process.cwd(), 'dist', 'index.html'),
@@ -59,9 +94,7 @@ function serveIndexHtml(res: VercelResponse) {
     return res.status(200).send(html);
   } else {
     console.error(`serveIndexHtml failed. Tried paths: ${pathsToTry.join(', ')}. Last error: ${lastError?.message}`);
-    // Fallback: redirect to root and let Vercel serve it
-    res.setHeader('Location', '/');
-    return res.status(302).end();
+    return renderErrorHtml(res, 'পেজটি লোড হতে সমস্যা হয়েছে', 'অনুরোধকৃত পেজটি সার্ভ করতে সমস্যা হচ্ছে। দয়া করে হোমপেজে ফিরে যান।');
   }
 }
 
@@ -219,217 +252,222 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Get the original URL path (Vercel passes it in req.url)
-  // vercel.json rewrites pass the full original URL as ?__path= 
-  const rawUrl = req.url || '/';
-  const urlObj = new URL(rawUrl, 'http://localhost');
-  const pathParam = urlObj.searchParams.get('__path') || (req.query.__path as string);
-  const rawPath = pathParam ? pathParam.split('?')[0] : urlObj.pathname;
-  const urlPath = rawPath.startsWith('/') ? rawPath : '/' + rawPath;
-  const cleanPath = urlPath.split('?')[0];
+  try {
+    // Get the original URL path (Vercel passes it in req.url)
+    // vercel.json rewrites pass the full original URL as ?__path= 
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, 'http://localhost');
+    const pathParam = urlObj.searchParams.get('__path') || (req.query.__path as string);
+    const rawPath = pathParam ? pathParam.split('?')[0] : urlObj.pathname;
+    const urlPath = rawPath.startsWith('/') ? rawPath : '/' + rawPath;
+    const cleanPath = urlPath.split('?')[0];
 
-  // A. Handle redirect for /product?id=Mohasagor8184
-  const productId = req.query.id as string;
-  if (cleanPath === '/product' && productId) {
-    const cleanId = productId.trim();
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    // A. Handle redirect for /product?id=Mohasagor8184
+    const productId = req.query.id as string;
+    if (cleanPath === '/product' && productId) {
+      const cleanId = productId.trim();
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
-    if (supabaseUrl && supabaseKey) {
-      const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false, autoRefreshToken: false }
-      });
+      if (supabaseUrl && supabaseKey) {
+        const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+          auth: { persistSession: false, autoRefreshToken: false }
+        });
 
-      try {
-        let product: any = null;
+        try {
+          let product: any = null;
 
-        // 1. Try exact match first
-        const { data: exact } = await supabaseClient
-          .from('products')
-          .select('id, slug')
-          .or(`id.eq.${cleanId},slug.eq.${cleanId}`)
-          .maybeSingle();
+          // 1. Try exact match first
+          const { data: exact } = await supabaseClient
+            .from('products')
+            .select('id, slug')
+            .or(`id.eq.${cleanId},slug.eq.${cleanId}`)
+            .maybeSingle();
 
-        if (exact) {
-          product = exact;
-        } else {
-          // 2. If exact match fails, apply 3000 offset tolerance mapping
-          const numMatch = cleanId.match(/\d+$/);
-          if (numMatch) {
-            const searchNum = parseInt(numMatch[0], 10);
-            const prefixMatch = cleanId.match(/^[a-zA-Z]+/);
-            const prefix = prefixMatch ? prefixMatch[0].toLowerCase() : 'mohasagor';
+          if (exact) {
+            product = exact;
+          } else {
+            // 2. If exact match fails, apply 3000 offset tolerance mapping
+            const numMatch = cleanId.match(/\d+$/);
+            if (numMatch) {
+              const searchNum = parseInt(numMatch[0], 10);
+              const prefixMatch = cleanId.match(/^[a-zA-Z]+/);
+              const prefix = prefixMatch ? prefixMatch[0].toLowerCase() : 'mohasagor';
 
-            const offsets = [-3000, 3000];
-            let foundAlt = false;
-            for (const offset of offsets) {
-              const altNum = searchNum + offset;
-              if (altNum > 0) {
-                const altId = `${prefix}-${altNum}`;
-                const { data: altData } = await supabaseClient
-                  .from('products')
-                  .select('id, slug')
-                  .or(`id.eq.${altId},id.eq.${altNum}`)
-                  .maybeSingle();
-
-                if (altData) {
-                  product = altData;
-                  foundAlt = true;
-                  break;
-                }
-              }
-            }
-
-            if (!foundAlt && !prefixMatch) {
+              const offsets = [-3000, 3000];
+              let foundAlt = false;
               for (const offset of offsets) {
                 const altNum = searchNum + offset;
                 if (altNum > 0) {
-                  const altId = `mohasagor-${altNum}`;
+                  const altId = `${prefix}-${altNum}`;
                   const { data: altData } = await supabaseClient
                     .from('products')
                     .select('id, slug')
-                    .eq('id', altId)
+                    .or(`id.eq.${altId},id.eq.${altNum}`)
                     .maybeSingle();
 
                   if (altData) {
                     product = altData;
+                    foundAlt = true;
                     break;
+                  }
+                }
+              }
+
+              if (!foundAlt && !prefixMatch) {
+                for (const offset of offsets) {
+                  const altNum = searchNum + offset;
+                  if (altNum > 0) {
+                    const altId = `mohasagor-${altNum}`;
+                    const { data: altData } = await supabaseClient
+                      .from('products')
+                      .select('id, slug')
+                      .eq('id', altId)
+                      .maybeSingle();
+
+                    if (altData) {
+                      product = altData;
+                      break;
+                    }
                   }
                 }
               }
             }
           }
-        }
 
-        if (product) {
-          const destination = `/product/${product.slug || product.id}`;
-          res.setHeader('Location', destination);
-          return res.status(301).end();
+          if (product) {
+            const destination = `/product/${product.slug || product.id}`;
+            res.setHeader('Location', destination);
+            return res.status(301).end();
+          }
+        } catch (err) {
+          console.error('Error resolving product redirect:', err);
         }
-      } catch (err) {
-        console.error('Error resolving product redirect:', err);
       }
+
+      // Fallback: redirect to /shop if product resolution fails
+      res.setHeader('Location', '/shop');
+      return res.status(302).end();
     }
 
-    // Fallback: redirect to /shop if product resolution fails
-    res.setHeader('Location', '/shop');
-    return res.status(302).end();
-  }
-
-  // 1. If it's a known React SPA route, serve index.html immediately (no DB lookup)
-  if (isKnownReactRoute(cleanPath)) {
-    return serveIndexHtml(res);
-  }
-
-  // 2. Check Supabase for a custom page at this exact path
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-
-  if (!supabaseUrl || !supabaseKey) {
-    // No Supabase credentials — serve index.html and let React handle it
-    return serveIndexHtml(res);
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-
-  // --- Strategy: try multiple slug matching approaches ---
-
-  // Build slug variants to try: exact, and then by stripping common prefixes
-  const slugVariants: string[] = [urlPath];
-
-  // Also try stripping any /<prefix>/ from the beginning
-  const slugWithoutPrefix = urlPath
-    .replace(/^\//, '')
-    .replace(/^[^/]+\//, '/');  // strip first segment → e.g. /offer26/foo → /foo
-  if (slugWithoutPrefix !== urlPath) {
-    slugVariants.push(slugWithoutPrefix);
-  }
-
-  // Also try extracting just the last segment as a slug suffix match
-  const lastSegment = '/' + urlPath.replace(/^\//, '').replace(/.*\//, '');
-  if (lastSegment !== urlPath) {
-    slugVariants.push(lastSegment);
-  }
-
-  let pageRow: any = null;
-
-  for (const variant of slugVariants) {
-    // Try exact match
-    const { data: exact } = await supabase
-      .from('blogs')
-      .select('id, title, content, category, status, seo_title, seo_description')
-      .eq('id', variant)
-      .eq('status', 'published')
-      .maybeSingle();
-
-    if (exact) {
-      pageRow = exact;
-      break;
+    // 1. If it's a known React SPA route, serve index.html immediately (no DB lookup)
+    if (isKnownReactRoute(cleanPath)) {
+      return serveIndexHtml(res);
     }
 
-    // Try ending-with match (e.g. DB has /blog/q86-... user visits /offer26/q86-...)
-    const slug = variant.replace(/^\//, '');
-    if (slug) {
-      const { data: endsWith } = await supabase
+    // 2. Check Supabase for a custom page at this exact path
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseKey) {
+      // No Supabase credentials — serve index.html and let React handle it
+      return serveIndexHtml(res);
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+
+    // --- Strategy: try multiple slug matching approaches ---
+
+    // Build slug variants to try: exact, and then by stripping common prefixes
+    const slugVariants: string[] = [urlPath];
+
+    // Also try stripping any /<prefix>/ from the beginning
+    const slugWithoutPrefix = urlPath
+      .replace(/^\//, '')
+      .replace(/^[^/]+\//, '/');  // strip first segment → e.g. /offer26/foo → /foo
+    if (slugWithoutPrefix !== urlPath) {
+      slugVariants.push(slugWithoutPrefix);
+    }
+
+    // Also try extracting just the last segment as a slug suffix match
+    const lastSegment = '/' + urlPath.replace(/^\//, '').replace(/.*\//, '');
+    if (lastSegment !== urlPath) {
+      slugVariants.push(lastSegment);
+    }
+
+    let pageRow: any = null;
+
+    for (const variant of slugVariants) {
+      // Try exact match
+      const { data: exact } = await supabase
         .from('blogs')
         .select('id, title, content, category, status, seo_title, seo_description')
-        .ilike('id', `%/${slug}`)
+        .eq('id', variant)
         .eq('status', 'published')
         .maybeSingle();
 
-      if (endsWith) {
-        pageRow = endsWith;
+      if (exact) {
+        pageRow = exact;
         break;
       }
-    }
-  }
 
-  if (pageRow) {
-    if (pageRow.category === '__landing_page__') {
-      // Extract layout/marketing/SEO metadata comments
-      const rawContent = pageRow.content || '';
-      let metadata: any = { seoEnabled: true, marketingEnabled: true };
-      const metadataMatch = rawContent.match(/^<!-- metadata:\s*({.*?})\s*-->/s);
-      
-      if (metadataMatch) {
-        try {
-          metadata = JSON.parse(metadataMatch[1]);
-        } catch (e) {
-          console.error("Failed to parse page metadata:", e);
+      // Try ending-with match (e.g. DB has /blog/q86-... user visits /offer26/q86-...)
+      const slug = variant.replace(/^\//, '');
+      if (slug) {
+        const { data: endsWith } = await supabase
+          .from('blogs')
+          .select('id, title, content, category, status, seo_title, seo_description')
+          .ilike('id', `%/${slug}`)
+          .eq('status', 'published')
+          .maybeSingle();
+
+        if (endsWith) {
+          pageRow = endsWith;
+          break;
         }
       }
-
-      // Fetch global settings for Marketing integration keys
-      let settings: any = null;
-      try {
-        const { data: settingsRow } = await supabase
-          .from('settings')
-          .select('*')
-          .maybeSingle();
-        settings = settingsRow;
-      } catch (err) {
-        console.error("Failed to fetch settings for marketing integration:", err);
-      }
-
-      // Clean metadata comments from raw HTML
-      const cleanedHTML = rawContent
-        .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
-        .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
-
-      // Inject GTM, GA4, Meta Pixel scripts and meta tags
-      const finalHtml = injectMarketingAndSEO(cleanedHTML, pageRow, settings, metadata);
-
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
-      return res.status(200).send(finalHtml);
-    } else {
-      // Regular blog post — serve index.html and let React's BlogPage render it
-      return serveIndexHtml(res);
     }
-  }
 
-  // 3. Nothing found — serve index.html (React's CatchAllRoute shows 404)
-  return serveIndexHtml(res);
+    if (pageRow) {
+      if (pageRow.category === '__landing_page__') {
+        // Extract layout/marketing/SEO metadata comments
+        const rawContent = pageRow.content || '';
+        let metadata: any = { seoEnabled: true, marketingEnabled: true };
+        const metadataMatch = rawContent.match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+        
+        if (metadataMatch) {
+          try {
+            metadata = JSON.parse(metadataMatch[1]);
+          } catch (e) {
+            console.error("Failed to parse page metadata:", e);
+          }
+        }
+
+        // Fetch global settings for Marketing integration keys
+        let settings: any = null;
+        try {
+          const { data: settingsRow } = await supabase
+            .from('settings')
+            .select('*')
+            .maybeSingle();
+          settings = settingsRow;
+        } catch (err) {
+          console.error("Failed to fetch settings for marketing integration:", err);
+        }
+
+        // Clean metadata comments from raw HTML
+        const cleanedHTML = rawContent
+          .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+          .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+
+        // Inject GTM, GA4, Meta Pixel scripts and meta tags
+        const finalHtml = injectMarketingAndSEO(cleanedHTML, pageRow, settings, metadata);
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+        return res.status(200).send(finalHtml);
+      } else {
+        // Regular blog post — serve index.html and let React's BlogPage render it
+        return serveIndexHtml(res);
+      }
+    }
+
+    // 3. Nothing found — serve index.html (React's CatchAllRoute shows 404)
+    return serveIndexHtml(res);
+  } catch (err: any) {
+    console.error("Unhandled exception in landing.ts serverless handler:", err);
+    return renderErrorHtml(res, 'পেজটি লোড হতে সমস্যা হয়েছে', 'অনুরোধকৃত পেজটি লোড করতে সাময়িক টেকনিক্যাল সমস্যা হয়েছে। দয়া করে মেইন ওয়েবসাইটে ফিরে যান।');
+  }
 }
