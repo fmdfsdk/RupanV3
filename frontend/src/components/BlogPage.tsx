@@ -102,13 +102,66 @@ export default function BlogPage() {
     alert('Blog post link copied to your clipboard!');
   };
 
+  const dbSettings = useStore((state) => state.dbSettings);
+
   if (activePost) {
     const otherPosts = BLOGS.filter((b) => b.id !== activePost.id && b.category !== '__landing_page__').slice(0, 2);
 
     if (isBlankLayout) {
-      const cleanedHTML = activePost.content
+      let cleanedHTML = activePost.content
         .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
         .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+
+      // Replace placeholders
+      const pixelId = dbSettings?.metaPixelId || dbSettings?.meta_pixel_id || '';
+      const capiToken = dbSettings?.metaCapiAccessToken || dbSettings?.meta_capi_access_token || '';
+      const testCode = dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code || '';
+      const gtmId = dbSettings?.googleTagManagerId || dbSettings?.google_tag_manager_id || '';
+      const gaId = dbSettings?.googleAnalyticsId || dbSettings?.google_analytics_id || '';
+      const insideDhaka = String(dbSettings?.shippingFeeInsideDhaka || dbSettings?.inside_dhaka_shipping || '60');
+      const outsideDhaka = String(dbSettings?.shippingFeeOutsideDhaka || dbSettings?.outside_dhaka_shipping || '120');
+      const freeShippingMin = String(dbSettings?.freeShippingMinOrder || dbSettings?.free_shipping_min_order || '3000');
+      const supUrl = (window as any).SUPABASE_URL || (window as any).location.origin || '';
+      const supKey = (window as any).SUPABASE_ANON_KEY || '';
+
+      cleanedHTML = cleanedHTML
+        .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
+        .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
+        .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
+        .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
+        .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+        .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
+        .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
+        .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin)
+        .replace(/RUPAN_SUPABASE_URL|SUPABASE_URL/g, supUrl)
+        .replace(/RUPAN_SUPABASE_KEY|SUPABASE_KEY/g, supKey);
+
+      // Inject Meta Pixel script if enabled and not present
+      if (blogSettings.marketingEnabled !== false && pixelId && !cleanedHTML.includes('connect.facebook.net') && !cleanedHTML.includes(pixelId)) {
+        const metaPixelScript = `
+<!-- Dynamic Meta Pixel Code (Rupan) -->
+<script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '${pixelId}');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"/></noscript>
+`;
+        const headIdx = cleanedHTML.search(/<head>/i);
+        if (headIdx !== -1) {
+          cleanedHTML = cleanedHTML.slice(0, headIdx + 6) + metaPixelScript + cleanedHTML.slice(headIdx + 6);
+        } else {
+          cleanedHTML = metaPixelScript + cleanedHTML;
+        }
+      }
+
       return (
         <iframe 
           title={activePost.title}

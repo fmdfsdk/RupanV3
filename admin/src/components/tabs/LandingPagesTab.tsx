@@ -85,24 +85,38 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   const [saveMsg, setSaveMsg] = useState('');
 
   const ALL_PLACEHOLDERS = [
-    { key: 'RUPAN_META_PIXEL_ID', label: 'Meta Pixel ID' },
-    { key: 'RUPAN_META_CAPI_TOKEN', label: 'Meta CAPI Access Token' },
-    { key: 'RUPAN_META_TEST_CODE', label: 'Meta CAPI Test Code' },
-    { key: 'RUPAN_GTM_ID', label: 'Google Tag Manager ID' },
-    { key: 'RUPAN_GA4_ID', label: 'Google Analytics 4 ID' },
-    { key: 'RUPAN_SUPABASE_URL', label: 'Supabase Database URL' },
-    { key: 'RUPAN_SUPABASE_KEY', label: 'Supabase Anon Key' },
-    { key: 'RUPAN_INSIDE_DHAKA_SHIPPING', label: 'Inside Dhaka Shipping Cost' },
-    { key: 'RUPAN_OUTSIDE_DHAKA_SHIPPING', label: 'Outside Dhaka Shipping Cost' },
-    { key: 'RUPAN_FREE_SHIPPING_MIN', label: 'Free Shipping Min Order' }
+    { key: 'RUPAN_META_PIXEL_ID', aliases: ['META_PIXEL_ID'], label: 'Meta Pixel ID', checkRaw: (html: string) => html.includes('fbq(') || html.includes('fbevents.js') || html.includes('connect.facebook.net') },
+    { key: 'RUPAN_META_CAPI_TOKEN', aliases: ['META_CAPI_TOKEN'], label: 'Meta CAPI Access Token' },
+    { key: 'RUPAN_META_TEST_CODE', aliases: ['META_TEST_CODE'], label: 'Meta CAPI Test Code' },
+    { key: 'RUPAN_GTM_ID', aliases: ['GTM_ID'], label: 'Google Tag Manager ID', checkRaw: (html: string) => html.includes('gtm.js') },
+    { key: 'RUPAN_GA4_ID', aliases: ['GA4_ID'], label: 'Google Analytics 4 ID', checkRaw: (html: string) => html.includes('gtag/js') },
+    { key: 'RUPAN_SUPABASE_URL', aliases: ['SUPABASE_URL'], label: 'Supabase Database URL' },
+    { key: 'RUPAN_SUPABASE_KEY', aliases: ['SUPABASE_KEY'], label: 'Supabase Anon Key' },
+    { key: 'RUPAN_INSIDE_DHAKA_SHIPPING', aliases: [], label: 'Inside Dhaka Shipping Cost' },
+    { key: 'RUPAN_OUTSIDE_DHAKA_SHIPPING', aliases: [], label: 'Outside Dhaka Shipping Cost' },
+    { key: 'RUPAN_FREE_SHIPPING_MIN', aliases: [], label: 'Free Shipping Min Order' }
   ];
 
   const getPlaceholderAudit = () => {
     const found: any[] = [];
     const missing: any[] = [];
     for (const item of ALL_PLACEHOLDERS) {
-      if (formContent.includes(item.key)) {
-        found.push(item);
+      const hasKey = formContent.includes(item.key);
+      const hasAlias = item.aliases && item.aliases.some((a: string) => formContent.includes(a));
+      const hasRaw = item.checkRaw ? item.checkRaw(formContent) : false;
+      const isAutoInjected = formMarketingEnabled && (
+        (item.key === 'RUPAN_META_PIXEL_ID' && settings?.meta_pixel_id) ||
+        (item.key === 'RUPAN_GTM_ID' && settings?.google_tag_manager_id) ||
+        (item.key === 'RUPAN_GA4_ID' && settings?.google_analytics_id)
+      );
+
+      if (hasKey || hasAlias || hasRaw || isAutoInjected) {
+        let matchedTag = item.key;
+        if (hasAlias && !hasKey) matchedTag = item.aliases.find((a: string) => formContent.includes(a)) || item.key;
+        if (hasRaw && !hasKey && !hasAlias) matchedTag = `${item.label} (Embedded Script Detected)`;
+        if (isAutoInjected && !hasKey && !hasAlias && !hasRaw) matchedTag = `${item.label} (Auto-Injected by Rupan)`;
+
+        found.push({ ...item, matchedTag });
       } else {
         missing.push(item);
       }
@@ -112,25 +126,59 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
 
   const getPreviewHtml = () => {
     let html = formContent;
-    if (settings) {
-      html = html
-        .replace(/RUPAN_META_PIXEL_ID/g, settings.meta_pixel_id || 'MOCK_PIXEL_ID')
-        .replace(/RUPAN_META_CAPI_TOKEN/g, settings.meta_capi_access_token || 'MOCK_CAPI_TOKEN')
-        .replace(/RUPAN_META_TEST_CODE/g, settings.meta_test_event_code || 'TEST_CODE')
-        .replace(/RUPAN_GTM_ID/g, settings.google_tag_manager_id || 'GTM_ID')
-        .replace(/RUPAN_GA4_ID/g, settings.google_analytics_id || 'GA4_ID')
-        .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, String(settings.inside_dhaka_shipping || '60'))
-        .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, String(settings.outside_dhaka_shipping || '120'))
-        .replace(/RUPAN_FREE_SHIPPING_MIN/g, String(settings.free_shipping_min_order || '3000'));
-    }
+    const pixelId = settings?.meta_pixel_id || 'MOCK_PIXEL_ID';
+    const capiToken = settings?.meta_capi_access_token || 'MOCK_CAPI_TOKEN';
+    const testCode = settings?.meta_test_event_code || 'TEST_CODE';
+    const gtmId = settings?.google_tag_manager_id || 'GTM_ID';
+    const gaId = settings?.google_analytics_id || 'GA4_ID';
+    const insideDhaka = String(settings?.inside_dhaka_shipping || '60');
+    const outsideDhaka = String(settings?.outside_dhaka_shipping || '120');
+    const freeShippingMin = String(settings?.free_shipping_min_order || '3000');
+
+    html = html
+      .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
+      .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
+      .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
+      .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
+      .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+      .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
+      .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
+      .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
+
     // Get keys from window (or mock if offline/blank)
     const supUrl = (window as any).SUPABASE_URL || (window as any).location.origin || 'https://yourdomain.supabase.co';
     const supKey = (window as any).SUPABASE_ANON_KEY || 'mock-anon-key';
     
     html = html
-      .replace(/RUPAN_SUPABASE_URL/g, supUrl)
-      .replace(/RUPAN_SUPABASE_KEY/g, supKey);
+      .replace(/RUPAN_SUPABASE_URL|SUPABASE_URL/g, supUrl)
+      .replace(/RUPAN_SUPABASE_KEY|SUPABASE_KEY/g, supKey);
       
+    // Inject Meta Pixel script if marketing enabled and not present
+    if (formMarketingEnabled && settings?.meta_pixel_id && !html.includes('connect.facebook.net') && !html.includes(settings.meta_pixel_id)) {
+      const metaPixelScript = `
+<!-- Dynamic Meta Pixel Code (Preview) -->
+<script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '${settings.meta_pixel_id}');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${settings.meta_pixel_id}&ev=PageView&noscript=1"/></noscript>
+`;
+      const headIdx = html.search(/<head>/i);
+      if (headIdx !== -1) {
+        html = html.slice(0, headIdx + 6) + metaPixelScript + html.slice(headIdx + 6);
+      } else {
+        html = metaPixelScript + html;
+      }
+    }
+
     return html;
   };
 
@@ -139,6 +187,17 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
     fetchPages();
     fetchSettings();
   }, []);
+
+  // Keyboard shortcut listener for Esc key to close editor
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editorOpen) {
+        setEditorOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editorOpen]);
 
   const fetchSettings = async () => {
     try {

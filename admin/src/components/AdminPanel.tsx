@@ -158,6 +158,76 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [blogMarketingEnabled, setBlogMarketingEnabled] = useState<boolean>(true);
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
 
+  // Close blog composer modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && blogModalOpen) {
+        setBlogModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [blogModalOpen]);
+
+  const getModalPreviewHtml = () => {
+    let html = blogForm.content || '';
+    const st = settings as any;
+    if (st) {
+      const pixelId = st.meta_pixel_id || st.metaPixelId || 'MOCK_PIXEL_ID';
+      const capiToken = st.meta_capi_access_token || st.metaCapiAccessToken || 'MOCK_CAPI_TOKEN';
+      const testCode = st.meta_test_event_code || st.metaTestEventCode || 'TEST_CODE';
+      const gtmId = st.google_tag_manager_id || st.googleTagManagerId || 'GTM_ID';
+      const gaId = st.google_analytics_id || st.googleAnalyticsId || 'GA4_ID';
+      const insideDhaka = String(st.inside_dhaka_shipping || st.insideDhakaShipping || '60');
+      const outsideDhaka = String(st.outside_dhaka_shipping || st.outsideDhakaShipping || '120');
+      const freeShippingMin = String(st.free_shipping_min_order || st.freeShippingMinOrder || '3000');
+
+      html = html
+        .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
+        .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
+        .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
+        .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
+        .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+        .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
+        .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
+        .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
+    }
+    const supUrl = (window as any).SUPABASE_URL || (window as any).location.origin || 'https://yourdomain.supabase.co';
+    const supKey = (window as any).SUPABASE_ANON_KEY || 'mock-anon-key';
+
+    html = html
+      .replace(/RUPAN_SUPABASE_URL|SUPABASE_URL/g, supUrl)
+      .replace(/RUPAN_SUPABASE_KEY|SUPABASE_KEY/g, supKey);
+
+    const pixId = st?.meta_pixel_id || st?.metaPixelId;
+    if (blogMarketingEnabled && pixId && !html.includes('connect.facebook.net') && !html.includes(pixId)) {
+      const metaPixelScript = `
+<!-- Dynamic Meta Pixel Code (Preview) -->
+<script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '${pixId}');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${pixId}&ev=PageView&noscript=1"/></noscript>
+`;
+      const headIdx = html.search(/<head>/i);
+      if (headIdx !== -1) {
+        html = html.slice(0, headIdx + 6) + metaPixelScript + html.slice(headIdx + 6);
+      } else {
+        html = metaPixelScript + html;
+      }
+    }
+
+    return html;
+  };
+
   // Selected Order Detail View
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderTimeline, setOrderTimeline] = useState<string[]>([]);
@@ -3252,88 +3322,104 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   <div className="flex-1 flex flex-col min-h-[300px]">
                     
                     {editorMode === 'visual' ? (
-                      /* Visual Editor Pane */
-                      <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
-                        {/* Rich Text Toolbar */}
-                        <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('bold', false)}
-                            className="px-2 py-1 font-bold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                            title="Bold"
-                          >
-                            B
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('italic', false)}
-                            className="px-2 py-1 italic rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                            title="Italic"
-                          >
-                            I
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('underline', false)}
-                            className="px-2 py-1 underline rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                            title="Underline"
-                          >
-                            U
-                          </button>
-                          <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('formatBlock', false, '<h2>')}
-                            className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                            title="Heading 2"
-                          >
-                            H2
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('formatBlock', false, '<h3>')}
-                            className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                            title="Heading 3"
-                          >
-                            H3
-                          </button>
-                          <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('insertUnorderedList', false)}
-                            className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
-                            title="Unordered List"
-                          >
-                            • List
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand('insertOrderedList', false)}
-                            className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
-                            title="Ordered List"
-                          >
-                            1. List
-                          </button>
+                      (blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? (
+                        /* Sandboxed Iframe Preview for Landing Pages */
+                        <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white min-h-[360px]">
+                          <div className="bg-gray-100 border-b border-gray-200 px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center justify-between">
+                            <span>Live Sandboxed Preview</span>
+                            <span className="text-gray-400 font-mono text-[9px]">Isolated Document Environment</span>
+                          </div>
+                          <iframe
+                            title="Landing Page Live Preview"
+                            srcDoc={getModalPreviewHtml()}
+                            className="w-full flex-1 min-h-[320px] bg-white border-none"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                          />
                         </div>
-                        
-                        {/* contentEditable Visual Box */}
-                        <div
-                          contentEditable
-                          suppressContentEditableWarning
-                          onFocus={() => { (window as any).focusedEditor = 'visual'; }}
-                          onBlur={() => { (window as any).focusedEditor = null; }}
-                          onInput={(e) => {
-                            const html = e.currentTarget.innerHTML;
-                            setBlogForm({ ...blogForm, content: html });
-                          }}
-                          ref={(el) => {
-                            if (el && (window as any).focusedEditor !== 'visual') {
-                              el.innerHTML = blogForm.content;
-                            }
-                          }}
-                          className="p-5 flex-1 overflow-y-auto text-xs focus:outline-none leading-relaxed prose max-w-none text-zinc-800 min-h-[320px]"
-                        />
-                      </div>
+                      ) : (
+                        /* Visual Editor Pane for Blog Articles */
+                        <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
+                          {/* Rich Text Toolbar */}
+                          <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('bold', false)}
+                              className="px-2 py-1 font-bold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                              title="Bold"
+                            >
+                              B
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('italic', false)}
+                              className="px-2 py-1 italic rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                              title="Italic"
+                            >
+                              I
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('underline', false)}
+                              className="px-2 py-1 underline rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                              title="Underline"
+                            >
+                              U
+                            </button>
+                            <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('formatBlock', false, '<h2>')}
+                              className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                              title="Heading 2"
+                            >
+                              H2
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('formatBlock', false, '<h3>')}
+                              className="px-2 py-1 font-extrabold rounded hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+                              title="Heading 3"
+                            >
+                              H3
+                            </button>
+                            <span className="h-4 w-[1px] bg-gray-300 mx-1"></span>
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('insertUnorderedList', false)}
+                              className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
+                              title="Unordered List"
+                            >
+                              • List
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => document.execCommand('insertOrderedList', false)}
+                              className="px-2 py-1 rounded hover:bg-gray-200 text-gray-700 transition-colors font-mono cursor-pointer"
+                              title="Ordered List"
+                            >
+                              1. List
+                            </button>
+                          </div>
+                          
+                          {/* contentEditable Visual Box */}
+                          <div
+                            contentEditable
+                            suppressContentEditableWarning
+                            onFocus={() => { (window as any).focusedEditor = 'visual'; }}
+                            onBlur={() => { (window as any).focusedEditor = null; }}
+                            onInput={(e) => {
+                              const html = e.currentTarget.innerHTML;
+                              setBlogForm({ ...blogForm, content: html });
+                            }}
+                            ref={(el) => {
+                              if (el && (window as any).focusedEditor !== 'visual') {
+                                el.innerHTML = blogForm.content;
+                              }
+                            }}
+                            className="p-5 flex-1 overflow-y-auto text-xs focus:outline-none leading-relaxed prose max-w-none text-zinc-800 min-h-[320px]"
+                          />
+                        </div>
+                      )
                     ) : (
                       /* HTML Source Code Pane */
                       <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-zinc-950">

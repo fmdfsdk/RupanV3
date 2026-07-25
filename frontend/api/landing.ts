@@ -71,47 +71,147 @@ function serveIndexHtml(res: VercelResponse) {
  */
 function injectMarketingAndSEO(html: string, page: any, settings: any, metadata: any): string {
   const seoEnabled = metadata.seoEnabled !== false;
+  const marketingEnabled = metadata.marketingEnabled !== false;
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
   let modifiedHtml = html;
 
-  // 1. Perform placeholder replacements
+  // 1. Perform placeholder replacements (both RUPAN_* and standard aliases e.g. META_PIXEL_ID)
   if (settings) {
+    const pixelId = settings.meta_pixel_id || '';
+    const capiToken = settings.meta_capi_access_token || '';
+    const testCode = settings.meta_test_event_code || '';
+    const gtmId = settings.google_tag_manager_id || '';
+    const gaId = settings.google_analytics_id || '';
+    const insideDhaka = String(settings.inside_dhaka_shipping || '60');
+    const outsideDhaka = String(settings.outside_dhaka_shipping || '120');
+    const freeShippingMin = String(settings.free_shipping_min_order || '3000');
+
     modifiedHtml = modifiedHtml
-      .replace(/RUPAN_META_PIXEL_ID/g, settings.meta_pixel_id || '')
-      .replace(/RUPAN_META_CAPI_TOKEN/g, settings.meta_capi_access_token || '')
-      .replace(/RUPAN_META_TEST_CODE/g, settings.meta_test_event_code || '')
-      .replace(/RUPAN_GTM_ID/g, settings.google_tag_manager_id || '')
-      .replace(/RUPAN_GA4_ID/g, settings.google_analytics_id || '')
-      .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, String(settings.inside_dhaka_shipping || '60'))
-      .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, String(settings.outside_dhaka_shipping || '120'))
-      .replace(/RUPAN_FREE_SHIPPING_MIN/g, String(settings.free_shipping_min_order || '3000'));
+      .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID/g, pixelId)
+      .replace(/RUPAN_META_CAPI_TOKEN|META_CAPI_TOKEN/g, capiToken)
+      .replace(/RUPAN_META_TEST_CODE|META_TEST_CODE/g, testCode)
+      .replace(/RUPAN_GTM_ID|GTM_ID/g, gtmId)
+      .replace(/RUPAN_GA4_ID|GA4_ID/g, gaId)
+      .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
+      .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
+      .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
   }
 
   modifiedHtml = modifiedHtml
-    .replace(/RUPAN_SUPABASE_URL/g, supabaseUrl)
-    .replace(/RUPAN_SUPABASE_KEY/g, supabaseKey);
+    .replace(/RUPAN_SUPABASE_URL|SUPABASE_URL/g, supabaseUrl)
+    .replace(/RUPAN_SUPABASE_KEY|SUPABASE_KEY/g, supabaseKey);
 
   // 2. Inject SEO Tools if enabled
   if (seoEnabled) {
     const title = page.seo_title || page.title || 'Rupan';
     const description = page.seo_description || 'Rupan - Premium Bangladeshi Fashion Brand';
     
-    const headInjections = `
+    const headSeoInjections = `
     <!-- Dynamic SEO Meta Tags -->
     <title>${title}</title>
-    <meta name="description" content="${description}" />
-    <meta property="og:title" content="${title}" />
-    <meta property="og:description" content="${description}" />
+    <meta name="description" content="${description.replace(/"/g, '&quot;')}" />
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}" />
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     `;
 
     const headTagIndex = modifiedHtml.search(/<head>/i);
     if (headTagIndex !== -1) {
-      modifiedHtml = modifiedHtml.slice(0, headTagIndex + 6) + headInjections + modifiedHtml.slice(headTagIndex + 6);
+      modifiedHtml = modifiedHtml.slice(0, headTagIndex + 6) + headSeoInjections + modifiedHtml.slice(headTagIndex + 6);
+    }
+  }
+
+  // 3. Inject Marketing Scripts (Meta Pixel, GTM, GA4, Header/Footer Scripts) if marketingEnabled !== false
+  if (marketingEnabled && settings) {
+    let headMarketingScripts = '';
+    let bodyMarketingScripts = '';
+
+    // A. Meta Pixel Injection
+    if (settings.meta_pixel_id && !modifiedHtml.includes('connect.facebook.net') && !modifiedHtml.includes(settings.meta_pixel_id)) {
+      headMarketingScripts += `
+<!-- Dynamic Meta Pixel Code (Rupan) -->
+<script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '${settings.meta_pixel_id}');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${settings.meta_pixel_id}&ev=PageView&noscript=1"/></noscript>
+<!-- End Meta Pixel Code -->
+`;
+    }
+
+    // B. Google Tag Manager Injection
+    if (settings.google_tag_manager_id && !modifiedHtml.includes('gtm.js')) {
+      headMarketingScripts += `
+<!-- Dynamic Google Tag Manager (Rupan) -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${settings.google_tag_manager_id}');</script>
+<!-- End Google Tag Manager -->
+`;
+      bodyMarketingScripts += `
+<!-- Dynamic Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${settings.google_tag_manager_id}"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+`;
+    }
+
+    // C. GA4 Injection
+    if (settings.google_analytics_id && !modifiedHtml.includes('googletagmanager.com/gtag/js')) {
+      headMarketingScripts += `
+<!-- Dynamic Google Analytics GA4 (Rupan) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=${settings.google_analytics_id}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${settings.google_analytics_id}');
+</script>
+`;
+    }
+
+    // D. Custom Header Script Injection
+    if (settings.header_script) {
+      headMarketingScripts += `\n<!-- Dynamic Custom Header Script -->\n${settings.header_script}\n`;
+    }
+
+    // E. Custom Footer Script Injection
+    if (settings.footer_script) {
+      bodyMarketingScripts += `\n<!-- Dynamic Custom Footer Script -->\n${settings.footer_script}\n`;
+    }
+
+    // Inject Head Scripts
+    if (headMarketingScripts) {
+      const headIdx = modifiedHtml.search(/<head>/i);
+      if (headIdx !== -1) {
+        modifiedHtml = modifiedHtml.slice(0, headIdx + 6) + headMarketingScripts + modifiedHtml.slice(headIdx + 6);
+      } else {
+        modifiedHtml = headMarketingScripts + modifiedHtml;
+      }
+    }
+
+    // Inject Body Scripts
+    if (bodyMarketingScripts) {
+      const bodyEndIdx = modifiedHtml.search(/<\/body>/i);
+      if (bodyEndIdx !== -1) {
+        modifiedHtml = modifiedHtml.slice(0, bodyEndIdx) + bodyMarketingScripts + modifiedHtml.slice(bodyEndIdx);
+      } else {
+        modifiedHtml += bodyMarketingScripts;
+      }
     }
   }
 
