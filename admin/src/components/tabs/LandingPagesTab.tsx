@@ -328,8 +328,15 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
       };
 
       if (editingPage) {
-        const { error } = await supabase.from('blogs').update(payload).eq('id', editingPage.id);
+        if (editingPage.id !== path) {
+          const { error: delErr } = await supabase.from('blogs').delete().eq('id', editingPage.id).select();
+          if (delErr) console.warn('Could not delete old path:', delErr.message);
+        }
+        const { data, error } = await supabase.from('blogs').upsert([payload], { onConflict: 'id' }).select();
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error('Database update returned empty result. Failed to save changes.');
+        }
         setPages(prev => prev.map(p => p.id === editingPage.id ? { 
           ...p, 
           id: path,
@@ -339,7 +346,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
           seo_enabled: formSeoEnabled,
           marketing_enabled: formMarketingEnabled
         } : p));
-        setSaveMsg('Landing page updated!');
+        setSaveMsg('Landing page updated successfully!');
       } else {
         // Check for duplicate
         if (pages.some(p => p.id === path)) {
@@ -347,8 +354,11 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
           setSaving(false);
           return;
         }
-        const { error } = await supabase.from('blogs').insert([payload]);
+        const { data, error } = await supabase.from('blogs').upsert([payload], { onConflict: 'id' }).select();
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error('Database insert returned empty result. Failed to create page.');
+        }
         const newPage: LandingPage = { 
           id: path, 
           title: formTitle.trim(), 
@@ -358,7 +368,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
           marketing_enabled: formMarketingEnabled
         };
         setPages(prev => [newPage, ...prev]);
-        setSaveMsg('Landing page created!');
+        setSaveMsg('Landing page created successfully!');
       }
 
       setTimeout(() => setSaveMsg(''), 3000);
@@ -372,9 +382,21 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this landing page permanently?')) return;
     try {
-      const { error } = await supabase.from('blogs').delete().eq('id', id);
+      let { data, error } = await supabase.from('blogs').delete().eq('id', id).select();
+
+      if (!error && (!data || data.length === 0)) {
+        const altId = id.startsWith('/') ? id.substring(1) : '/' + id;
+        const res = await supabase.from('blogs').delete().eq('id', altId).select();
+        data = res.data;
+        error = res.error;
+      }
+
       if (error) throw error;
-      setPages(prev => prev.filter(p => p.id !== id));
+      if (!data || data.length === 0) {
+        throw new Error('Deletion failed: Record was not found in database or permission was denied.');
+      }
+      setPages(prev => prev.filter(p => p.id !== id && p.id !== (id.startsWith('/') ? id.substring(1) : '/' + id)));
+      alert('Landing page deleted successfully!');
     } catch (err: any) {
       alert('Error deleting page: ' + err.message);
     }

@@ -1397,39 +1397,59 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       seoDescription: blogForm.seoDescription || undefined
     };
 
-    if (editingBlog) {
-      const { error } = await supabase.from('blogs').update(payload).eq('id', editingBlog.id);
-      if (error) {
-        alert("Error updating item: " + error.message);
-        return;
+    try {
+      if (editingBlog) {
+        if (editingBlog.id !== finalId) {
+          const { error: delErr } = await supabase.from('blogs').delete().eq('id', editingBlog.id).select();
+          if (delErr) console.warn('Could not delete old ID:', delErr.message);
+        }
+        const { data, error } = await supabase.from('blogs').upsert([payload], { onConflict: 'id' }).select();
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error("Database update returned empty result. Failed to save changes.");
+        }
+        setBlogs(blogs.map(b => b.id === editingBlog.id ? finalBlog : b));
+        alert("Updated successfully!");
+      } else {
+        if (blogs.some(b => b.id === finalBlog.id)) {
+          alert("An item with this URL path already exists!");
+          return;
+        }
+        const { data, error } = await supabase.from('blogs').upsert([payload], { onConflict: 'id' }).select();
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error("Database insert returned empty result. Failed to create page.");
+        }
+        setBlogs([finalBlog, ...blogs]);
+        alert("Created successfully!");
       }
-      setBlogs(blogs.map(b => b.id === editingBlog.id ? finalBlog : b));
-      alert("Updated successfully!");
-    } else {
-      if (blogs.some(b => b.id === finalBlog.id)) {
-        alert("An item with this URL path already exists!");
-        return;
-      }
-      const { error } = await supabase.from('blogs').insert([payload]);
-      if (error) {
-        alert("Error creating item: " + error.message);
-        return;
-      }
-      setBlogs([finalBlog, ...blogs]);
-      alert("Created successfully!");
+      setBlogModalOpen(false);
+    } catch (err: any) {
+      alert("Error saving: " + err.message);
     }
-    setBlogModalOpen(false);
   };
 
   const handleDeleteBlog = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this blog post?")) return;
-    const { error } = await supabase.from('blogs').delete().eq('id', id);
-    if (error) {
-      alert("Error deleting blog: " + error.message);
-      return;
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    try {
+      let { data, error } = await supabase.from('blogs').delete().eq('id', id).select();
+
+      if (!error && (!data || data.length === 0)) {
+        const altId = id.startsWith('/') ? id.substring(1) : '/' + id;
+        const res = await supabase.from('blogs').delete().eq('id', altId).select();
+        data = res.data;
+        error = res.error;
+      }
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Record not found in database or deletion permission was denied.");
+      }
+      setBlogs(blogs.filter(b => b.id !== id && b.id !== (id.startsWith('/') ? id.substring(1) : '/' + id)));
+      alert("Deleted successfully!");
+    } catch (err: any) {
+      alert("Error deleting: " + err.message);
     }
-    setBlogs(blogs.filter(b => b.id !== id));
-    alert("Blog post deleted successfully!");
   };
 
   const handleBannerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
