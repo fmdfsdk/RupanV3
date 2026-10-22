@@ -160,8 +160,9 @@ async function run() {
     const numericId = numMatch ? numMatch[0] : '';
     
     if (numericId) {
-      const nameSlug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const slug = `${nameSlug}-${numericId}`;
+      const cleanName = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const baseSlug = cleanName || 'product';
+      const slug = `${baseSlug}-${numericId}`;
       addUrlNode(`/product/${slug}`, '0.8', 'weekly');
     } else {
       addUrlNode(`/product/${p.id}`, '0.7', 'weekly');

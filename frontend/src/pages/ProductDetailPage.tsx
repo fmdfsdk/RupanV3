@@ -6,6 +6,7 @@ import { productService } from '../services/productService';
 import { Product } from '../types';
 import { useSEO, buildProductSchema, buildBreadcrumbSchema } from '../hooks/useSEO';
 import { trackViewContent, generateEventId } from '../lib/telemetry';
+import { getProductSlug } from '../utils/image';
 
 
 
@@ -31,9 +32,20 @@ export default function ProductDetailPage() {
     if (!id) return;
 
     const slug = id.trim().toLowerCase();
-    // Extract the numeric code from the end of the slug (e.g. "shirt-4083" → "4083")
-    const numMatch = slug.match(/-(\d+)$/);
+    // Extract the numeric code from the end of the slug (e.g. "shirt-4083" → "4083", "-8586" → "8586", "8586" → "8586")
+    const numMatch = slug.match(/(\d+)$/);
     const numericId = numMatch ? numMatch[1] : null;
+    const searchNum = numericId ? parseInt(numericId, 10) : null;
+
+    // Build candidate numbers with ±3000 offset tolerance mapping
+    const candidateNumbers: number[] = [];
+    if (searchNum) {
+      candidateNumbers.push(searchNum);
+      if (searchNum > 3000) {
+        candidateNumbers.push(searchNum - 3000);
+      }
+      candidateNumbers.push(searchNum + 3000);
+    }
 
     let cancelled = false;
 
@@ -41,12 +53,28 @@ export default function ProductDetailPage() {
       setLoading(true);
       setProduct(null);
 
-      // Helper: find by numeric code or exact ID in any list
+      // Helper: find by numeric code (with offset tolerance) or exact ID/slug in any list
       const findIn = (list: Product[]) => {
-        if (numericId) {
-          return list.find(p => String(p.id).endsWith('-' + numericId));
+        if (!list || list.length === 0) return null;
+
+        // 1. Exact match on ID or slug first
+        const exact = list.find(p => 
+          String(p.id).toLowerCase() === slug || 
+          (p.slug && String(p.slug).toLowerCase() === slug)
+        );
+        if (exact) return exact;
+
+        // 2. Numeric ID match (exact and offset tolerance)
+        for (const num of candidateNumbers) {
+          const found = list.find(p => 
+            String(p.id).endsWith(`-${num}`) || 
+            String(p.id) === String(num) ||
+            (p.slug && (String(p.slug).endsWith(`-${num}`) || String(p.slug) === String(num)))
+          );
+          if (found) return found;
         }
-        return list.find(p => String(p.id).toLowerCase() === slug);
+
+        return null;
       };
 
       // STEP 1: Check local 1000 products (instant)
@@ -95,6 +123,17 @@ export default function ProductDetailPage() {
     return () => { cancelled = true; };
   }, [id, products, catalogIndex]);
 
+  // Canonical URL auto-correction:
+  // If the user lands via legacy URL, offset ID, or malformed slug (e.g. /product/-8586 or /product/-5586),
+  // smoothly replace the URL with the proper canonical slug in the browser address bar.
+  useEffect(() => {
+    if (!product || !id) return;
+    const canonicalSlug = getProductSlug(product.name, product.id);
+    if (canonicalSlug && id !== canonicalSlug) {
+      navigate(`/product/${canonicalSlug}`, { replace: true });
+    }
+  }, [product, id, navigate]);
+
   const dbSettings = useStore((state) => state.dbSettings);
 
   // Track ViewContent event when product details are resolved/loaded
@@ -109,7 +148,7 @@ export default function ProductDetailPage() {
   }, [product, dbSettings]);
 
   // Product SEO — uses DB seoTitle/seoDescription when available
-  const productSlug = product?.slug || id || '';
+  const productSlug = product ? getProductSlug(product.name, product.id) : (id || '');
   const seoTitle = product
     ? (product.seoTitle || `${product.name} | ${product.category || 'পণ্য'} কিনুন | Rupan`)
     : 'পণ্য লোড হচ্ছে... | Rupan';

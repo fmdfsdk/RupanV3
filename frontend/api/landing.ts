@@ -336,7 +336,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
 
           if (product) {
-            const destination = `/product/${product.slug || product.id}`;
+            let targetSlug = product.slug || product.id;
+            if (targetSlug.startsWith('-')) {
+              targetSlug = `product${targetSlug}`;
+            }
+            const destination = `/product/${targetSlug}`;
             res.setHeader('Location', destination);
             return res.status(301).end();
           }

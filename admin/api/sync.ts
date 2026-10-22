@@ -324,10 +324,13 @@ export default async function handler(req: any, res: any) {
         const stock = isOutOfStock ? 0 : 50;
 
         // Map fields into final products schema
+        const cleanName = (item.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const baseSlug = cleanName || 'product';
+        const code = item.product_code || item.id;
         const productRow = {
           id: `${source}-${item.id}`,
           name: item.name,
-          slug: item.slug || `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${item.product_code || item.id}`,
+          slug: item.slug || `${baseSlug}-${code}`,
           sku: item.product_code ? `${source.toUpperCase()}-${item.product_code}` : `${source.toUpperCase()}-${item.id}`,
           brand: item.brand || 'Rupan',
           category: categoryId,

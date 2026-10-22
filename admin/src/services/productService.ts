@@ -214,7 +214,7 @@ export const productService = {
           const { data: altData } = await supabase
             .from('products')
             .select('*')
-            .or(`id.eq.${altId},id.eq.${altNum}`)
+            .or(`id.eq.${altId},id.eq.${altNum},slug.eq.${altId},slug.eq.${altNum},slug.eq.-${altNum},slug.eq.product-${altNum}`)
             .maybeSingle();
             
           if (altData) return altData;
@@ -230,7 +230,7 @@ export const productService = {
             const { data: altData } = await supabase
               .from('products')
               .select('*')
-              .eq('id', altId)
+              .or(`id.eq.${altId},id.eq.${altNum},slug.eq.${altId},slug.eq.${altNum},slug.eq.-${altNum},slug.eq.product-${altNum}`)
               .maybeSingle();
               
             if (altData) return altData;

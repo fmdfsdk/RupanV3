@@ -28,9 +28,13 @@ export function getOptimizedImageUrl(url: string, width = 600): string {
  *   3. Matches the pattern used by major BD dropshipping sites for familiarity.
  */
 export function getProductSlug(name: string, productId: string): string {
-  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const cleanName = (name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
   // Extract numeric part from product ID (e.g. "mohasagor-4083" → "4083")
-  const numMatch = String(productId).match(/\d+$/);
+  const numMatch = String(productId || '').match(/\d+$/);
   const numericId = numMatch ? numMatch[0] : '';
-  return numericId ? `${nameSlug}-${numericId}` : nameSlug;
+  const baseSlug = cleanName || 'product';
+  return numericId ? `${baseSlug}-${numericId}` : baseSlug;
 }

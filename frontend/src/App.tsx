@@ -374,7 +374,9 @@ function ProductRedirect() {
         const product = await fetchProductByIdFromDB(productId);
         if (active) {
           if (product) {
-            navigate(`/product/${product.slug || product.id}`, { replace: true });
+            let targetSlug = product.slug || product.id;
+            if (targetSlug.startsWith('-')) targetSlug = `product${targetSlug}`;
+            navigate(`/product/${targetSlug}`, { replace: true });
           } else {
             navigate('/shop', { replace: true });
           }
