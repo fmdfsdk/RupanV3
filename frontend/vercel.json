@@ -102,8 +102,8 @@
       "destination": "/index.html"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/api/landing?__path=/:1*"
+      "source": "/:path*",
+      "destination": "/api/landing?__path=/:path*"
     }
   ]
 }
