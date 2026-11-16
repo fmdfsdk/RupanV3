@@ -34,6 +34,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/order-tracking",
+      "destination": "/index.html"
+    },
+    {
       "source": "/order-success",
       "destination": "/index.html"
     },
@@ -42,11 +46,23 @@
       "destination": "/index.html"
     },
     {
+      "source": "/search",
+      "destination": "/index.html"
+    },
+    {
       "source": "/about-us",
       "destination": "/index.html"
     },
     {
+      "source": "/about",
+      "destination": "/index.html"
+    },
+    {
       "source": "/contact-us",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contact",
       "destination": "/index.html"
     },
     {
@@ -86,8 +102,8 @@
       "destination": "/index.html"
     },
     {
-      "source": "/:path*",
-      "destination": "/api/landing?__path=/:path*"
+      "source": "/((?!api/).*)",
+      "destination": "/api/landing?__path=/:1*"
     }
   ]
 }

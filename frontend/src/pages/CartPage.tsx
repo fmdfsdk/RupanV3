@@ -34,8 +34,10 @@ export default function CartPage() {
 
   const getShippingFee = () => {
     if (cart.length === 0) return 0;
-    const freeShippingLimit = dbSettings?.free_shipping_min_order ?? dbSettings?.freeShippingMinOrder ?? 3000;
-    if (getSubtotal() >= freeShippingLimit) return 0;
+    if (appliedCoupon?.type === 'free_shipping') return 0;
+    const isFreeShippingEnabled = Boolean(dbSettings?.free_shipping_enabled ?? dbSettings?.freeShippingEnabled ?? false);
+    const freeShippingLimit = Number(dbSettings?.free_shipping_min_order ?? dbSettings?.freeShippingMinOrder ?? 0);
+    if (isFreeShippingEnabled && freeShippingLimit > 0 && getSubtotal() >= freeShippingLimit) return 0;
     // Default Inside Dhaka area for cart estimation, can change in checkout
     const insideFee = dbSettings?.inside_dhaka_shipping ?? dbSettings?.insideDhakaShipping ?? 60;
     return insideFee;
@@ -60,11 +62,11 @@ export default function CartPage() {
 
   const handleCouponSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const success = applyCoupon(couponCode);
-    if (success) {
-      addToast('Coupon applied successfully!', 'success');
+    const res = applyCoupon(couponCode);
+    if (res.success) {
+      addToast(res.message, 'success');
     } else {
-      addToast('Invalid Coupon Code! Try "RUPAN20" or "EIDMUBARAK".', 'error');
+      addToast(res.message, 'error');
     }
   };
 

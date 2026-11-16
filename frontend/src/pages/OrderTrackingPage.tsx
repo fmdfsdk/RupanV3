@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { orderService } from '../services/orderService';
 import { Order } from '../types';
 
 export default function OrderTrackingPage() {
+  const [searchParams] = useSearchParams();
   const isSupabaseOnline = useStore((state) => state.isSupabaseOnline);
   const localOrders = useStore((state) => state.orders);
   const dbSettings = useStore((state) => state.dbSettings);
@@ -17,17 +19,21 @@ export default function OrderTrackingPage() {
 
   const supportNum = dbSettings?.supportNumber || dbSettings?.support_number || '+8809612345678';
 
-  const handleTrackQuery = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const normalizePhone = (p: string) => (p || '').replace(/\D/g, '').slice(-11);
+
+  const executeTrack = useCallback(async (orderIdToTrack: string, phoneToTrack: string) => {
+    const cleanId = orderIdToTrack.trim().toUpperCase();
+    const cleanPhone = phoneToTrack.trim();
+    if (!cleanId) return;
+
     setTrackingSearched(true);
     setIsSearching(true);
-    
-    const cleanId = trackOrderId.trim().toUpperCase();
-    const cleanPhone = trackPhone.trim();
+
+    const normInput = normalizePhone(cleanPhone);
 
     // 1. Try to search locally first
     const localMatched = localOrders.find(
-      (o) => o.id.toUpperCase() === cleanId && o.phone === cleanPhone
+      (o) => o.id.toUpperCase() === cleanId && (!cleanPhone || normalizePhone(o.phone) === normInput)
     );
 
     if (localMatched) {
@@ -36,24 +42,36 @@ export default function OrderTrackingPage() {
       return;
     }
 
-    // 2. Try to search live database if online
-    if (isSupabaseOnline) {
-      try {
-        const order = await orderService.fetchOrderByIdAndPhone(cleanId, cleanPhone);
-        if (order) {
-          setTrackingResult(order);
-        } else {
-          setTrackingResult(null);
-        }
-      } catch (err) {
-        console.error("Error searching order in Supabase:", err);
+    // 2. Try to search live database
+    try {
+      const order = await orderService.fetchOrderByIdAndPhone(cleanId, cleanPhone);
+      if (order) {
+        setTrackingResult(order);
+      } else {
         setTrackingResult(null);
       }
-    } else {
+    } catch (err) {
+      console.error("Error searching order in Supabase:", err);
       setTrackingResult(null);
+    } finally {
+      setIsSearching(false);
     }
-    
-    setIsSearching(false);
+  }, [localOrders]);
+
+  // Auto-fill and search from URL parameters (e.g. from OrderSuccessPage: /track-order?id=RUP-...&phone=...)
+  useEffect(() => {
+    const qId = searchParams.get('id') || searchParams.get('orderId') || '';
+    const qPhone = searchParams.get('phone') || '';
+    if (qId) {
+      setTrackOrderId(qId);
+      if (qPhone) setTrackPhone(qPhone);
+      executeTrack(qId, qPhone);
+    }
+  }, [searchParams, executeTrack]);
+
+  const handleTrackQuery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    executeTrack(trackOrderId, trackPhone);
   };
 
   return (
@@ -66,7 +84,7 @@ export default function OrderTrackingPage() {
           Track Your Delivery Status
         </h1>
         <p className="text-sm text-gray-500 max-w-sm mx-auto">
-          Enter your Order ID (e.g. RUP-9524) and Phone Number to inspect your delivery timeline.
+          Enter your Order ID (e.g. RUP-261116-4892) and Phone Number to inspect your delivery timeline.
         </p>
         
         <div className="flex justify-center pt-2">
@@ -99,7 +117,7 @@ export default function OrderTrackingPage() {
             required
             value={trackOrderId}
             onChange={(e) => setTrackOrderId(e.target.value)}
-            placeholder="e.g. RUP-9524"
+            placeholder="e.g. RUP-261116-4892"
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-primary font-mono"
           />
         </div>

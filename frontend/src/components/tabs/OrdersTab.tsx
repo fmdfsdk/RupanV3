@@ -1,5 +1,5 @@
 import React from 'react';
-import { ListOrdered, FileDown } from 'lucide-react';
+import { ListOrdered, FileDown, RefreshCw } from 'lucide-react';
 import { Order } from '../../types';
 
 interface OrdersTabProps {
@@ -10,6 +10,7 @@ interface OrdersTabProps {
   setOrderTimeline: (timeline: string[]) => void;
   handleUpdateOrderStatus: (id: string, status: Order['status']) => void;
   handleUpdateOrderPayment: (id: string, paymentStatus: Order['paymentStatus']) => void;
+  onRefresh?: () => void;
 }
 
 export default function OrdersTab({
@@ -19,7 +20,8 @@ export default function OrdersTab({
   orderTimeline,
   setOrderTimeline,
   handleUpdateOrderStatus,
-  handleUpdateOrderPayment
+  handleUpdateOrderPayment,
+  onRefresh
 }: OrdersTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -27,6 +29,23 @@ export default function OrdersTab({
         <div>
           <h1 className="text-2xl font-black tracking-tight">Orders Registry</h1>
           <p className="text-xs text-gray-500">Configure order fulfillment workflow states and print customer invoices.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Realtime live indicator */}
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            LIVE SYNC
+          </span>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-brand-primary bg-white border border-gray-200 hover:border-brand-primary px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+              title="Manually refresh orders from database"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          )}
         </div>
       </div>
 
@@ -38,6 +57,12 @@ export default function OrdersTab({
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">All Transactions ({orders.length})</span>
           </div>
           <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+            {orders.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <ListOrdered className="w-10 h-10 stroke-1 mb-3" />
+                <p className="text-xs font-semibold">No orders yet. New orders will appear here instantly.</p>
+              </div>
+            )}
             {orders.map((o) => (
               <div 
                 key={o.id} 

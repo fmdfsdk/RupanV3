@@ -124,6 +124,17 @@ export default class ErrorBoundary extends Component<Props, State> {
               Go to Home
             </button>
           </div>
+
+          {this.state.error && (
+            <details className="mt-4 text-left w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-[11px] text-gray-600 font-mono">
+              <summary className="cursor-pointer font-bold text-gray-700 select-none hover:text-gray-900">
+                Technical Details ({this.state.error.message || 'Error details'})
+              </summary>
+              <div className="mt-2 p-2 bg-gray-100 rounded text-[10px] text-rose-600 overflow-x-auto whitespace-pre-wrap">
+                {this.state.error.stack || this.state.error.message}
+              </div>
+            </details>
+          )}
         </div>
       );
     }

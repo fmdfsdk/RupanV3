@@ -202,13 +202,13 @@ export default function HomePage() {
   const getHomepageNewArrivals = () => {
     const matches = featuredProducts.newArrivals || [];
     if (matches.length > 0) {
-      if (matches.length < 18) {
-        const fill = PRODUCTS.filter(p => !matches.some(m => m.id === p.id)).slice(0, 18 - matches.length);
+      if (matches.length < 36) {
+        const fill = PRODUCTS.filter(p => !matches.some(m => m.id === p.id)).slice(0, 36 - matches.length);
         return [...matches, ...fill];
       }
-      return matches.slice(0, 18);
+      return matches.slice(0, 36);
     }
-    return PRODUCTS.slice(0, 18);
+    return PRODUCTS.slice(0, 36);
   };
 
   const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -335,8 +335,8 @@ export default function HomePage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {getHomepageProducts('trending', (p) => p.isFeatured, 6).map((product) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {getHomepageProducts('trending', (p) => p.isFeatured, 12).map((product) => (
             <ProductCard
               key={product.id}
               product={product}
@@ -364,7 +364,7 @@ export default function HomePage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {getHomepageNewArrivals().map((product) => (
             <ProductCard
               key={product.id}
@@ -393,8 +393,8 @@ export default function HomePage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {getHomepageProducts('best_sellers', (p) => p.isBestSeller, 6).map((product) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {getHomepageProducts('best_sellers', (p) => p.isBestSeller, 12).map((product) => (
             <ProductCard
               key={product.id}
               product={product}
@@ -407,6 +407,42 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Curated Collection — For You (আপনার জন্য বিশেষ কালেকশন) */}
+      {PRODUCTS.length > 36 && (
+        <section className="w-full max-w-[1750px] mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="flex items-center justify-between mb-8 pb-3 border-b border-gray-100">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#ff5c00] block mb-0.5">
+                Curated For You
+              </span>
+              <h2 className="font-sans text-xl sm:text-2xl font-black text-gray-900 uppercase tracking-tight">
+                আপনার জন্য বিশেষ কালেকশন
+              </h2>
+            </div>
+            <button 
+              onClick={() => { setSelectedCategory('All'); navigate('/shop'); }}
+              className="bg-black text-white hover:bg-gray-800 text-[11px] font-bold px-4 py-2 rounded-full uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              সব কালেকশন দেখুন
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {PRODUCTS.slice(36, 72).map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onQuickView={(p) => setQuickViewProduct(p)}
+                onAddToCart={addToCart}
+                onBuyNow={handleBuyNow}
+                onToggleWishlist={toggleWishlist}
+                isWishlisted={wishlist.some((w) => w.id === product.id)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 4. Value Props */}
       <ValueProps />

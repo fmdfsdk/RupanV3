@@ -7,8 +7,8 @@ export const productService = {
    * Fast: single query, used to render shop/homepage on first load.
    */
   async fetchProducts(): Promise<Product[]> {
-    const columns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug';
-    const { data, error } = await supabase
+    const columns = 'id, name, price, discount_price, purchase_price, final_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug';
+    let { data, error } = await supabase
       .from('products')
       .select(columns)
       .eq('status', 'published')
@@ -16,9 +16,29 @@ export const productService = {
       .limit(1000);
 
     if (error) {
-      throw new Error(`Failed to fetch products: ${error.message}`);
+      console.warn("Product fetch with final_price failed, falling back to base columns:", error.message);
+      const fallbackColumns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug';
+      const fallbackRes = await supabase
+        .from('products')
+        .select(fallbackColumns)
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      data = fallbackRes.data;
     }
-    return data || [];
+
+    return (data || []).map((p: any) => {
+      const regPrice = Number(p.price || 0);
+      const purchPrice = Number(p.purchase_price ?? regPrice);
+      const diffX = Math.max(0, regPrice - purchPrice);
+      const calcFloor = Math.round(regPrice - 0.25 * diffX);
+      return {
+        ...p,
+        discountPrice: p.discount_price,
+        purchasePrice: p.purchase_price,
+        finalPrice: p.final_price ?? calcFloor
+      };
+    });
   },
 
   /**
@@ -27,7 +47,7 @@ export const productService = {
    * Runs in parallel background chunks after initial load.
    */
   async fetchProductCatalogIndex(): Promise<Product[]> {
-    const columns = 'id, name, slug, category, images, price, discount_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale';
+    const columns = 'id, name, slug, category, images, price, discount_price, purchase_price, final_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale';
     try {
       let allItems: Product[] = [];
       let page = 0;
@@ -44,7 +64,13 @@ export const productService = {
         if (error || !data || data.length === 0) {
           hasMore = false;
         } else {
-          allItems = allItems.concat(data as Product[]);
+          const mappedPage = (data || []).map((p: any) => ({
+            ...p,
+            discountPrice: p.discount_price,
+            purchasePrice: p.purchase_price,
+            finalPrice: p.final_price
+          }));
+          allItems = allItems.concat(mappedPage as Product[]);
           if (data.length < pageSize) {
             hasMore = false;
           } else {

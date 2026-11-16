@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart3, LayoutDashboard, ShoppingBag, ListOrdered, Users, Tag, Image, 
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
@@ -13,6 +13,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile } from '../types';
 import { PRODUCTS } from '../data';
+import { generateFullSimulatedCatalog } from '../utils/mockCatalogGenerator';
 import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
 
 // Import Decomposed Tab Components
@@ -24,10 +25,12 @@ import CustomersTab from './tabs/CustomersTab';
 import CouponsTab from './tabs/CouponsTab';
 import HomepageTab from './tabs/HomepageTab';
 import BlogsTab from './tabs/BlogsTab';
+import LandingPagesTab from './tabs/LandingPagesTab';
 import ReviewsTab from './tabs/ReviewsTab';
 import SettingsTab from './tabs/SettingsTab';
 import SeoMarketingTab from './tabs/SeoMarketingTab';
 import SyncTab from './tabs/SyncTab';
+import MarginsTab from './tabs/MarginsTab';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -58,15 +61,19 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     currencySymbol: '৳',
     insideDhakaShipping: 60,
     outsideDhakaShipping: 120,
-    freeShippingMinOrder: 3000,
+    freeShippingMinOrder: 0,
+    freeShippingEnabled: false,
     theme: 'sleek',
     paymentBanglaQrEnabled: true,
     paymentBkashEnabled: true,
     paymentNagadEnabled: true,
     paymentCodEnabled: true,
+    paymentScreenshotEnabled: true,
     paymentBkashNumber: '01600338318',
     paymentNagadNumber: '01600338318',
-    paymentBanglaQrImage: '/assets/BanglaQRcode.jpeg',
+    paymentBanglaQrImage: '/assets/Defualt_Bangla_Qr_EBL.jpeg',
+    onlinePaymentDiscountEnabled: false,
+    onlinePaymentDiscountPercent: 50,
     paymentBanglaQrInstruction: 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
     paymentMfsInstruction: 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
     paymentCodInstruction: 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
@@ -86,6 +93,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [syncLastPage, setSyncLastPage] = useState<number>(1);
   const [syncStats, setSyncStats] = useState({ fetched: 0, imported: 0, updated: 0, failed: 0 });
   const [selectedLog, setSelectedLog] = useState<any>(null);
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string>('');
+  const [syncScope, setSyncScope] = useState<'recent' | 'all' | 'custom'>('recent');
+  const [customStartPage, setCustomStartPage] = useState<number>(1);
+  const [customEndPage, setCustomEndPage] = useState<number>(5);
+  const stopSyncRef = useRef<boolean>(false);
+
+  const handleStopSync = () => {
+    stopSyncRef.current = true;
+    setSyncStatusMessage('Halting sync after current operation completes...');
+  };
 
   // Pagination states
   const [productsPage, setProductsPage] = useState<number>(1);
@@ -296,26 +313,120 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     fetchData();
   }, []);
 
+  // Supabase Realtime: auto-inject new orders the moment they are inserted into the DB
+  useEffect(() => {
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel('admin-orders-realtime')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'orders' },
+          (payload: any) => {
+            try {
+              const d: any = payload?.new;
+              if (!d || !d.id) return;
+              const newOrder: Order = {
+                id: d.id,
+                customerName: d.customer_name || d.customerName || 'Guest Customer',
+                phone: d.phone || '',
+                address: d.address || '',
+                area: d.area || 'Inside Dhaka',
+                paymentMethod: d.payment_method || d.paymentMethod || 'Cash on Delivery',
+                transactionId: d.transaction_id || d.transactionId || '',
+                paidConfirm: d.paid_confirm !== undefined ? d.paid_confirm : (d.paidConfirm || false),
+                items: Array.isArray(d.items) ? d.items : [],
+                subtotal: Number(d.subtotal || 0),
+                shippingFee: Number(d.shipping_fee ?? d.shippingFee ?? 0),
+                total: Number(d.total || 0),
+                status: d.status || 'Pending',
+                paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
+                createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+                isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+                isIncognitoGuest: d.is_incognito_guest !== undefined ? d.is_incognito_guest : (d.isIncognitoGuest !== undefined ? d.isIncognitoGuest : false),
+                userId: d.user_id || d.userId
+              };
+              // Prepend to orders list (newest first), avoid duplicates
+              setOrders((prev) => {
+                if (prev.some((o) => o.id === newOrder.id)) return prev;
+                return [newOrder, ...prev];
+              });
+            } catch (innerErr) {
+              console.warn('[Realtime] Failed to process INSERT payload:', innerErr);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'orders' },
+          (payload: any) => {
+            try {
+              const d: any = payload?.new;
+              if (!d || !d.id) return;
+              setOrders((prev) =>
+                prev.map((o) =>
+                  o.id === d.id
+                    ? {
+                        ...o,
+                        status: d.status || o.status,
+                        paymentStatus: d.payment_status || d.paymentStatus || o.paymentStatus,
+                      }
+                    : o
+                )
+              );
+            } catch (innerErr) {
+              console.warn('[Realtime] Failed to process UPDATE payload:', innerErr);
+            }
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn('[Realtime] Could not subscribe to orders channel:', err);
+    }
+
+    return () => {
+      try {
+        if (channel && supabase.removeChannel) {
+          supabase.removeChannel(channel);
+        }
+      } catch (_) {}
+    };
+  }, []);
+
   // Reset pagination page on search/filter changes
   useEffect(() => {
     setProductsPage(1);
-  }, [searchQuery, filterCategory, filterStatus]);
+  }, [searchQuery, filterCategory, filterStatus, activeTab]);
 
   // Load paginated products page
   useEffect(() => {
-    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus);
-  }, [productsPage, searchQuery, filterCategory, filterStatus]);
+    const sourceMode = activeTab === 'my-products' 
+      ? 'manual' 
+      : activeTab === 'mohasagor-products' 
+      ? 'mohasagor' 
+      : 'all';
+    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus, sourceMode);
+  }, [productsPage, searchQuery, filterCategory, filterStatus, activeTab]);
 
-  const fetchProductsPage = async (page: number, search: string, category: string, status: string, onlyManual: boolean = false) => {
+  const fetchProductsPage = async (page: number, search: string, category: string, status: string, sourceMode: 'all' | 'manual' | 'mohasagor' = 'all') => {
     try {
       if (!isSupabaseOnline) {
-        // --- OFFLINE MOCK MODE ---
-        let localData = PRODUCTS;
+        // --- OFFLINE MOCK MODE (Realistic Full Simulation) ---
+        let localData: any[] = [];
         const stored = localStorage.getItem('rup_db_products');
         if (stored) {
-          try { localData = JSON.parse(stored); } catch (e) {}
+          try { 
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              localData = parsed;
+            }
+          } catch (e) {}
         }
-
+        if (localData.length === 0) {
+          localData = generateFullSimulatedCatalog(2747);
+          try { localStorage.setItem('rup_db_products', JSON.stringify(localData)); } catch (_) {}
+        }
+        
         const isManualProduct = (p: any) => {
           if (!p) return false;
           const sId = String(p.source_id || p.sourceId || '').trim();
@@ -324,7 +435,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           const hasNoSourceProd = !spId;
           return hasNoSource && hasNoSourceProd;
         };
-        
+
         // Filter in memory
         const filtered = localData.filter(p => {
           if (!p) return false;
@@ -337,8 +448,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                                 idStr.toLowerCase().includes(search.toLowerCase());
           const matchesCategory = category === 'All' || p.category === category;
           const matchesStatus = status === 'All' || p.status === status;
-          const matchesManual = !onlyManual || isManualProduct(p);
-          return matchesSearch && matchesCategory && matchesStatus && matchesManual;
+          const matchesSource = sourceMode === 'all' 
+            ? true 
+            : sourceMode === 'manual' 
+            ? isManualProduct(p) 
+            : !isManualProduct(p);
+          return matchesSearch && matchesCategory && matchesStatus && matchesSource;
         });
         
         setTotalProductsCount(filtered.length);
@@ -358,8 +473,10 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (category !== 'All') {
         dbQuery = dbQuery.eq('category', category);
       }
-      if (onlyManual) {
-        dbQuery = dbQuery.or('source_id.is.null,source_id.eq.,source_id.eq.manual').is('source_product_id', null);
+      if (sourceMode === 'manual') {
+        dbQuery = dbQuery.or('source_id.is.null,source_id.eq.manual');
+      } else if (sourceMode === 'mohasagor') {
+        dbQuery = dbQuery.eq('source_id', 'mohasagor');
       }
       
       // Search query (fuzzy search on name/sku/id)
@@ -393,12 +510,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     let hasMore = true;
 
     while (hasMore) {
-      const { data, error } = await supabase
+      let query = supabase
         .from(tableName)
         .select('*')
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      if (error || !data || data.length === 0) {
+      // For orders: sort newest first so admin sees latest orders at top
+      if (tableName === 'orders') {
+        query = (query as any).order('created_at', { ascending: false });
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(`[fetchAllTableRows] Error fetching ${tableName}:`, error.message);
+        hasMore = false;
+      } else if (!data || data.length === 0) {
         hasMore = false;
       } else {
         allRows = allRows.concat(data);
@@ -422,7 +549,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         fetchAllTableRows('blogs'),
         fetchAllTableRows('reviews'),
         fetchAllTableRows('users'),
-        supabase.from('settings').select('*').single()
+        supabase.from('settings').select('*').maybeSingle()
       ]);
       const sData = sDataRes.data;
 
@@ -475,6 +602,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         paymentStatus: d.payment_status || d.paymentStatus || 'Unpaid',
         createdAt: d.created_at || d.createdAt || new Date().toISOString(),
         isGuest: d.is_guest !== undefined ? d.is_guest : (d.isGuest !== undefined ? d.isGuest : true),
+        isIncognitoGuest: d.is_incognito_guest !== undefined ? d.is_incognito_guest : (d.isIncognitoGuest !== undefined ? d.isIncognitoGuest : false),
         userId: d.user_id || d.userId
       }));
       const sortedOrders = [...mappedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -494,7 +622,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         } catch (_) {}
       }
       if (bData) setBanners(bData);
-      if (blData) setBlogs(blData);
+      if (blData) {
+        const mapped = blData.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          excerpt: b.excerpt,
+          content: b.content,
+          image: b.image,
+          date: b.created_at ? new Date(b.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : b.date,
+          readTime: b.read_time || b.readTime || '3 min read',
+          category: b.category,
+          status: b.status,
+          seoTitle: b.seo_title || b.seoTitle,
+          seoDescription: b.seo_description || b.seoDescription
+        }));
+        setBlogs(mapped);
+      }
       if (rData) setReviews(rData);
       if (uData) setUsers(uData);
       if (sData) {
@@ -510,32 +653,74 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           outsideDhakaShipping: Number(sData.outside_dhaka_shipping ?? sData.outsideDhakaShipping ?? 120),
           freeShippingMinOrder: Number(sData.free_shipping_min_order ?? sData.freeShippingMinOrder ?? 3000),
           theme: sData.theme || 'sleek',
-          metaPixelId: sData.meta_pixel_id || sData.metaPixelId || '',
-          metaTestEventCode: sData.meta_test_event_code || sData.metaTestEventCode || '',
-          googleTagManagerId: sData.google_tag_manager_id || sData.googleTagManagerId || '',
-          googleAnalyticsId: sData.google_analytics_id || sData.googleAnalyticsId || '',
+          metaPixelId:         sData.meta_pixel_id          || sData.metaPixelId         || '',
+          metaTestEventCode:   sData.meta_test_event_code   || sData.metaTestEventCode   || '',
+          metaCapiAccessToken: sData.meta_capi_access_token || sData.metaCapiAccessToken || '',
+          googleTagManagerId:  sData.google_tag_manager_id  || sData.googleTagManagerId  || '',
+          googleAnalyticsId:   sData.google_analytics_id    || sData.googleAnalyticsId   || '',
           paymentBanglaQrEnabled: sData.payment_bangla_qr_enabled !== undefined ? sData.payment_bangla_qr_enabled : (sData.paymentBanglaQrEnabled !== undefined ? sData.paymentBanglaQrEnabled : true),
           paymentBkashEnabled: sData.payment_bkash_enabled !== undefined ? sData.payment_bkash_enabled : (sData.paymentBkashEnabled !== undefined ? sData.paymentBkashEnabled : true),
           paymentNagadEnabled: sData.payment_nagad_enabled !== undefined ? sData.payment_nagad_enabled : (sData.paymentNagadEnabled !== undefined ? sData.paymentNagadEnabled : true),
           paymentCodEnabled: sData.payment_cod_enabled !== undefined ? sData.payment_cod_enabled : (sData.paymentCodEnabled !== undefined ? sData.paymentCodEnabled : true),
+          paymentScreenshotEnabled: sData.payment_screenshot_enabled !== undefined ? sData.payment_screenshot_enabled : (sData.paymentScreenshotEnabled !== undefined ? sData.paymentScreenshotEnabled : true),
           paymentBkashNumber: sData.payment_bkash_number || sData.paymentBkashNumber || '01600338318',
           paymentNagadNumber: sData.payment_nagad_number || sData.paymentNagadNumber || '01600338318',
-          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/BanglaQRcode.jpeg',
+          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/Defualt_Bangla_Qr_EBL.jpeg',
           paymentBanglaQrInstruction: sData.payment_bangla_qr_instruction || sData.paymentBanglaQrInstruction || 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
           paymentMfsInstruction: sData.payment_mfs_instruction || sData.paymentMfsInstruction || 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
           paymentCodInstruction: sData.payment_cod_instruction || sData.paymentCodInstruction || 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
-          socialFacebook: sData.facebook_url || sData.socialFacebook || 'https://www.facebook.com/rupanbd',
-          socialTwitter: sData.twitter_url || sData.socialTwitter || 'https://twitter.com',
-          socialYoutube: sData.youtube_url || sData.socialYoutube || 'https://youtube.com',
-          socialInstagram: sData.instagram_url || sData.socialInstagram || 'https://www.instagram.com/rupanbd',
+          onlinePaymentDiscountEnabled: sData.online_payment_discount_enabled !== undefined ? sData.online_payment_discount_enabled : (sData.onlinePaymentDiscountEnabled !== undefined ? sData.onlinePaymentDiscountEnabled : false),
+          onlinePaymentDiscountPercent: Number(sData.online_payment_discount_percent ?? sData.onlinePaymentDiscountPercent ?? 50),
+          socialFacebook: sData.facebook_url !== undefined && sData.facebook_url !== null ? sData.facebook_url : (sData.socialFacebook || 'https://www.facebook.com/rupanbd'),
+          socialTwitter: sData.twitter_url !== undefined && sData.twitter_url !== null ? sData.twitter_url : (sData.socialTwitter || 'https://twitter.com'),
+          socialYoutube: sData.youtube_url !== undefined && sData.youtube_url !== null ? sData.youtube_url : (sData.socialYoutube || 'https://youtube.com'),
+          socialInstagram: sData.instagram_url !== undefined && sData.instagram_url !== null ? sData.instagram_url : (sData.socialInstagram || 'https://www.instagram.com/rupanbd'),
           telegramBotToken: sData.telegram_bot_token || sData.telegramBotToken || '',
           telegramChatId: sData.telegram_chat_id || sData.telegramChatId || '',
           telegramNotificationsEnabled: sData.telegram_notifications_enabled !== undefined ? sData.telegram_notifications_enabled : (sData.telegramNotificationsEnabled !== undefined ? sData.telegramNotificationsEnabled : true),
+          pricing_config: sData.pricing_config || sData.pricingConfig || null,
+          pricingConfig: sData.pricing_config || sData.pricingConfig || null,
         });
-        const hConfig = sData.homepageConfig || sData.homepage_config;
-        if (hConfig) {
-          setHomepageConfig(hConfig);
-        }
+
+        const hConfig = sData.homepageConfig || sData.homepage_config || {};
+        const defaultFeaturedCategories = [
+          { name: 'Men Fashions', desc: 'Premium Royal Panjabis, thick cotton overshirts, tailored trousers, and formal wear.', icon: '👕', bg: 'from-orange-50 to-amber-50/20', mappedId: "men's fashion" },
+          { name: 'Women Fashions', desc: 'High-density silk sarees, customized cotton salwar kameez sets, and elegant drops.', icon: '👗', bg: 'from-rose-50 to-pink-50/10', mappedId: "women's fashion" },
+          { name: 'Couple Collection', desc: 'Perfectly coordinated matching couple outfits for special occasions and wedding festivals.', icon: '👩‍❤️‍👨', bg: 'from-purple-50 to-indigo-50/10', mappedId: "couple collection" },
+          { name: 'Kids Fashions', desc: 'Extremely soft combed organic cotton comfort drops for children and growing toddlers.', icon: '👶', bg: 'from-blue-50 to-sky-50/10', mappedId: "kids zone" },
+          { name: 'Accessories', desc: 'Classic chronometer watches, dial analogs, and smart leather everyday utility gear.', icon: '⌚', bg: 'from-gray-100 to-zinc-50', mappedId: "watch" }
+        ];
+        const defaultHomepageCategories = [
+          { name: 'Women Fashions', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=150&auto=format&fit=crop', mappedId: "women's fashion" },
+          { name: 'Watches', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=150&auto=format&fit=crop', mappedId: 'watch' },
+          { name: 'Toys Products', image: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=150&auto=format&fit=crop', mappedId: 'kids zone' },
+          { name: 'Shoes', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+          { name: 'Power Sanders', image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?q=80&w=150&auto=format&fit=crop', mappedId: 'gadgets & electronics' },
+          { name: 'Men Fashions', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+          { name: 'Shirts & Polos', image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?q=80&w=150&auto=format&fit=crop', mappedId: "men's fashion" },
+          { name: 'Kitchen Items', image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=150&auto=format&fit=crop', mappedId: 'home & lifestyle' },
+          { name: 'Home & Living', image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=150&auto=format&fit=crop', mappedId: 'home & lifestyle' },
+          { name: 'Health Care', image: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=150&auto=format&fit=crop', mappedId: 'beauty' },
+          { name: 'Grocery', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=150&auto=format&fit=crop', mappedId: 'foods' },
+          { name: 'Fitness', image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=150&auto=format&fit=crop', mappedId: 'fitness' },
+          { name: 'Electronics', image: 'https://images.unsplash.com/photo-1588508065123-287b28e013da?q=80&w=150&auto=format&fit=crop', mappedId: 'gadgets & electronics' },
+          { name: 'Beauty', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=150&auto=format&fit=crop', mappedId: 'beauty' },
+          { name: 'Baby & Kids', image: 'https://images.unsplash.com/photo-1515488042361-404e9250afef?q=80&w=150&auto=format&fit=crop', mappedId: 'kids zone' },
+          { name: 'Accessories', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=150&auto=format&fit=crop', mappedId: 'watch' }
+        ];
+
+        const resolvedConfig = {
+          ...hConfig,
+          featured_categories: hConfig.featured_categories && hConfig.featured_categories.length > 0
+            ? hConfig.featured_categories
+            : defaultFeaturedCategories,
+          homepage_categories: hConfig.homepage_categories && hConfig.homepage_categories.length > 0
+            ? hConfig.homepage_categories
+            : defaultHomepageCategories,
+          featured_product_ids: hConfig.featured_product_ids || { trending: [], new_arrivals: [], best_sellers: [] }
+        };
+        setHomepageConfig(resolvedConfig);
+
       }
 
       // Fetch sync sources & logs
@@ -576,81 +761,93 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   };
 
   // Quick Action: Save settings
-  const handleSaveSettings = async () => {
-    try {
-      const payload = {
-        logo_text: settings.logoText,
-        logo_accent: settings.logoAccent,
-        tagline: settings.tagline,
-        whatsapp_number: settings.whatsappNumber,
-        support_number: settings.supportNumber,
-        currency_symbol: settings.currencySymbol,
-        inside_dhaka_shipping: Number(settings.insideDhakaShipping),
-        outside_dhaka_shipping: Number(settings.outsideDhakaShipping),
-        free_shipping_min_order: Number(settings.freeShippingMinOrder),
-        theme: settings.theme,
-        meta_pixel_id: settings.metaPixelId,
-        meta_test_event_code: settings.metaTestEventCode,
-        google_tag_manager_id: settings.googleTagManagerId,
-        google_analytics_id: settings.googleAnalyticsId,
-        payment_bangla_qr_enabled: settings.paymentBanglaQrEnabled,
-        payment_bkash_enabled: settings.paymentBkashEnabled,
-        payment_nagad_enabled: settings.paymentNagadEnabled,
-        payment_cod_enabled: settings.paymentCodEnabled,
-        payment_bkash_number: settings.paymentBkashNumber,
-        payment_nagad_number: settings.paymentNagadNumber,
-        payment_bangla_qr_image: settings.paymentBanglaQrImage,
-        payment_bangla_qr_instruction: settings.paymentBanglaQrInstruction,
-        payment_mfs_instruction: settings.paymentMfsInstruction,
-        payment_cod_instruction: settings.paymentCodInstruction,
-        facebook_url: settings.socialFacebook || null,
-        twitter_url: settings.socialTwitter || null,
-        youtube_url: settings.socialYoutube || null,
-        instagram_url: settings.socialInstagram || null,
-        // Mock compatibility keys
-        logoText: settings.logoText,
-        logoAccent: settings.logoAccent,
-        whatsappNumber: settings.whatsappNumber,
-        supportNumber: settings.supportNumber,
-        currencySymbol: settings.currencySymbol,
-        insideDhakaShipping: Number(settings.insideDhakaShipping),
-        outsideDhakaShipping: Number(settings.outsideDhakaShipping),
-        freeShippingMinOrder: Number(settings.freeShippingMinOrder),
-        metaPixelId: settings.metaPixelId,
-        metaTestEventCode: settings.metaTestEventCode,
-        googleTagManagerId: settings.googleTagManagerId,
-        googleAnalyticsId: settings.googleAnalyticsId,
-        paymentBanglaQrEnabled: settings.paymentBanglaQrEnabled,
-        paymentBkashEnabled: settings.paymentBkashEnabled,
-        paymentNagadEnabled: settings.paymentNagadEnabled,
-        paymentCodEnabled: settings.paymentCodEnabled,
-        paymentBkashNumber: settings.paymentBkashNumber,
-        paymentNagadNumber: settings.paymentNagadNumber,
-        paymentBanglaQrImage: settings.paymentBanglaQrImage,
-        paymentBanglaQrInstruction: settings.paymentBanglaQrInstruction,
-        paymentMfsInstruction: settings.paymentMfsInstruction,
-        paymentCodInstruction: settings.paymentCodInstruction,
-        socialFacebook: settings.socialFacebook,
-        socialTwitter: settings.socialTwitter,
-        socialYoutube: settings.socialYoutube,
-        socialInstagram: settings.socialInstagram,
-        telegram_bot_token: settings.telegramBotToken || settings.telegram_bot_token || null,
-        telegram_chat_id: settings.telegramChatId || settings.telegram_chat_id || null,
-        telegram_notifications_enabled: settings.telegramNotificationsEnabled ?? settings.telegram_notifications_enabled ?? true,
-        telegramBotToken: settings.telegramBotToken || settings.telegram_bot_token,
-        telegramChatId: settings.telegramChatId || settings.telegram_chat_id,
-        telegramNotificationsEnabled: settings.telegramNotificationsEnabled ?? true,
-      };
-      
-      const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
-      if (!error) {
-        alert("Website configurations updated successfully!");
-      } else {
-        alert(`Error saving settings: ${error.message}`);
+  const handleSaveSettings = async (): Promise<void> => {
+    const payload = {
+      logo_text:              settings.logoText,
+      logo_accent:            settings.logoAccent,
+      tagline:                settings.tagline,
+      whatsapp_number:        settings.whatsappNumber,
+      support_number:         settings.supportNumber,
+      currency_symbol:        settings.currencySymbol,
+      inside_dhaka_shipping:  Number(settings.insideDhakaShipping),
+      outside_dhaka_shipping: Number(settings.outsideDhakaShipping),
+      free_shipping_min_order:Number(settings.freeShippingMinOrder),
+      theme:                  settings.theme,
+      meta_pixel_id:          settings.metaPixelId          || null,
+      meta_test_event_code:   settings.metaTestEventCode    || null,
+      meta_capi_access_token: settings.metaCapiAccessToken  || null,
+      google_tag_manager_id:  settings.googleTagManagerId   || null,
+      google_analytics_id:    settings.googleAnalyticsId    || null,
+      payment_bangla_qr_enabled: settings.paymentBanglaQrEnabled,
+      payment_bkash_enabled: settings.paymentBkashEnabled,
+      payment_nagad_enabled: settings.paymentNagadEnabled,
+      payment_cod_enabled: settings.paymentCodEnabled,
+      payment_screenshot_enabled: settings.paymentScreenshotEnabled !== false,
+      payment_bkash_number: settings.paymentBkashNumber,
+      payment_nagad_number: settings.paymentNagadNumber,
+      payment_bangla_qr_image: settings.paymentBanglaQrImage,
+      payment_bangla_qr_instruction: settings.paymentBanglaQrInstruction,
+      payment_mfs_instruction: settings.paymentMfsInstruction,
+      payment_cod_instruction: settings.paymentCodInstruction,
+      facebook_url: settings.socialFacebook || null,
+      twitter_url: settings.socialTwitter || null,
+      youtube_url: settings.socialYoutube || null,
+      instagram_url: settings.socialInstagram || null,
+      telegram_bot_token: settings.telegramBotToken || settings.telegram_bot_token || null,
+      telegram_chat_id: settings.telegramChatId || settings.telegram_chat_id || null,
+      telegram_notifications_enabled: settings.telegramNotificationsEnabled ?? settings.telegram_notifications_enabled ?? true,
+      online_payment_discount_enabled: settings.onlinePaymentDiscountEnabled ?? false,
+      online_payment_discount_percent: Number(settings.onlinePaymentDiscountPercent ?? 50),
+      ...(settings.pricing_config || settings.pricingConfig ? { pricing_config: settings.pricing_config || settings.pricingConfig } : {})
+    };
+
+    // Determine target record ID or check if table is empty
+    let targetId = settings.id;
+    if (!targetId) {
+      const { data: existing } = await supabase.from('settings').select('id').limit(1).maybeSingle();
+      if (existing?.id) {
+        targetId = existing.id;
+        setSettings((prev: any) => ({ ...prev, id: targetId }));
       }
-    } catch (err) {
-      console.error(err);
     }
+
+    let saveError: any = null;
+    if (targetId) {
+      const { error } = await supabase.from('settings').update(payload).eq('id', targetId);
+      if (error && (error.message?.includes('payment_screenshot_enabled') || error.code === 'PGRST204')) {
+        const { payment_screenshot_enabled, ...fallbackPayload } = payload;
+        const { error: retryError } = await supabase.from('settings').update(fallbackPayload).eq('id', targetId);
+        saveError = retryError;
+      } else {
+        saveError = error;
+      }
+    } else {
+      // Upsert/Insert with id: 1
+      const { data: inserted, error } = await supabase.from('settings').upsert([{ ...payload, id: 1 }]).select().maybeSingle();
+      if (error && (error.message?.includes('payment_screenshot_enabled') || error.code === 'PGRST204')) {
+        const { payment_screenshot_enabled, ...fallbackPayload } = payload;
+        const { data: insertedRetry, error: retryError } = await supabase.from('settings').upsert([{ ...fallbackPayload, id: 1 }]).select().maybeSingle();
+        saveError = retryError;
+        if (insertedRetry?.id) {
+          setSettings((prev: any) => ({ ...prev, id: insertedRetry.id }));
+        }
+      } else {
+        saveError = error;
+        if (inserted?.id) {
+          setSettings((prev: any) => ({ ...prev, id: inserted.id }));
+        }
+      }
+    }
+
+    if (saveError) {
+      console.error('[Settings] Save error:', saveError);
+      throw new Error(`Settings save failed: ${saveError.message}`);
+    }
+
+    // Backup to local storage for immediate persistence
+    try {
+      localStorage.setItem('rup_db_settings', JSON.stringify({ ...payload, id: targetId || 1 }));
+    } catch (_) {}
   };
 
   const handleUploadQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -697,6 +894,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       setUploadingQrImage(false);
     }
   };
+
+
 
   // Synchronize reseller products page-by-page
   const runSync = async () => {
@@ -747,42 +946,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         const updatedLogs = [mockLog, ...syncLogs];
         setSyncLogs(updatedLogs);
 
-        // Load mock products to state to show in dashboard catalog
-        const formattedProducts: Product[] = PRODUCTS.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-          sku: p.sku || `RUP-${p.id.toUpperCase()}`,
-          brand: p.brand || 'Rupan',
-          category: p.category || 'General',
-          subCategory: p.subCategory || '',
-          tags: p.tags || [],
-          gender: p.gender || 'Men',
-          price: Number(p.discountPrice || p.price || 0),
-          discountPrice: p.discountPrice ? Number(p.price) : undefined,
-          reviewsCount: Number(p.reviewsCount || 0),
-          rating: Number(p.rating || 5.0),
-          images: p.images || [],
-          colors: p.colors || [],
-          sizes: p.sizes || [],
-          description: p.description || '',
-          shortDescription: p.shortDescription || '',
-          features: p.features || [],
-          stock: p.stock || 50,
-          lowStockWarning: p.lowStockWarning || 5,
-          weight: p.weight || 0.35,
-          material: p.material || 'Premium Quality Blend',
-          status: p.status || 'published',
-          isFeatured: p.isFeatured || false,
-          isTrending: p.isTrending || false,
-          isNew: p.isNew || false,
-          isBestSeller: p.isBestSeller || false,
-          isFlashSale: p.isFlashSale || false
-        }) as any);
-        setProducts(formattedProducts);
+        // Generate complete realistic Mohasagor catalog (2,747 products)
+        const fullCatalog = generateFullSimulatedCatalog(2747);
+        setTotalProductsCount(fullCatalog.length);
+        const page1Data = fullCatalog.slice(0, pageSize);
+        setProducts(page1Data);
         
         // Save to LocalStorage for offline database persistence
-        localStorage.setItem('rup_db_products', JSON.stringify(formattedProducts));
+        localStorage.setItem('rup_db_products', JSON.stringify(fullCatalog));
+        window.dispatchEvent(new CustomEvent('rupan:products_updated', { detail: fullCatalog }));
         
         alert("Simulated Sync Completed!\nProcessed 2,747 products across 14 pages.\nImported: 140 new products\nUpdated: 2,607 products\nFailed: 0");
         setSyncing(false);
@@ -790,14 +962,27 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       }
 
       // --- REAL DATABASE SYNC MODE ---
-      let currentPage = 1;
-      let lastPage = 1;
+      stopSyncRef.current = false;
+      setSyncStatusMessage('Initializing sync...');
+
+      let currentPage = syncScope === 'custom' ? Math.max(1, customStartPage) : 1;
+      let lastPage = syncScope === 'custom' ? Math.max(currentPage, customEndPage) : (syncScope === 'recent' ? 5 : 1);
+      setSyncPage(currentPage);
+      setSyncLastPage(lastPage);
+
       let totalImported = 0;
       let totalUpdated = 0;
       let totalFailed = 0;
+      const THROTTLE_PAUSE_SECONDS = 13; // 13s pause between pages to strictly comply with Mohasagor max 5 req/min
 
       while (currentPage <= lastPage) {
+        if (stopSyncRef.current) {
+          setSyncStatusMessage('Sync stopped by user.');
+          break;
+        }
+
         setSyncPage(currentPage);
+        setSyncStatusMessage(`Requesting page ${currentPage} of ${lastPage}...`);
         
         // Fetch token and call serverless Sync API
         const sessionRes = await supabase.auth.getSession();
@@ -807,20 +992,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           headers['Authorization'] = `Bearer ${token}`;
         }
         
-        const response = await fetch(`/api/sync?source=${targetSource}&page=${currentPage}`, {
-          headers
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Sync API failed at page ${currentPage}: ${errorText}`);
+        let response: Response;
+        try {
+          response = await fetch(`/api/sync?source=${encodeURIComponent(targetSource)}&page=${currentPage}`, {
+            headers
+          });
+        } catch (fetchErr: any) {
+          setSyncStatusMessage(`Network error (${fetchErr.message}). Retrying page ${currentPage} in 5s...`);
+          await new Promise(r => setTimeout(r, 5000));
+          if (stopSyncRef.current) break;
+          continue;
+        }
+
+        // Safely parse response body as text first to prevent unhandled WebKit DOM exceptions
+        const rawText = await response.text();
+        let result: any = null;
+        try {
+          result = rawText ? JSON.parse(rawText) : null;
+        } catch {
+          result = null;
+        }
+
+        // Handle 429 Rate Limiting with automatic cooldown countdown and retry
+        if (response.status === 429) {
+          const retrySec = Number(result?.retry_after) || 24;
+          
+          for (let sec = retrySec + 2; sec > 0; sec--) {
+            if (stopSyncRef.current) break;
+            setSyncStatusMessage(`API rate limit active (max 5 req/min). Waiting ${sec}s cooldown before retrying page ${currentPage}...`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+          if (stopSyncRef.current) break;
+          // Retry current page without incrementing
+          continue;
+        }
+
+        if (!response.ok || !result) {
+          const detail = result?.error || (rawText ? rawText.substring(0, 160) : `HTTP ${response.status}`);
+          throw new Error(`Sync API failed at page ${currentPage} (HTTP ${response.status}): ${detail}`);
         }
         
-        const result = await response.json();
         if (!result.success) {
           throw new Error(result.error || `Sync failed at page ${currentPage}`);
         }
 
-        if (currentPage === 1) {
+        if (currentPage === 1 && syncScope === 'all') {
           lastPage = result.last_page || 1;
           setSyncLastPage(lastPage);
         }
@@ -837,10 +1053,24 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         }));
 
         setSyncProgress(Math.round((currentPage / lastPage) * 100));
+
+        // Enforce rate limit pause between pages so we never exceed 5 requests/minute
+        if (currentPage < lastPage && !stopSyncRef.current) {
+          for (let sec = THROTTLE_PAUSE_SECONDS; sec > 0; sec--) {
+            if (stopSyncRef.current) break;
+            setSyncStatusMessage(`Page ${currentPage} processed. Rate limit cooldown: next page in ${sec}s (max 5 req/min)...`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+
         currentPage++;
       }
 
-      alert(`Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+      if (stopSyncRef.current) {
+        alert(`Sync Paused by User!\nProcessed so far: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+      } else {
+        alert(`Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+      }
       
       // Reload logs & overview data
       const { data: logsData } = await supabase.from('sync_logs').select('*').order('started_at', { ascending: false }).limit(20);
@@ -908,6 +1138,49 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     setProductModalOpen(true);
   };
 
+  // Helper to map UI Product state to Supabase snake_case columns
+  const toDbProductPayload = (form: Partial<Product>, id: string, slug: string, isUpdate = false) => {
+    const payload: any = {
+      name: form.name,
+      slug: slug,
+      sku: form.sku || null,
+      brand: form.brand || 'Rupan',
+      category: form.category,
+      sub_category: form.subCategory || (form as any).sub_category || null,
+      tags: form.tags || [],
+      gender: form.gender || 'Men',
+      price: Number(form.price || 0),
+      discount_price: form.discountPrice !== undefined && form.discountPrice !== null && form.discountPrice !== '' ? Number(form.discountPrice) : null,
+      purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && form.purchasePrice !== '' ? Number(form.purchasePrice) : null,
+      description: form.description || '',
+      short_description: form.shortDescription || (form as any).short_description || '',
+      features: form.features || [],
+      sizes: form.sizes || [],
+      colors: form.colors || [],
+      stock: Number(form.stock || 0),
+      low_stock_warning: Number(form.lowStockWarning || (form as any).low_stock_warning || 5),
+      weight: form.weight ? Number(form.weight) : null,
+      material: form.material || null,
+      status: form.status || 'published',
+      is_featured: !!form.isFeatured || !!(form as any).is_featured,
+      is_trending: !!form.isTrending || !!(form as any).is_trending,
+      is_new: form.isNew !== undefined ? !!form.isNew : true,
+      is_best_seller: !!form.isBestSeller || !!(form as any).is_best_seller,
+      is_flash_sale: !!form.isFlashSale || !!(form as any).is_flash_sale,
+      seo_title: form.seoTitle || (form as any).seo_title || null,
+      seo_description: form.seoDescription || (form as any).seo_description || null,
+      images: form.images || [],
+      source_id: (form as any).source_id || 'manual'
+    };
+
+    if (!isUpdate) {
+      payload.id = id;
+      payload.rating = form.rating !== undefined ? Number(form.rating) : 5.0;
+      payload.reviews_count = form.reviewsCount !== undefined ? Number(form.reviewsCount) : 0;
+    }
+    return payload;
+  };
+
   // Save/Update product
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -916,26 +1189,31 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return;
     }
 
+    const productId = editingProduct ? editingProduct.id : `rup-${Date.now()}`;
+    const productSlug = productForm.slug || productForm.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
     const finalProduct = {
       ...productForm,
-      id: editingProduct ? editingProduct.id : `rup-${Date.now()}`,
-      slug: productForm.slug || productForm.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      id: productId,
+      slug: productSlug,
       reviewsCount: editingProduct ? editingProduct.reviewsCount : 0,
       rating: editingProduct ? editingProduct.rating : 5.0
     } as Product;
 
     if (editingProduct) {
-      const { error } = await supabase.from('products').update(finalProduct).eq('id', editingProduct.id);
+      const dbPayload = toDbProductPayload(productForm, productId, productSlug, true);
+      const { error } = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id);
       if (!error) {
-        setProducts(products.map(p => p.id === editingProduct.id ? finalProduct : p));
+        setProducts(products.map(p => p.id === editingProduct.id ? { ...editingProduct, ...finalProduct } : p));
         alert("Product updated successfully!");
       } else {
         alert(`Error updating product: ${error.message}`);
       }
     } else {
-      const { error } = await supabase.from('products').insert([finalProduct]);
+      const dbPayload = toDbProductPayload(productForm, productId, productSlug, false);
+      const { error } = await supabase.from('products').insert([dbPayload]);
       if (!error) {
-        setProducts([...products, finalProduct]);
+        setProducts([finalProduct, ...products]);
         alert("Product created successfully!");
       } else {
         alert(`Error creating product: ${error.message}`);
@@ -946,19 +1224,24 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Duplicate Product
   const handleDuplicateProduct = async (product: Product) => {
+    const newId = `rup-copy-${Date.now()}`;
+    const newSlug = `${product.slug || product.id}-copy-${Date.now()}`;
     const duplicated: Product = {
       ...product,
-      id: `rup-copy-${Date.now()}`,
+      id: newId,
       name: `${product.name} (Copy)`,
-      sku: `${product.sku}-COPY`,
-      slug: `${product.slug}-copy`,
+      sku: product.sku ? `${product.sku}-COPY` : undefined,
+      slug: newSlug,
       reviewsCount: 0,
       rating: 5.0
     };
-    const { error } = await supabase.from('products').insert([duplicated]);
+    const dbPayload = toDbProductPayload(duplicated, newId, newSlug, false);
+    const { error } = await supabase.from('products').insert([dbPayload]);
     if (!error) {
-      setProducts([...products, duplicated]);
+      setProducts([duplicated, ...products]);
       alert("Product duplicated successfully!");
+    } else {
+      alert(`Error duplicating product: ${error.message}`);
     }
   };
 
@@ -996,7 +1279,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return o;
     });
 
-    const { error } = await supabase.from('orders').update({ paymentStatus: newPaymentStatus }).eq('id', orderId);
+    const { error } = await supabase.from('orders').update({ payment_status: newPaymentStatus }).eq('id', orderId);
     if (!error) {
       setOrders(updatedOrders);
     }
@@ -1197,11 +1480,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         title: banner.title || '',
         subtitle: banner.subtitle || '',
         image: banner.image || '',
-        cta_text: banner.cta_text || 'SHOP NOW',
+        cta_text: banner.cta_text || banner.ctaText || '',
         category: banner.category || '',
         type: banner.type || 'homepage',
         is_active: banner.is_active ?? true,
-        publish_date: banner.publish_date || ''
+        publish_date: banner.publish_date || '',
+        overlay_opacity: banner.overlay_opacity !== undefined ? Number(banner.overlay_opacity) : (banner.overlayOpacity !== undefined ? Number(banner.overlayOpacity) : 50)
       });
     } else {
       setEditingBanner(null);
@@ -1209,13 +1493,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         title: '',
         subtitle: '',
         image: '',
-        cta_text: 'SHOP NOW',
+        cta_text: '',
         category: '',
         type: 'homepage',
         is_active: true,
-        publish_date: ''
+        publish_date: '',
+        overlay_opacity: 50
       });
     }
+    setBannerModalOpen(true);
   };
 
   const openCouponForm = (coupon: Coupon | null = null) => {
@@ -1229,7 +1515,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         maxDiscount: coupon.maxDiscount ?? '',
         expiryDate: coupon.expiryDate || '',
         usageLimit: coupon.usageLimit ?? '',
-        isActive: coupon.isActive ?? true
+        isActive: coupon.isActive ?? true,
+        isRecommended: coupon.isRecommended ?? coupon.is_recommended ?? false,
+        isAutoApply: coupon.isAutoApply ?? coupon.is_auto_apply ?? false
       });
     } else {
       setEditingCoupon(null);
@@ -1241,7 +1529,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         maxDiscount: '',
         expiryDate: '',
         usageLimit: '',
-        isActive: true
+        isActive: true,
+        isRecommended: false,
+        isAutoApply: false
       });
     }
     setCouponModalOpen(true);
@@ -1254,7 +1544,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return;
     }
 
-    const payload = {
+    const payload: any = {
       code: couponForm.code.toUpperCase().trim(),
       type: couponForm.type,
       value: Number(couponForm.value),
@@ -1262,7 +1552,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       max_discount: couponForm.maxDiscount ? Number(couponForm.maxDiscount) : null,
       expiry_date: couponForm.expiryDate || null,
       usage_limit: couponForm.usageLimit ? Number(couponForm.usageLimit) : null,
-      is_active: couponForm.isActive
+      is_active: couponForm.isActive,
+      is_recommended: couponForm.isRecommended ?? false,
+      is_auto_apply: couponForm.isAutoApply ?? false
     };
 
     const finalCoupon: Coupon = {
@@ -1274,11 +1566,21 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       expiryDate: payload.expiry_date || '',
       usageLimit: payload.usage_limit || undefined,
       isActive: payload.is_active,
+      isRecommended: payload.is_recommended,
+      is_recommended: payload.is_recommended,
+      isAutoApply: payload.is_auto_apply,
+      is_auto_apply: payload.is_auto_apply,
       usedCount: editingCoupon ? editingCoupon.usedCount : 0
     };
 
     if (editingCoupon) {
-      const { error } = await supabase.from('coupons').update(payload).eq('code', editingCoupon.code);
+      let { error } = await supabase.from('coupons').update(payload).eq('code', editingCoupon.code);
+      if (error && error.message.includes('is_auto_apply')) {
+        const safePayload = { ...payload };
+        delete safePayload.is_auto_apply;
+        const res2 = await supabase.from('coupons').update(safePayload).eq('code', editingCoupon.code);
+        error = res2.error;
+      }
       if (error) {
         alert("Error updating coupon: " + error.message);
         return;
@@ -1290,7 +1592,20 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         alert("A coupon with this code already exists!");
         return;
       }
-      const { error } = await supabase.from('coupons').insert([payload]);
+      let { error } = await supabase.from('coupons').insert([payload]);
+      if (error && error.message.includes('is_auto_apply')) {
+        const safePayload = { ...payload };
+        delete safePayload.is_auto_apply;
+        const res2 = await supabase.from('coupons').insert([safePayload]);
+        error = res2.error;
+      }
+      if (error) {
+        alert("Error creating coupon: " + error.message);
+        return;
+      }
+      setCoupons([...coupons, finalCoupon]);
+      alert("Coupon created successfully!");
+    }
       if (error) {
         alert("Error creating coupon: " + error.message);
         return;
@@ -1315,6 +1630,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false) => {
     if (blog) {
       setEditingBlog(blog);
+      let layout: 'standard' | 'blank' = blog.category === '__landing_page__' ? 'blank' : 'standard';
+      let seo = true;
+      let marketing = true;
+      const match = (blog.content || '').match(/^<!-- metadata:\s*({.*?})\s*-->/s);
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[1]);
+          layout = parsed.layout || layout;
+          seo = parsed.seoEnabled !== false;
+          marketing = parsed.marketingEnabled !== false;
+        } catch (e) {}
+      }
+
+      setBlogLayoutMode(layout);
+      setBlogSeoEnabled(seo);
+      setBlogMarketingEnabled(marketing);
       setBlogForm({
         id: blog.id,
         title: blog.title,
@@ -1329,11 +1660,14 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       });
     } else {
       setEditingBlog(null);
+      setBlogLayoutMode(isLandingPage ? 'blank' : 'standard');
+      setBlogSeoEnabled(true);
+      setBlogMarketingEnabled(true);
       setBlogForm({
         id: '',
         title: '',
         excerpt: '',
-        content: isLandingPage 
+        content: isLandingPage
           ? '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>Landing Page</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-gray-50">\n  <div class="max-w-4xl mx-auto py-16 px-4 text-center">\n    <h1 class="text-4xl font-extrabold text-gray-900">Special Campaign</h1>\n  </div>\n</body>\n</html>'
           : '<p>Write your article content here...</p>',
         image: '',
@@ -1359,22 +1693,36 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
 
     let finalId = blogForm.id.trim();
-    const isLanding = blogForm.category === '__landing_page__';
+    const isLanding = blogForm.category === '__landing_page__' || blogLayoutMode === 'blank';
 
     if (!finalId) {
       const cleanSlug = blogForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       finalId = isLanding ? `/${cleanSlug}` : `/blog/${cleanSlug}`;
     } else {
+      // User provided custom slug/path! Ensure leading slash but NEVER force '/blog/'!
       if (!finalId.startsWith('/')) {
         finalId = '/' + finalId;
       }
     }
 
+    // Strip old layout tags and metadata comments
+    let cleanedContent = (blogForm.content || '')
+      .replace(/^<!-- layout:\s*(blank|standard)\s*-->\s*/i, '')
+      .replace(/^<!-- metadata:\s*({.*?})\s*-->\s*/is, '');
+
+    // Form metadata JSON block
+    const metadata = {
+      layout: blogLayoutMode,
+      seoEnabled: blogSeoEnabled,
+      marketingEnabled: blogMarketingEnabled
+    };
+    const finalContent = `<!-- metadata: ${JSON.stringify(metadata)} -->\n${cleanedContent}`;
+
     const payload = {
       id: finalId,
       title: blogForm.title,
       excerpt: blogForm.excerpt,
-      content: blogForm.content,
+      content: finalContent,
       image: blogForm.image,
       read_time: blogForm.readTime,
       category: isLanding ? '__landing_page__' : blogForm.category,
@@ -1387,7 +1735,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       id: finalId,
       title: blogForm.title,
       excerpt: blogForm.excerpt,
-      content: blogForm.content,
+      content: finalContent,
       image: blogForm.image,
       date: editingBlog ? editingBlog.date : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       readTime: blogForm.readTime,
@@ -1409,10 +1757,10 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           throw new Error("Database update returned empty result. Failed to save changes.");
         }
         setBlogs(blogs.map(b => b.id === editingBlog.id ? finalBlog : b));
-        alert("Updated successfully!");
+        alert("Article / Landing Page updated successfully!");
       } else {
         if (blogs.some(b => b.id === finalBlog.id)) {
-          alert("An item with this URL path already exists!");
+          alert("An article or landing page with this URL path already exists!");
           return;
         }
         const { data, error } = await supabase.from('blogs').upsert([payload], { onConflict: 'id' }).select();
@@ -1421,16 +1769,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           throw new Error("Database insert returned empty result. Failed to create page.");
         }
         setBlogs([finalBlog, ...blogs]);
-        alert("Created successfully!");
+        alert("Article / Landing Page created successfully!");
       }
       setBlogModalOpen(false);
     } catch (err: any) {
-      alert("Error saving: " + err.message);
+      alert("Error saving article: " + err.message);
     }
   };
 
   const handleDeleteBlog = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    if (!window.confirm("Are you sure you want to delete this content item?")) return;
     try {
       let { data, error } = await supabase.from('blogs').delete().eq('id', id).select();
 
@@ -1446,9 +1794,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         throw new Error("Record not found in database or deletion permission was denied.");
       }
       setBlogs(blogs.filter(b => b.id !== id && b.id !== (id.startsWith('/') ? id.substring(1) : '/' + id)));
-      alert("Deleted successfully!");
+      alert("Article / Landing Page deleted successfully!");
     } catch (err: any) {
-      alert("Error deleting: " + err.message);
+      alert("Error deleting article: " + err.message);
     }
   };
 
@@ -1718,6 +2066,30 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('my-products'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'my-products' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <UserCheck className="w-4 h-4" />
+                <span>My Products</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('mohasagor-products'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'mohasagor-products' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <Globe className="w-4 h-4 text-blue-500" />
+                <span>Mohasagor Products</span>
+              </div>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('orders'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'orders' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -1814,6 +2186,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('margins'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'margins' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Percent className="w-4 h-4" />
+              <span>Margin Manager</span>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('marketing'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'marketing' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -1883,6 +2265,50 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               )}
 
+              {/* TAB 2.5: MY PRODUCTS CATALOG */}
+              {activeTab === 'my-products' && (
+                <ProductsTab
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  filterCategory={filterCategory}
+                  setFilterCategory={setFilterCategory}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  availableCategories={availableCategories}
+                  filteredProducts={filteredProducts}
+                  totalProductsCount={totalProductsCount}
+                  productsPage={productsPage}
+                  setProductsPage={setProductsPage}
+                  pageSize={pageSize}
+                  openProductForm={openProductForm}
+                  handleDuplicateProduct={handleDuplicateProduct}
+                  handleDeleteProduct={handleDeleteProduct}
+                  isManualOnly={true}
+                />
+              )}
+
+              {/* TAB 2.6: MOHASAGOR PRODUCTS CATALOG */}
+              {activeTab === 'mohasagor-products' && (
+                <ProductsTab
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  filterCategory={filterCategory}
+                  setFilterCategory={setFilterCategory}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  availableCategories={availableCategories}
+                  filteredProducts={filteredProducts}
+                  totalProductsCount={totalProductsCount}
+                  productsPage={productsPage}
+                  setProductsPage={setProductsPage}
+                  pageSize={pageSize}
+                  openProductForm={openProductForm}
+                  handleDuplicateProduct={handleDuplicateProduct}
+                  handleDeleteProduct={handleDeleteProduct}
+                  isMohasagorOnly={true}
+                />
+              )}
+
               {/* TAB 3: ORDERS INDEX */}
               {activeTab === 'orders' && (
                 <OrdersTab
@@ -1893,6 +2319,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   setOrderTimeline={setOrderTimeline}
                   handleUpdateOrderStatus={handleUpdateOrderStatus}
                   handleUpdateOrderPayment={handleUpdateOrderPayment}
+                  onRefresh={fetchData}
                 />
               )}
 
@@ -1952,6 +2379,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               )}
 
+              {/* TAB 8b: LANDING PAGES */}
+              {activeTab === 'landing-pages' && (
+                <LandingPagesTab />
+              )}
+
               {/* TAB 9: REVIEWS MODERATION BOARD */}
               {activeTab === 'reviews' && (
                 <ReviewsTab
@@ -1996,6 +2428,27 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   syncLogs={syncLogs}
                   setSelectedLog={setSelectedLog}
                   runSync={runSync}
+                  syncStatusMessage={syncStatusMessage}
+                  syncScope={syncScope}
+                  setSyncScope={setSyncScope}
+                  customStartPage={customStartPage}
+                  setCustomStartPage={setCustomStartPage}
+                  customEndPage={customEndPage}
+                  setCustomEndPage={setCustomEndPage}
+                  stopSync={handleStopSync}
+                  isSupabaseOnline={isSupabaseOnline}
+                  dbSettings={settings}
+                />
+              )}
+
+              {/* TAB 12: PROFIT MARGIN MANAGER */}
+              {activeTab === 'margins' && (
+                <MarginsTab
+                  products={products}
+                  setProducts={setProducts}
+                  dbSettings={settings}
+                  setDbSettings={setSettings}
+                  isSupabaseOnline={isSupabaseOnline}
                 />
               )}
             </>
@@ -2157,6 +2610,45 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
 
                 <div className="space-y-1">
+                  <label>Reseller Cost (৳) (Optional)</label>
+                  <input 
+                    type="number" 
+                    value={productForm.purchasePrice || ''}
+                    onChange={(e) => setProductForm({ ...productForm, purchasePrice: parseInt(e.target.value) || undefined })}
+                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label>Profit Margin Markup (%)</label>
+                  <div className="flex gap-1.5">
+                    <input 
+                      type="number" 
+                      placeholder="Enter % to calc price"
+                      value={
+                        productForm.purchasePrice && (productForm.discountPrice || productForm.price)
+                          ? Math.round((((productForm.discountPrice || productForm.price) - productForm.purchasePrice) / productForm.purchasePrice) * 100)
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const m = parseInt(e.target.value) || 0;
+                        const cost = productForm.purchasePrice || 0;
+                        if (cost > 0) {
+                          const sell = Math.round(cost * (1 + m / 100));
+                          setProductForm({
+                            ...productForm,
+                            price: sell,
+                            discountPrice: undefined // Reset discount if setting markup
+                          });
+                        }
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
+                    />
+                    <span className="bg-gray-100 border border-gray-200 text-gray-500 font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center text-xs">%</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
                   <label>Gender classification</label>
                   <select 
                     value={productForm.gender}
@@ -2239,6 +2731,59 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   />
                 </div>
               </div>
+
+              {/* Product Flags */}
+              <div className="space-y-2 text-xs font-semibold text-zinc-700">
+                <label className="block text-gray-500 uppercase tracking-wider text-[10px]">Product Flags / Badges</label>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isFeatured || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isFeatured: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Featured</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isTrending || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isTrending: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Trending</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isNew || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isNew: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>New Arrival</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isBestSeller || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Best Seller</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={productForm.isFlashSale || false} 
+                      onChange={(e) => setProductForm({ ...productForm, isFlashSale: e.target.checked })}
+                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                    />
+                    <span>Flash Sale</span>
+                  </label>
+                </div>
+              </div>
+
 
               {/* Descriptions & Rich Details */}
               <div className="space-y-4">
@@ -2335,16 +2880,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
               {/* Form buttons */}
               <div className="flex justify-end gap-3 border-t border-gray-100 pt-6">
+                {editingProduct && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      const sourceProductId = editingProduct.sourceProductId || editingProduct.source_product_id || editingProduct.id.split('-')[1] || editingProduct.id;
+                      const productCode = editingProduct.sku ? editingProduct.sku.split('-').slice(1).join('-') : sourceProductId;
+                      
+                      const apiFormat = {
+                        id: Number(sourceProductId) || sourceProductId,
+                        name: editingProduct.name,
+                        slug: editingProduct.slug,
+                        product_code: productCode,
+                        brand: editingProduct.brand || 'Rupan',
+                        category: editingProduct.category,
+                        details: editingProduct.description || editingProduct.name,
+                        price: editingProduct.price,
+                        sale_price: editingProduct.purchasePrice || editingProduct.purchase_price || editingProduct.price,
+                        stock_status: editingProduct.stock > 0 ? 'in_stock' : 'out_of_stock',
+                        thumbnail_img: editingProduct.images?.[0] || '',
+                        product_images: (editingProduct.images || []).map(img => ({ product_image: img })),
+                        product_variants: [
+                          ...(editingProduct.colors || []).map((c: any) => ({ attribute: 'color', variant: c.name || c })),
+                          ...(editingProduct.sizes || []).map((s: any) => ({ attribute: 'size', variant: s }))
+                        ]
+                      };
+                      
+                      navigator.clipboard.writeText(JSON.stringify(apiFormat, null, 2));
+                      alert("Copied raw API JSON to clipboard!");
+                    }}
+                    className="mr-auto bg-zinc-800 hover:bg-black text-white text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy API JSON</span>
+                  </button>
+                )}
                 <button 
                   type="button" 
                   onClick={() => setProductModalOpen(false)}
-                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-900 transition-all cursor-pointer"
+                  className="bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-900 transition-all cursor-pointer text-xs uppercase tracking-wider"
                 >
                   {editingProduct ? "Save Changes" : "Create Product SKU"}
                 </button>
@@ -2685,17 +3265,53 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="couponIsActive"
-                  checked={couponForm.isActive}
-                  onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
-                />
-                <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
-                  Activate Coupon Instantly (Online)
-                </label>
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="couponIsActive"
+                    checked={couponForm.isActive}
+                    onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
+                    Activate Coupon Instantly (সক্রিয় করুন)
+                  </label>
+                </div>
+
+                <div className="flex items-start gap-2.5 p-3 bg-purple-50/80 border border-purple-200/80 rounded-2xl">
+                  <input
+                    type="checkbox"
+                    id="couponIsAutoApply"
+                    checked={couponForm.isAutoApply ?? false}
+                    onChange={(e) => setCouponForm({ ...couponForm, isAutoApply: e.target.checked })}
+                    className="w-4 h-4 rounded text-purple-600 accent-purple-600 focus:ring-0 cursor-pointer mt-0.5"
+                  />
+                  <label htmlFor="couponIsAutoApply" className="text-xs text-purple-950 font-bold cursor-pointer flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-purple-600 fill-purple-600 shrink-0" />
+                      <span>Auto-Apply on Qualifying Cart (কার্টে স্বয়ংক্রিয়ভাবে কার্যকর হবে)</span>
+                      <span className="text-[9px] bg-purple-100 text-purple-800 font-black px-1.5 py-0.5 rounded border border-purple-300">Auto</span>
+                    </div>
+                    <p className="text-[10px] text-purple-700 font-normal leading-relaxed mt-1">
+                      কাস্টমারকে কুপন কোড লিখতে হবে না; কার্ট ভ্যালু <strong>৳{couponForm.minOrder || 0}</strong> টাকা ছাড়িয়ে গেলেই এই কুপনটি (যেমন: ফ্রি শিপিং বা ছাড়) নিজে থেকেই অ্যাপ্লাই হয়ে যাবে।
+                    </p>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="couponIsRecommended"
+                    checked={couponForm.isRecommended ?? false}
+                    onChange={(e) => setCouponForm({ ...couponForm, isRecommended: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#ff5c00] accent-[#ff5c00] focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="couponIsRecommended" className="text-xs text-zinc-700 font-bold cursor-pointer flex items-center gap-1.5">
+                    <span>Recommend to Customers (কাস্টমারদের কুপন রিকমেন্ড করুন - &quot;Apply This&quot;)</span>
+                    <span className="text-[10px] bg-amber-50 text-amber-800 font-black px-1.5 py-0.5 rounded border border-amber-200">Featured</span>
+                  </label>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
@@ -2724,12 +3340,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             <div className="flex justify-between items-center border-b border-gray-100 pb-4">
               <div className="flex items-center gap-3">
                 <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
-                  blogForm.category === '__landing_page__' ? 'bg-orange-50 text-[#ff5c00] border-orange-200' : 'bg-blue-50 text-brand-primary border-blue-200'
+                  (blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? 'bg-orange-50 text-[#ff5c00] border-orange-200' : 'bg-blue-50 text-brand-primary border-blue-200'
                 }`}>
-                  {blogForm.category === '__landing_page__' ? '🚀 Campaign Landing Page' : '📝 Style Journal Article'}
+                  {(blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? '🚀 Campaign Landing Page' : '📝 Style Journal Article'}
                 </span>
                 <h2 className="text-lg font-black tracking-tight text-zinc-900 uppercase">
-                  {editingBlog ? `Edit: ${editingBlog.title}` : (blogForm.category === '__landing_page__' ? 'Create Campaign Landing Page' : 'Compose Blog Article')}
+                  {editingBlog ? `Edit: ${editingBlog.title}` : ((blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') ? 'Create Campaign Landing Page' : 'Compose Blog Article')}
                 </h2>
               </div>
                   <button 
@@ -2756,7 +3372,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                           onChange={(e) => {
                             const newTitle = e.target.value;
                             const cleanSlug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                            const isLanding = blogForm.category === '__landing_page__';
+                            const isLanding = blogForm.category === '__landing_page__' || blogLayoutMode === 'blank';
                             const generatedSlug = isLanding ? `/${cleanSlug}` : `/blog/${cleanSlug}`;
                             setBlogForm({ 
                               ...blogForm, 
@@ -2765,7 +3381,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                               seoTitle: editingBlog ? blogForm.seoTitle : newTitle
                             });
                           }}
-                          placeholder={blogForm.category === '__landing_page__' ? "e.g. Eid Ul Adha Special Festival Collection" : "e.g. 5 Summer Fashion Trends in Bangladesh"}
+                          placeholder={blogForm.category === '__landing_page__' || blogLayoutMode === 'blank' ? "e.g. Eid Ul Adha Special Festival Collection" : "e.g. 5 Summer Fashion Trends in Bangladesh"}
                           className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-semibold focus:outline-none"
                         />
                       </div>
@@ -2784,12 +3400,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                               }
                               setBlogForm({ ...blogForm, id: val });
                             }}
-                            placeholder={blogForm.category === '__landing_page__' ? "e.g. /eid-sale or /offers/coupon" : "e.g. /blog/my-article"}
+                            placeholder={blogForm.category === '__landing_page__' || blogLayoutMode === 'blank' ? "e.g. /eid-sale or /offers/coupon" : "e.g. /blog/my-article"}
                             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-mono focus:outline-none font-bold text-xs"
                           />
                         </div>
 
-                        {blogForm.category === '__landing_page__' && (
+                        {(blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') && (
                           <div className="space-y-1.5 bg-orange-50/70 p-3 rounded-xl border border-orange-200/70">
                             <label className="uppercase font-bold text-[10px] text-orange-800 block">
                               ⚡ Select Premade Slug Option:
@@ -2850,31 +3466,70 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                         />
                       </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="uppercase font-bold text-zinc-600">Publish Status</label>
-                      <select
-                        value={blogForm.status}
-                        onChange={(e) => setBlogForm({ ...blogForm, status: e.target.value })}
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
-                      >
-                        <option value="published">Published</option>
-                        <option value="draft">Draft</option>
-                      </select>
-                    </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600">Publish Status</label>
+                          <select
+                            value={blogForm.status}
+                            onChange={(e) => setBlogForm({ ...blogForm, status: e.target.value })}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                          >
+                            <option value="published">Published</option>
+                            <option value="draft">Draft</option>
+                          </select>
+                        </div>
 
-                    <div className="space-y-1">
-                      <label className="uppercase font-bold text-zinc-600">Featured Photo Link</label>
-                      <input
-                        type="text"
-                        value={blogForm.image}
-                        onChange={(e) => setBlogForm({ ...blogForm, image: e.target.value })}
-                        placeholder="e.g. https://images.unsplash.com/..."
-                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
-                      />
+                        <div className="space-y-1">
+                          <label className="uppercase font-bold text-zinc-600">Featured Photo Link</label>
+                          <input
+                            type="text"
+                            value={blogForm.image}
+                            onChange={(e) => setBlogForm({ ...blogForm, image: e.target.value })}
+                            placeholder="e.g. https://images.unsplash.com/..."
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-medium focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="uppercase font-bold text-zinc-600 block mb-0.5">Page Layout Mode</label>
+                        <select
+                          value={blogLayoutMode}
+                          onChange={(e) => setBlogLayoutMode(e.target.value as 'standard' | 'blank')}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-zinc-800 font-bold focus:outline-none cursor-pointer"
+                        >
+                          <option value="standard">Standard Article (Header + Footer + Article Wrapper)</option>
+                          <option value="blank">Blank Canvas (Full Custom HTML Landing Page - Hides Header/Footer)</option>
+                        </select>
+                      </div>
+
+                      {blogLayoutMode === 'blank' && (
+                        <div className="space-y-2 pt-2 border-t border-gray-100">
+                          <label className="uppercase font-extrabold text-[10px] text-gray-400 block tracking-wider">Canvas Customizations</label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={blogSeoEnabled} 
+                                onChange={(e) => setBlogSeoEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                              />
+                              <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable SEO</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 bg-white border border-gray-200 p-2.5 rounded-xl cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={blogMarketingEnabled} 
+                                onChange={(e) => setBlogMarketingEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
+                              />
+                              <span className="font-semibold text-zinc-700 text-[10px] uppercase">Enable Tracking</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
 
                 {/* Media Preview Card */}
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-3">
@@ -2950,30 +3605,30 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
                       {/* Tab Switcher Button Group */}
                       <div className="flex bg-gray-250 p-0.5 rounded-xl border border-gray-150">
-                      <button
-                        type="button"
-                        onClick={() => setEditorMode('visual')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
-                          editorMode === 'visual'
-                            ? 'bg-white text-zinc-800 shadow-sm border border-gray-200'
-                            : 'text-gray-400 hover:text-zinc-700'
-                        }`}
-                      >
-                        Visual Rich Text
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditorMode('html')}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
-                          editorMode === 'html'
-                            ? 'bg-zinc-950 text-green-400 shadow-sm'
-                            : 'text-gray-400 hover:text-zinc-700'
-                        }`}
-                      >
-                        HTML Source Code
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditorMode('visual')}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                            editorMode === 'visual'
+                              ? 'bg-white text-zinc-800 shadow-sm border border-gray-200'
+                              : 'text-gray-400 hover:text-zinc-700'
+                          }`}
+                        >
+                          Visual Rich Text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditorMode('html')}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all duration-200 cursor-pointer ${
+                            editorMode === 'html'
+                              ? 'bg-zinc-950 text-green-400 shadow-sm'
+                              : 'text-gray-400 hover:text-zinc-700'
+                          }`}
+                        >
+                          HTML Source Code
+                        </button>
+                      </div>
                     </div>
-                  </div>
                   </div>
 
                   {/* Single Toggled Pane Container */}
@@ -3133,16 +3788,40 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
                 {/* Save & Cancel Row */}
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                  {editingBlog && (
+                    <a 
+                      href={(() => {
+                        const origin = window.location.origin;
+                        let storefrontOrigin = origin;
+                        if (origin.includes('localhost:5174')) {
+                          storefrontOrigin = origin.replace('localhost:5174', 'localhost:5173');
+                        } else if (origin.includes('127.0.0.1:5174')) {
+                          storefrontOrigin = origin.replace('127.0.0.1:5174', '127.0.0.1:5173');
+                        } else if (origin.includes('admin.')) {
+                          storefrontOrigin = origin.replace('admin.', 'www.');
+                        }
+                        const path = blogForm.id;
+                        const formattedPath = path.startsWith('/') ? path : `/blog/${path}`;
+                        return `${storefrontOrigin}${formattedPath}`;
+                      })()}
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="mr-auto bg-blue-50 text-brand-primary border border-blue-100 hover:bg-blue-100/50 font-bold px-5 py-3 rounded-xl transition-all flex items-center gap-1.5 text-xs uppercase tracking-wider cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Live Preview</span>
+                    </a>
+                  )}
                   <button 
                     type="button"
                     onClick={() => setBlogModalOpen(false)}
-                    className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer"
+                    className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer text-xs uppercase tracking-wider"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+                    className="bg-[#ff5c00] text-white font-bold px-6 py-3 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md text-xs uppercase tracking-wider"
                   >
                     {editingBlog ? "Save Article" : "Publish Article"}
                   </button>

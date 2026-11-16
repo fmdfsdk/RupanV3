@@ -186,9 +186,12 @@ class LocalDatabase {
         paymentBkashEnabled: true,
         paymentNagadEnabled: true,
         paymentCodEnabled: true,
+        paymentScreenshotEnabled: true,
         paymentBkashNumber: '01600338318',
         paymentNagadNumber: '01600338318',
-        paymentBanglaQrImage: '/assets/BanglaQRcode.jpeg',
+        paymentBanglaQrImage: '/assets/Defualt_Bangla_Qr_EBL.jpeg',
+        onlinePaymentDiscountEnabled: false,
+        onlinePaymentDiscountPercent: 50,
         paymentBanglaQrInstruction: 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
         paymentMfsInstruction: 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
         paymentCodInstruction: 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
@@ -719,6 +722,10 @@ class MockSupabaseClient {
     return new MockChannel(name);
   }
 
+  removeChannel(_channel: any) {
+    return Promise.resolve();
+  }
+
   rpc(fn: string, args?: any) {
     if (fn === 'search_products') {
       const query = args?.search_query || '';
@@ -981,6 +988,10 @@ class SupabaseClientWrapper {
 
   channel(name: string) {
     return this.client.channel(name);
+  }
+
+  removeChannel(channel: any) {
+    return this.client.removeChannel(channel);
   }
 
   rpc(fn: string, args?: any) {

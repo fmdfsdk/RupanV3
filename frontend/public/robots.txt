@@ -8,6 +8,9 @@ Disallow: /account
 Disallow: /my-account
 Disallow: /order-success
 Disallow: /product-search
+Disallow: /search
+Disallow: /track-order
+Disallow: /order-tracking
 Disallow: /register
 
 # Sitemap location

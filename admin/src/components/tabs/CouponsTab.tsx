@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Sparkles, Star, Zap } from 'lucide-react';
 import { Coupon } from '../../types';
 import { supabase } from '../../lib/supabase';
 
@@ -46,6 +46,8 @@ export default function CouponsTab({
                 <th className="p-4">Coupon Code</th>
                 <th className="p-4">Discount Scheme</th>
                 <th className="p-4 text-center">Minimum Purchase</th>
+                <th className="p-4 text-center">Auto-Apply</th>
+                <th className="p-4 text-center">Recommendation</th>
                 <th className="p-4 text-center">Limit Status</th>
                 <th className="p-4 text-center">Expiration Date</th>
                 <th className="p-4 text-right">Actions</th>
@@ -63,6 +65,48 @@ export default function CouponsTab({
                     {c.type === 'percentage' ? `${c.value}% Off Basket` : c.type === 'fixed' ? `৳${c.value} Flat Waiver` : 'Free Shipping'}
                   </td>
                   <td className="p-4 text-center font-semibold text-gray-500">৳{c.minOrder}</td>
+                  <td className="p-4 text-center">
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        const newAutoApply = !(c.isAutoApply ?? c.is_auto_apply ?? false);
+                        const updated = coupons.map(cop => cop.code === c.code ? { ...cop, isAutoApply: newAutoApply, is_auto_apply: newAutoApply } : cop);
+                        setCoupons(updated);
+                        try {
+                          await supabase.from('coupons').update({ is_auto_apply: newAutoApply }).eq('code', c.code);
+                        } catch (_) {}
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                        (c.isAutoApply ?? c.is_auto_apply)
+                          ? 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100 shadow-xs'
+                          : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      title="Toggle auto-apply when customer's cart reaches minimum order (কার্ট লিমিট পূরণ হলে স্বয়ংক্রিয়ভাবে অ্যাপ্লাই হবে)"
+                    >
+                      <Zap className={`w-3.5 h-3.5 ${(c.isAutoApply ?? c.is_auto_apply) ? 'text-purple-600 fill-purple-600' : 'text-gray-300'}`} />
+                      <span>{(c.isAutoApply ?? c.is_auto_apply) ? 'Auto-Apply' : 'Off'}</span>
+                    </button>
+                  </td>
+                  <td className="p-4 text-center">
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        const newRecommended = !(c.isRecommended ?? c.is_recommended ?? false);
+                        const updated = coupons.map(cop => cop.code === c.code ? { ...cop, isRecommended: newRecommended, is_recommended: newRecommended } : cop);
+                        await supabase.from('coupons').update({ is_recommended: newRecommended }).eq('code', c.code);
+                        setCoupons(updated);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                        (c.isRecommended ?? c.is_recommended)
+                          ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 shadow-xs'
+                          : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      title="Toggle recommendation at storefront checkout ('Apply This')"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${(c.isRecommended ?? c.is_recommended) ? 'text-amber-500 fill-amber-500' : 'text-gray-300'}`} />
+                      <span>{(c.isRecommended ?? c.is_recommended) ? 'Recommended' : 'Off'}</span>
+                    </button>
+                  </td>
                   <td className="p-4 text-center">
                     <span className="font-semibold text-zinc-600">
                       {c.usedCount || 0} / {c.usageLimit || '∞'} uses

@@ -173,16 +173,27 @@ export function buildOrganizationSchema() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Rupan',
+    alternateName: ['রূপান', 'myrupan', 'Myrupan', 'myrupan.com', 'Rupan BD', 'RupanBD'],
     url: BASE_URL,
     logo: `${BASE_URL}/assets/Rupan%20Logo%20Final.png`,
+    description: 'Rupan (myrupan.com) হলো বাংলাদেশের একটি বিশ্বস্ত অনলাইন শপিং প্ল্যাটফর্ম। ১০,০০০+ সন্তুষ্ট গ্রাহক। Jacquard পাঞ্জাবি, আধুনিক সালোয়ার কামিজ, কাপল সেট এবং লাইফস্টাইল কালেকশন। ক্যাশ অন ডেলিভারি এবং দ্রুততম ডেলিভারি সেবা।',
+    foundingLocation: 'Dhaka, Bangladesh',
+    areaServed: 'Bangladesh',
     sameAs: [
       'https://www.facebook.com/rupanbd',
       'https://www.instagram.com/rupanbd',
     ],
     contactPoint: {
       '@type': 'ContactPoint',
+      telephone: '+8801600338318',
       contactType: 'customer service',
       availableLanguage: ['Bengali', 'English'],
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      reviewCount: '1200',
+      bestRating: '5',
     },
   };
 }

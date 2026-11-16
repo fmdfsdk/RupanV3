@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ShoppingBag } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import ProductCard from '../components/ProductCard';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { productService } from '../services/productService';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
 import ProductImage from '../components/ProductImage';
@@ -10,6 +10,7 @@ import { useSEO } from '../hooks/useSEO';
 
 export default function SearchPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const PRODUCTS = useStore((state) => state.dbProducts);
   const wishlist = useStore((state) => state.wishlist);
   const toggleWishlist = useStore((state) => state.toggleWishlist);
@@ -24,8 +25,9 @@ export default function SearchPage() {
     robots: 'noindex, follow',
   });
 
-  const [inputValue, setInputValue] = useState<string>('');
-  const [searchPageQuery, setSearchPageQuery] = useState<string>('');
+  const initialQuery = searchParams.get('q') || searchParams.get('search') || '';
+  const [inputValue, setInputValue] = useState<string>(initialQuery);
+  const [searchPageQuery, setSearchPageQuery] = useState<string>(initialQuery);
   
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
@@ -39,10 +41,15 @@ export default function SearchPage() {
     navigate('/checkout');
   };
 
-  // 1. Debounce Search Query trigger
+  // 1. Debounce Search Query trigger & URL synchronization
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchPageQuery(inputValue);
+      if (inputValue.trim()) {
+        setSearchParams({ q: inputValue.trim() }, { replace: true });
+      } else {
+        setSearchParams({}, { replace: true });
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [inputValue]);

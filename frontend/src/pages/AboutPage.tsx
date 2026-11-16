@@ -25,6 +25,48 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Official Identity & Trust Signals */}
+      <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/40 border border-orange-200/80 rounded-2xl p-6 md:p-8 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-orange-100 pb-4">
+          <div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#ff5c00] bg-orange-100/80 px-3 py-1 rounded-full inline-block mb-1.5">
+              Official Brand Identity
+            </span>
+            <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
+              Rupan (রূপান) ও myrupan.com — একই নির্ভরযোগ্য প্রতিষ্ঠান
+            </h2>
+          </div>
+          <div className="text-xs font-bold text-gray-600 bg-white/80 border border-orange-100 px-4 py-2 rounded-xl shrink-0">
+            স্টোর ডোমেন: <span className="text-[#ff5c00] font-black font-mono">www.myrupan.com</span>
+          </div>
+        </div>
+        <p className="text-xs md:text-sm text-gray-700 leading-relaxed font-medium">
+          <strong>Rupan (রূপান)</strong> হলো আমাদের প্রতিষ্ঠিত ফ্যাশন ও লাইফস্টাইল ব্র্যান্ড, এবং <strong>myrupan.com</strong> হলো আমাদের একমাত্র অফিশিয়াল অনলাইন ফ্ল্যাগশিপ শপিং প্ল্যাটফর্ম। উভয় পরিচয়ই একক ও অভিন্ন সত্ত্বা। আমাদের সকল পণ্য সরাসরি নিজস্ব তত্ত্বাবধানে উৎপাদিত ও মান নিয়ন্ত্রিত হয়ে গ্রাহকের কাছে পৌঁছায়।
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-xs font-bold">
+          <div className="bg-white p-3 rounded-xl border border-orange-100 text-center space-y-1 shadow-2xs">
+            <span className="text-lg">⭐</span>
+            <div className="font-black text-gray-900 text-sm">১০,০০০+</div>
+            <div className="text-[11px] text-gray-500 font-semibold">সন্তুষ্ট গ্রাহক</div>
+          </div>
+          <div className="bg-white p-3 rounded-xl border border-orange-100 text-center space-y-1 shadow-2xs">
+            <span className="text-lg">🛡️</span>
+            <div className="font-black text-emerald-700 text-sm">ক্যাশ অন ডেলিভারি</div>
+            <div className="text-[11px] text-gray-500 font-semibold">পণ্য দেখে মূল্য পরিশোধ</div>
+          </div>
+          <div className="bg-white p-3 rounded-xl border border-orange-100 text-center space-y-1 shadow-2xs">
+            <span className="text-lg">⚡</span>
+            <div className="font-black text-gray-900 text-sm">দ্রুত ডেলিভারি</div>
+            <div className="text-[11px] text-gray-500 font-semibold">সারাদেশে হোম ডেলিভারি</div>
+          </div>
+          <div className="bg-white p-3 rounded-xl border border-orange-100 text-center space-y-1 shadow-2xs">
+            <span className="text-lg">🔄</span>
+            <div className="font-black text-gray-900 text-sm">৭ দিনের গ্যারান্টি</div>
+            <div className="text-[11px] text-gray-500 font-semibold">সহজ রিটার্ন ও এক্সচেঞ্জ</div>
+          </div>
+        </div>
+      </div>
+
       {/* Core Pillars / Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-2xs space-y-4">

@@ -31,11 +31,14 @@ interface StoreState {
     name: string;
     phone: string;
     address: string;
+    division?: string;
+    district?: string;
     area: string;
     paymentMethod: string;
     email: string;
     transactionId?: string;
     paidConfirm?: boolean;
+    paymentScreenshotUrl?: string;
   };
   
   // UI & Navigation States
@@ -131,7 +134,12 @@ interface StoreState {
   addToCart: (product: Product, size: string, color: string, qty?: number) => void;
   updateCartQty: (index: number, newQty: number) => void;
   toggleWishlist: (product: Product) => void;
-  applyCoupon: (code: string) => boolean;
+  applyCoupon: (code: string) => {
+    success: boolean;
+    reason: 'SUCCESS' | 'INVALID_CODE' | 'INACTIVE' | 'EXPIRED' | 'USAGE_LIMIT_REACHED' | 'MIN_ORDER_NOT_MET';
+    message: string;
+    minOrder?: number;
+  };
   placeOrder: (formInputs: any) => Promise<Order | null>;
   logout: () => void;
   
@@ -205,31 +213,32 @@ export const useStore = create<StoreState>((set, get) => ({
     const cached = localStorage.getItem('rup_orders');
     return cached ? JSON.parse(cached) : [];
   })(),
-  currentUser: {
-    username: 'test',
-    displayName: 'test',
-    email: 'phone-534534563453-nz9rfv2h@rupan.invalid',
-    phone: '534534563453',
-    billingAddress: 'test',
-    shippingAddress: 'test',
-    city: 'Dhaka',
-    zip: '1000'
-  },
+  currentUser: null,
   appliedCoupon: null,
-  lastPlacedOrder: null,
+  lastPlacedOrder: (() => {
+    try {
+      const cached = localStorage.getItem('rup_last_placed_order');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
   recentlyViewedIds: (() => {
     const cached = localStorage.getItem('rup_recently_viewed');
     return cached ? JSON.parse(cached) : [];
   })(),
   checkoutForm: {
-    name: 'test',
-    phone: '534534563453',
-    address: 'test',
-    area: 'Inside Dhaka',
+    name: '',
+    phone: '',
+    address: '',
+    division: '',
+    district: '',
+    area: '',
     paymentMethod: 'Bangla QR',
-    email: 'phone-534534563453-nz9rfv2h@rupan.invalid',
+    email: '',
     transactionId: '',
-    paidConfirm: false
+    paidConfirm: false,
+    paymentScreenshotUrl: ''
   },
   
   // UI & Navigation Initial States
@@ -306,8 +315,17 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ orders });
   },
   setAppliedCoupon: (appliedCoupon) => set({ appliedCoupon }),
-  setLastPlacedOrder: (lastPlacedOrder) => set({ lastPlacedOrder }),
-  setCheckoutForm: (checkoutForm) => set({ checkoutForm }),
+  setLastPlacedOrder: (lastPlacedOrder) => {
+    if (lastPlacedOrder) {
+      localStorage.setItem('rup_last_placed_order', JSON.stringify(lastPlacedOrder));
+    } else {
+      localStorage.removeItem('rup_last_placed_order');
+    }
+    set({ lastPlacedOrder });
+  },
+  setCheckoutForm: (formOrUpdater) => set((state) => ({
+    checkoutForm: typeof formOrUpdater === 'function' ? formOrUpdater(state.checkoutForm) : formOrUpdater
+  })),
   addRecentlyViewedId: (id) => {
     const current = get().recentlyViewedIds;
     const updated = [id, ...current.filter((x) => x !== id)].slice(0, 10);
@@ -353,6 +371,27 @@ export const useStore = create<StoreState>((set, get) => ({
       if (pData && pData.length > 0) {
         set({ dbProducts: pData });
         localStorage.setItem('rup_db_products', JSON.stringify(pData));
+
+        // Sync existing cart items with latest product prices, margins & finalPrice
+        const currentCart = get().cart;
+        if (currentCart && currentCart.length > 0) {
+          const productMap = new Map(pData.map(p => [p.id, p]));
+          const updatedCart = currentCart.map(item => {
+            const fresh = productMap.get(item.product?.id);
+            if (!fresh) return item;
+            return {
+              ...item,
+              product: {
+                ...item.product,
+                ...fresh,
+                finalPrice: fresh.finalPrice ?? fresh.final_price,
+                purchasePrice: fresh.purchasePrice ?? fresh.purchase_price
+              }
+            };
+          });
+          set({ cart: updatedCart });
+          localStorage.setItem('rup_cart', JSON.stringify(updatedCart));
+        }
       }
 
       // Load reviews, blogs, banners, settings in parallel for speed
@@ -390,8 +429,21 @@ export const useStore = create<StoreState>((set, get) => ({
         localStorage.setItem('rup_db_banners', JSON.stringify(bData));
       }
       if (cResult && cResult.data) {
-        set({ dbCoupons: cResult.data });
-        localStorage.setItem('rup_db_coupons', JSON.stringify(cResult.data));
+        const mappedCoupons = cResult.data.map((c: any) => ({
+          ...c,
+          isRecommended: c.is_recommended ?? c.isRecommended ?? false,
+          is_recommended: c.is_recommended ?? c.isRecommended ?? false,
+          isAutoApply: c.is_auto_apply ?? c.isAutoApply ?? false,
+          is_auto_apply: c.is_auto_apply ?? c.isAutoApply ?? false,
+          isActive: c.is_active ?? c.isActive ?? true,
+          minOrder: Number(c.min_order ?? c.minOrder ?? 0),
+          maxDiscount: c.max_discount ?? c.maxDiscount,
+          expiryDate: c.expiry_date || c.expiryDate,
+          usedCount: c.used_count ?? c.usedCount ?? 0,
+          usageLimit: c.usage_limit ?? c.usageLimit
+        }));
+        set({ dbCoupons: mappedCoupons });
+        localStorage.setItem('rup_db_coupons', JSON.stringify(mappedCoupons));
       }
       if (sData) {
         // Retrieve local backup token and test code if DB doesn't have them
@@ -517,36 +569,73 @@ export const useStore = create<StoreState>((set, get) => ({
 
   applyCoupon: (code) => {
     const cleanCode = code.trim().toUpperCase();
-    const { dbCoupons } = get();
-    
-    // Find coupon in database list first
-    const coupon = dbCoupons.find(c => c.code === cleanCode && (c.isActive || c.is_active));
-    if (coupon) {
-      const expiry = coupon.expiryDate || coupon.expiry_date;
+    const { dbCoupons, cart } = get();
+    const subtotal = cart.reduce((sum, item) => sum + (item.product.discountPrice || item.product.price) * item.quantity, 0);
+
+    // 1. Find coupon in database list
+    const dbMatch = (dbCoupons || []).find(c => c && c.code && typeof c.code === 'string' && c.code.trim().toUpperCase() === cleanCode);
+    if (dbMatch) {
+      if (dbMatch.isActive === false && dbMatch.is_active === false) {
+        return {
+          success: false,
+          reason: 'INACTIVE',
+          message: 'এই কুপনটি বর্তমানে নিষ্ক্রিয় রয়েছে।'
+        };
+      }
+
+      const expiry = dbMatch.expiryDate || dbMatch.expiry_date;
       if (expiry) {
         const expiryDate = new Date(expiry);
+        // Compare with today midnight
         const now = new Date();
-        if (expiryDate < now) return false;
+        now.setHours(0, 0, 0, 0);
+        if (expiryDate < now) {
+          return {
+            success: false,
+            reason: 'EXPIRED',
+            message: 'কুপনটির মেয়াদ শেষ হয়ে গেছে (Coupon has expired)।'
+          };
+        }
       }
-      
-      const usageLimit = coupon.usageLimit || coupon.usage_limit;
-      const usedCount = coupon.usedCount || coupon.used_count || 0;
-      if (usageLimit && usedCount >= usageLimit) return false;
-      
-      const minOrder = coupon.minOrder || coupon.min_order || 0;
-      
-      set({ 
-        appliedCoupon: { 
-          code: coupon.code, 
-          discount: Number(coupon.value), 
-          type: coupon.type, 
-          minOrder: Number(minOrder) 
-        } 
+
+      const usageLimit = dbMatch.usageLimit || dbMatch.usage_limit;
+      const usedCount = dbMatch.usedCount || dbMatch.used_count || 0;
+      if (usageLimit && usedCount >= usageLimit) {
+        return {
+          success: false,
+          reason: 'USAGE_LIMIT_REACHED',
+          message: 'এই কুপনের ব্যবহারের সীমা শেষ হয়ে গেছে (Coupon usage limit reached)।'
+        };
+      }
+
+      const minOrder = Number(dbMatch.minOrder || dbMatch.min_order || 0);
+      if (subtotal < minOrder) {
+        return {
+          success: false,
+          reason: 'MIN_ORDER_NOT_MET',
+          minOrder,
+          message: `এই কুপনটি পেতে ন্যূনতম ৳${minOrder.toLocaleString('en-IN')} টাকার অর্ডার করতে হবে।`
+        };
+      }
+
+      set({
+        appliedCoupon: {
+          code: dbMatch.code,
+          discount: Number(dbMatch.value),
+          type: dbMatch.type,
+          minOrder: minOrder,
+          isAutoApply: dbMatch.isAutoApply ?? dbMatch.is_auto_apply ?? false
+        }
       });
-      return true;
+
+      return {
+        success: true,
+        reason: 'SUCCESS',
+        message: `কুপন '${dbMatch.code}' সফলভাবে প্রয়োগ করা হয়েছে!`
+      };
     }
-    
-    // Fallback to local hardcoded mock coupons
+
+    // 2. Fallback to mock coupons
     const mockCoupons = [
       { code: 'EID20', value: 200, type: 'fixed', minOrder: 1500 },
       { code: 'FREEBD', value: 100, type: 'free_shipping', minOrder: 2500 },
@@ -555,21 +644,40 @@ export const useStore = create<StoreState>((set, get) => ({
       { code: 'EIDMUBARAK', value: 15, type: 'percentage', minOrder: 1000 },
       { code: 'FREE60', value: 60, type: 'fixed', minOrder: 2000 }
     ];
-    
+
     const mock = mockCoupons.find(c => c.code === cleanCode);
     if (mock) {
-      set({ 
-        appliedCoupon: { 
-          code: mock.code, 
-          discount: mock.value, 
-          type: mock.type, 
-          minOrder: mock.minOrder 
-        } 
+      if (subtotal < mock.minOrder) {
+        return {
+          success: false,
+          reason: 'MIN_ORDER_NOT_MET',
+          minOrder: mock.minOrder,
+          message: `এই কুপনটি পেতে ন্যূনতম ৳${mock.minOrder.toLocaleString('en-IN')} টাকার অর্ডার করতে হবে।`
+        };
+      }
+
+      set({
+        appliedCoupon: {
+          code: mock.code,
+          discount: mock.value,
+          type: mock.type,
+          minOrder: mock.minOrder
+        }
       });
-      return true;
+
+      return {
+        success: true,
+        reason: 'SUCCESS',
+        message: `কুপন '${mock.code}' সফলভাবে প্রয়োগ করা হয়েছে!`
+      };
     }
-    
-    return false;
+
+    // 3. Invalid Coupon
+    return {
+      success: false,
+      reason: 'INVALID_CODE',
+      message: 'অবৈধ কুপন কোড (Invalid coupon code)। সঠিক কোড দিন।'
+    };
   },
 
   placeOrder: async (formInputs) => {
@@ -577,19 +685,33 @@ export const useStore = create<StoreState>((set, get) => ({
     if (cart.length === 0) return null;
 
     const purchaseEventId = generateEventId('Purchase');
-    const orderId = `RUP-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // High-Volume E-Commerce Order ID Standard: RUP-YYMMDD-XXXX (e.g. RUP-261116-4892)
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const randPart = Math.floor(1000 + Math.random() * 9000);
+    const orderId = `RUP-${yy}${mm}${dd}-${randPart}`;
     
     const subtotal = cart.reduce((sum, item) => {
       const price = item.product.discountPrice || item.product.price;
       return sum + price * item.quantity;
     }, 0);
 
-    const freeShippingLimit = dbSettings?.free_shipping_min_order ?? dbSettings?.freeShippingMinOrder ?? 3000;
+    const freeShippingLimit = Number(dbSettings?.free_shipping_min_order ?? dbSettings?.freeShippingMinOrder ?? 0);
+    const isFreeShippingEnabled = Boolean(dbSettings?.free_shipping_enabled ?? dbSettings?.freeShippingEnabled ?? false);
     let shippingFee = 0;
-    if (subtotal < freeShippingLimit) {
-      const insideFee = dbSettings?.inside_dhaka_shipping ?? dbSettings?.insideDhakaShipping ?? 60;
-      const outsideFee = dbSettings?.outside_dhaka_shipping ?? dbSettings?.outsideDhakaShipping ?? 120;
-      shippingFee = formInputs.area === 'Inside Dhaka' ? insideFee : outsideFee;
+    const isQualifyingThreshold = isFreeShippingEnabled && freeShippingLimit > 0 && subtotal >= freeShippingLimit;
+    if (!isQualifyingThreshold) {
+      if (typeof formInputs.shippingFee === 'number') {
+        shippingFee = formInputs.shippingFee;
+      } else {
+        const insideFee = dbSettings?.inside_dhaka_shipping ?? dbSettings?.insideDhakaShipping ?? 60;
+        const outsideFee = dbSettings?.outside_dhaka_shipping ?? dbSettings?.outsideDhakaShipping ?? 120;
+        const isDhaka = formInputs.district === 'dhaka' || formInputs.area === 'Inside Dhaka' || formInputs.area?.includes('ঢাকা');
+        shippingFee = isDhaka ? insideFee : outsideFee;
+      }
     }
 
     const { appliedCoupon } = get();
@@ -608,7 +730,8 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     }
 
-    const total = subtotal + shippingFee - discount;
+    const onlinePaymentDiscount = Number(formInputs.onlinePaymentDiscount || 0);
+    const total = Math.max(0, subtotal + shippingFee - discount - onlinePaymentDiscount);
 
     const newOrder: Order = {
       id: orderId,
@@ -616,9 +739,13 @@ export const useStore = create<StoreState>((set, get) => ({
       phone: formInputs.phone,
       address: formInputs.address,
       area: formInputs.area,
+      division: formInputs.division || '',
+      district: formInputs.district || '',
       paymentMethod: formInputs.paymentMethod,
       transactionId: formInputs.transactionId,
       paidConfirm: formInputs.paidConfirm,
+      paymentScreenshotUrl: formInputs.paymentScreenshotUrl || '',
+      onlinePaymentDiscount,
       items: cart.map((item) => ({
         productId: item.product.id,
         productName: item.product.name,
@@ -642,53 +769,12 @@ export const useStore = create<StoreState>((set, get) => ({
     get().setOrders(updatedOrders);
 
     // ALWAYS write directly to Supabase Database (Guaranteed Order Persistence)
+    // Telegram notification is sent exclusively from /api/place-order serverless
+    // to avoid double-sends and to keep bot token off the client browser.
     try {
       await orderService.createOrder(newOrder, purchaseEventId, currentUser === null);
     } catch (err: any) {
       console.error("Critical: Error writing order to Supabase:", err.message || err);
-    }
-
-    // Send Telegram Notification (Using HTML parse mode to prevent markdown parsing crashes)
-    const tgToken = dbSettings?.telegram_bot_token || dbSettings?.telegramBotToken;
-    const tgChatId = dbSettings?.telegram_chat_id || dbSettings?.telegramChatId;
-    const tgEnabled = dbSettings?.telegram_notifications_enabled ?? dbSettings?.telegramNotificationsEnabled ?? true;
-
-    if (tgToken && tgChatId && tgEnabled) {
-      try {
-        const escapeHtml = (text: string) => (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const itemDetailsHtml = newOrder.items.map(i => 
-          `• <b>${escapeHtml(i.productName)}</b> (${escapeHtml(i.size)}, ${escapeHtml(i.color)}) x ${i.quantity} — ৳${i.price * i.quantity}`
-        ).join('\n');
-
-        const tgMessageHtml = `<b>🛍️ NEW ORDER RECEIVED! <code>#${escapeHtml(newOrder.id)}</code></b>\n\n` +
-`👤 <b>Customer:</b> ${escapeHtml(newOrder.customerName)}\n` +
-`📞 <b>Phone:</b> <code>${escapeHtml(newOrder.phone)}</code>\n` +
-`📍 <b>Address:</b> ${escapeHtml(newOrder.address)}\n` +
-`🗺️ <b>Area:</b> ${escapeHtml(newOrder.area)}\n` +
-`💳 <b>Payment:</b> ${escapeHtml(newOrder.paymentMethod)}${newOrder.transactionId ? ` (TxID: <code>${escapeHtml(newOrder.transactionId)}</code>)` : ''}\n\n` +
-`📦 <b>Items (${newOrder.items.length}):</b>\n${itemDetailsHtml}\n\n` +
-`💰 <b>Subtotal:</b> ৳${newOrder.subtotal}\n` +
-`🚚 <b>Shipping Fee:</b> ৳${newOrder.shippingFee}\n` +
-`💵 <b>TOTAL AMOUNT:</b> ৳${newOrder.total}`;
-
-        fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: tgChatId,
-            text: tgMessageHtml,
-            parse_mode: 'HTML'
-          })
-        }).then(res => res.json()).then(resData => {
-          if (!resData.ok) {
-            console.error('Telegram notification error response:', resData);
-          } else {
-            console.log('Telegram notification sent successfully!');
-          }
-        }).catch((e) => console.error('Telegram notification fetch error:', e));
-      } catch (tgErr) {
-        console.error('Failed to trigger Telegram bot alert:', tgErr);
-      }
     }
 
     trackPurchase(newOrder, purchaseEventId, dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code);
@@ -697,6 +783,7 @@ export const useStore = create<StoreState>((set, get) => ({
       lastPlacedOrder: newOrder,
       appliedCoupon: null
     });
+    localStorage.setItem('rup_last_placed_order', JSON.stringify(newOrder));
     get().setCart([]);
 
     return newOrder;

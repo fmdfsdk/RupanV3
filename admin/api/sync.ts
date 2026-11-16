@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Setup Supabase Client with Service Role Key to bypass RLS for write operations
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = 
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL ||
+  '';
+const supabaseServiceKey = 
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+  '';
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
@@ -171,10 +178,43 @@ export default async function handler(req: any, res: any) {
     const response = await fetch(`${sourceConfig.api_url}?page=${page}`, {
       method: 'GET',
       headers: {
+        'api-key': sourceConfig.api_key,
+        'secret-key': sourceConfig.secret_key,
         'API-KEY': sourceConfig.api_key,
-        'SECRET-KEY': sourceConfig.secret_key
+        'SECRET-KEY': sourceConfig.secret_key,
+        'Accept': 'application/json'
       }
     });
+
+    if (response.status === 429) {
+      const errorText = await response.text();
+      let retryAfter = 20;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.retry_after) {
+          retryAfter = Number(errorJson.retry_after);
+        }
+      } catch (_) {}
+
+      if (logId) {
+        await supabase
+          .from('sync_logs')
+          .update({
+            status: 'failed',
+            error_message: `Rate limit hit (429): ${errorText}`,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', logId);
+      }
+
+      return res.status(429).json({
+        success: false,
+        rateLimited: true,
+        retry_after: retryAfter,
+        message: 'Rate limit exceeded. Maximum 5 requests allowed per minute.',
+        error: errorText
+      });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -193,25 +233,60 @@ export default async function handler(req: any, res: any) {
     const markup = sourceConfig.config?.markup_percentage || 0;
     const autoPublish = sourceConfig.config?.auto_publish !== false;
 
-    // Fetch site settings to get active category margins and default margin overrides
-    let defaultMargin = markup;
-    let categoryMargins: Record<string, number> = {};
+    // Fetch site settings to get active pricing config, category margins and default margin overrides
+    let deductionPercentage = 25; // Default 25% deduction
+    let defaultMarginType: 'percentage' | 'fixed' = 'percentage';
+    let defaultMargin = markup > 0 ? markup : 10;
+    let categoryMargins: Record<string, any> = {};
+
     try {
       const { data: settingsData } = await supabase
         .from('settings')
-        .select('homepage_config')
+        .select('homepage_config, pricing_config')
         .eq('id', 1)
         .maybeSingle();
       
-      const config = settingsData?.homepage_config || {};
-      if (config.default_margin !== undefined) defaultMargin = Number(config.default_margin);
-      if (config.category_margins) categoryMargins = config.category_margins;
+      const pConfig = settingsData?.pricing_config || {};
+      const hConfig = settingsData?.homepage_config || {};
+
+      if (pConfig.deduction_percentage !== undefined) {
+        deductionPercentage = Number(pConfig.deduction_percentage);
+      } else if (hConfig.deduction_percentage !== undefined) {
+        deductionPercentage = Number(hConfig.deduction_percentage);
+      }
+
+      if (pConfig.default_margin_type) {
+        defaultMarginType = pConfig.default_margin_type;
+      }
+      if (pConfig.default_margin_value !== undefined) {
+        defaultMargin = Number(pConfig.default_margin_value);
+      } else if (hConfig.default_margin !== undefined) {
+        defaultMargin = Number(hConfig.default_margin);
+      }
+
+      if (pConfig.category_margins) {
+        categoryMargins = pConfig.category_margins;
+      } else if (hConfig.category_margins) {
+        categoryMargins = hConfig.category_margins;
+      }
     } catch (_) {}
 
     let importedCount = 0;
     let updatedCount = 0;
     let failedCount = 0;
     const errors: string[] = [];
+
+    // Helper to format/normalize image URLs
+    const normalizeImageUrl = (url: any): string | null => {
+      if (!url || typeof url !== 'string') return null;
+      const trimmed = url.trim();
+      if (!trimmed) return null;
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+      if (trimmed.startsWith('images/')) return `https://mohasagor.com.bd/public/storage/${trimmed}`;
+      if (trimmed.startsWith('/storage/')) return `https://mohasagor.com.bd/public${trimmed}`;
+      if (trimmed.startsWith('public/storage/')) return `https://mohasagor.com.bd/${trimmed}`;
+      return `https://mohasagor.com.bd/public/storage/images/products/${trimmed}`;
+    };
 
     // 3. Process products in batch
     const categoriesMap = new Map<string, string>();
@@ -230,10 +305,15 @@ export default async function handler(req: any, res: any) {
 
         // Map images: thumbnail is index 0
         const imagesSet = new Set<string>();
-        if (item.thumbnail_img) imagesSet.add(item.thumbnail_img);
-        if (Array.isArray(item.product_images)) {
-          item.product_images.forEach((img: any) => {
-            if (img.product_image) imagesSet.add(img.product_image);
+        const mainThumb = normalizeImageUrl(item.thumbnail_img);
+        if (mainThumb) imagesSet.add(mainThumb);
+
+        const rawImages = item.product_images || item.product_image;
+        if (Array.isArray(rawImages)) {
+          rawImages.forEach((img: any) => {
+            const rawUrl = typeof img === 'string' ? img : (img.product_image || img.image || img.url);
+            const normalized = normalizeImageUrl(rawUrl);
+            if (normalized) imagesSet.add(normalized);
           });
         }
         const images = Array.from(imagesSet);
@@ -246,10 +326,11 @@ export default async function handler(req: any, res: any) {
         const colorsMap = new Map<string, { name: string; class: string; hex: string }>();
         const sizesSet = new Set<string>();
 
-        if (Array.isArray(item.product_variants)) {
-          item.product_variants.forEach((v: any) => {
-            const attr = String(v.attribute).trim().toLowerCase();
-            const val = String(v.variant).trim();
+        const rawVariants = item.product_variants || item.product_variant;
+        if (Array.isArray(rawVariants)) {
+          rawVariants.forEach((v: any) => {
+            const attr = String(v.attribute || v.attribute_name || '').trim().toLowerCase();
+            const val = String(v.variant || v.variant_name || v.name || '').trim();
             if (attr === 'color' || attr === 'colour') {
               const meta = getColorMetadata(val);
               colorsMap.set(val.toLowerCase(), { name: val, class: meta.class, hex: meta.hex });
@@ -275,35 +356,55 @@ export default async function handler(req: any, res: any) {
         const rawCategory = (item.category || 'General').trim();
         const rawCategoryLower = rawCategory.toLowerCase();
         
-        let itemMarginPct = defaultMargin;
-        for (const [catKey, marginVal] of Object.entries(categoryMargins)) {
+        // Mohasagor Pricing Calculation:
+        // sale_price = Wholesale Reseller Cost (purchase_price)
+        // price = Maximum Retail Price (MSRP)
+        const regularMSRP = Number(item.price || 0);
+        const wholesaleCost = Number(item.sale_price || item.price || 0);
+
+        // Step 1: Calculate Price Difference X = price - sale_price
+        const diffX = Math.max(0, regularMSRP - wholesaleCost);
+
+        // Step 2: Calculate Website Final Price (Floor Price)
+        // Website Price = price - (0.25 * X)
+        const websiteFinalPrice = Math.round(regularMSRP - (deductionPercentage / 100) * diffX);
+
+        // Step 3: Apply Profit Margin (Selling Price = Final Price + Margin)
+        let marginType = defaultMarginType;
+        let marginVal = defaultMargin;
+
+        for (const [catKey, marginSetting] of Object.entries(categoryMargins)) {
           if (rawCategoryLower.includes(catKey.toLowerCase()) || catKey.toLowerCase().includes(rawCategoryLower)) {
-            itemMarginPct = Number(marginVal);
+            if (typeof marginSetting === 'object' && marginSetting !== null) {
+              marginType = (marginSetting as any).type || 'percentage';
+              marginVal = Number((marginSetting as any).value || 0);
+            } else {
+              marginType = 'percentage';
+              marginVal = Number(marginSetting);
+            }
             break;
           }
         }
 
-        // Pricing calculation (purchase price + markup percentage)
-        const purchasePrice = Number(item.sale_price || item.price || 0);
-        const regularPrice = Number(item.price || 0);
-        
-        // Our active selling price (cost + markup)
-        const sellingPrice = itemMarginPct > 0
-          ? Math.round(purchasePrice * (1 + itemMarginPct / 100))
-          : regularPrice;
+        let marginAmount = 0;
+        if (marginType === 'fixed') {
+          marginAmount = marginVal;
+        } else {
+          marginAmount = Math.round(websiteFinalPrice * (marginVal / 100));
+        }
 
-        let finalPrice = sellingPrice;
+        const calculatedSellingPrice = websiteFinalPrice + marginAmount;
+
+        let finalPrice = calculatedSellingPrice;
         let finalDiscountPrice: number | null = null;
 
-        // If the regular retail price is higher than our selling price, 
-        // we present it as a discount: price = regularPrice, discount_price = sellingPrice
-        // This satisfies the database constraint that discount_price < price
-        if (regularPrice > sellingPrice) {
-          finalPrice = regularPrice;
-          finalDiscountPrice = sellingPrice;
+        // If regular retail MSRP is higher than our selling price, 
+        // present MSRP as strikethrough price and calculatedSellingPrice as discount_price
+        if (regularMSRP > calculatedSellingPrice) {
+          finalPrice = regularMSRP;
+          finalDiscountPrice = calculatedSellingPrice;
         } else {
-          // No discount shown, sellingPrice is the main price
-          finalPrice = sellingPrice;
+          finalPrice = calculatedSellingPrice;
           finalDiscountPrice = null;
         }
 
@@ -319,9 +420,10 @@ export default async function handler(req: any, res: any) {
         const isOutOfStock = 
           item.stock_status === 'out_of_stock' || 
           item.stock_status === 'unavailable' ||
-          item.status === 'inactive';
+          item.status === 'inactive' ||
+          (item.stock !== undefined && item.stock !== null && Number(item.stock) === 0);
           
-        const stock = isOutOfStock ? 0 : 50;
+        const stock = isOutOfStock ? 0 : (Number(item.stock) > 0 ? Number(item.stock) : 50);
 
         // Map fields into final products schema
         const cleanName = (item.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -339,7 +441,8 @@ export default async function handler(req: any, res: any) {
           gender: 'Men', // Default, editable from dashboard
           price: finalPrice,
           discount_price: finalDiscountPrice,
-          purchase_price: purchasePrice,
+          purchase_price: wholesaleCost,
+          final_price: websiteFinalPrice,
           rating: 5.0,
           reviews_count: 0,
           images: images,
@@ -390,14 +493,23 @@ export default async function handler(req: any, res: any) {
 
     // 4. Perform bulk database upsert
     if (upsertBuffer.length > 0) {
-      // Fetch existing rows to calculate exact insert vs update count
+      // Fetch existing rows to calculate exact insert vs update count and preserve established slugs
       const idsToUpsert = upsertBuffer.map(p => p.id);
       const { data: existingProducts } = await supabase
         .from('products')
-        .select('id')
+        .select('id, slug')
         .in('id', idsToUpsert);
 
+      const existingMap = new Map((existingProducts || []).map(p => [p.id, p]));
       const existingIds = new Set(existingProducts?.map(p => p.id) || []);
+      
+      // Preserve existing slugs to prevent unique constraint conflicts on updates
+      upsertBuffer.forEach(p => {
+        const existing = existingMap.get(p.id);
+        if (existing?.slug) {
+          p.slug = existing.slug;
+        }
+      });
       
       const { error: upsertError } = await supabase
         .from('products')

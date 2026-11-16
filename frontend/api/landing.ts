@@ -26,7 +26,7 @@ function isKnownReactRoute(urlPath: string): boolean {
   return false;
 }
 
-function renderErrorHtml(res: VercelResponse, title: string = 'সাময়িক সমস্যা হয়েছে', message: string = 'দুঃখিত, পেজটি লোড করতে সাময়িক টেকনিক্যাল সমস্যা হয়েছে। দয়া করে মেইন ওয়েবসাইটে ফিরে যান।') {
+function renderErrorHtml(res: VercelResponse, title: string = 'সাময়িক সমস্যা হয়েছে', message: string = 'দুঃখিত, পেজটি লোড করতে সাময়িক টেকনিক্যাল সমস্যা হয়েছে। দয়া করে মেইন ওয়েবসাইটে ফিরে যান।', statusCode: number = 500) {
   const html = `<!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -58,7 +58,7 @@ function renderErrorHtml(res: VercelResponse, title: string = 'সাময়ি�
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  return res.status(200).send(html);
+  return res.status(statusCode).send(html);
 }
 
 function serveIndexHtml(res: VercelResponse) {
@@ -261,6 +261,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rawPath = pathParam ? pathParam.split('?')[0] : urlObj.pathname;
     const urlPath = rawPath.startsWith('/') ? rawPath : '/' + rawPath;
     const cleanPath = urlPath.split('?')[0];
+
+    // Reject /api/ routes so landing never intercepts serverless endpoints
+    if (cleanPath.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API route not handled by landing renderer' });
+    }
 
     // A. Handle redirect for /product?id=Mohasagor8184
     const productId = req.query.id as string;

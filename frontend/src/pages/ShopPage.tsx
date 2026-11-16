@@ -101,13 +101,16 @@ export default function ShopPage() {
     const params = new URLSearchParams(searchParams);
     let updated = false;
     
-    if (selectedCategory !== 'All' && !searchParams.has('category')) {
-      params.set('category', selectedCategory);
-      updated = true;
-    }
-    if (selectedGender !== 'All' && !searchParams.has('gender')) {
-      params.set('gender', selectedGender);
-      updated = true;
+    // Only inject category/gender if NOT a pure text search query
+    if (!searchParams.has('search') && !searchParams.has('q')) {
+      if (selectedCategory !== 'All' && !searchParams.has('category')) {
+        params.set('category', selectedCategory);
+        updated = true;
+      }
+      if (selectedGender !== 'All' && !searchParams.has('gender')) {
+        params.set('gender', selectedGender);
+        updated = true;
+      }
     }
     if (searchQuery && !searchParams.has('search')) {
       params.set('search', searchQuery);
@@ -118,6 +121,26 @@ export default function ShopPage() {
       setSearchParams(params);
     }
   }, []);
+
+  // When top-level category or gender changes via navigation,
+  // automatically clear previous subCategories to avoid cross-category filtering deadlock
+  const prevCategoryRef = React.useRef(urlCategory);
+  const prevGenderRef = React.useRef(urlGender);
+  useEffect(() => {
+    if (prevCategoryRef.current !== urlCategory || prevGenderRef.current !== urlGender) {
+      prevCategoryRef.current = urlCategory;
+      prevGenderRef.current = urlGender;
+      if (searchParams.has('subCategories')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('subCategories');
+        nextParams.set('page', '1');
+        setCheckedSubCategories([]);
+        setSearchParams(nextParams);
+      } else {
+        setCheckedSubCategories([]);
+      }
+    }
+  }, [urlCategory, urlGender, searchParams]);
 
   // Sync component checkbox state from URL params
   useEffect(() => {
@@ -132,6 +155,19 @@ export default function ShopPage() {
 
   const handleApplyFilters = () => {
     const params = new URLSearchParams(searchParams);
+    
+    // If a new search keyword is entered in sidebar, search across the entire catalog
+    // by clearing old restrictive category/subcategory filters
+    const currentSearch = searchParams.get('search') || '';
+    if (sidebarSearch.trim() && sidebarSearch.trim() !== currentSearch) {
+      params.set('search', sidebarSearch.trim());
+      params.delete('subCategories');
+      setCheckedSubCategories([]);
+    } else if (sidebarSearch.trim()) {
+      params.set('search', sidebarSearch.trim());
+    } else {
+      params.delete('search');
+    }
     
     if (checkedCategories.length > 0) {
       params.set('categories', checkedCategories.join(','));
@@ -167,12 +203,6 @@ export default function ShopPage() {
       params.set('stock', selectedStock.join(','));
     } else {
       params.delete('stock');
-    }
-    
-    if (sidebarSearch) {
-      params.set('search', sidebarSearch);
-    } else {
-      params.delete('search');
     }
     
     params.set('page', '1');
@@ -341,6 +371,23 @@ export default function ShopPage() {
   };
 
   const renderFilterContent = () => {
+    // Contextual Subcategories based on active category selection
+    const activeCategoryScope = urlCategories.length > 0
+      ? urlCategories
+      : (urlCategory && urlCategory !== 'All' && !['New Arrivals', 'Best Sellers', 'Flash Sale'].includes(urlCategory))
+      ? [urlCategory]
+      : checkedCategories.length > 0
+      ? checkedCategories
+      : [];
+
+    const categoryScopedProducts = activeCategoryScope.length > 0
+      ? PRODUCTS.filter(p => activeCategoryScope.includes(p.category))
+      : PRODUCTS;
+
+    const availableSubCategories = Array.from(
+      new Set(categoryScopedProducts.map(p => p.subCategory || '').filter(Boolean))
+    );
+
     return (
       <>
         {/* Categories Collapsible */}
@@ -367,9 +414,12 @@ export default function ShopPage() {
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => {
-                          setCheckedCategories(
-                            isChecked ? checkedCategories.filter(c => c !== cat) : [...checkedCategories, cat]
-                          );
+                          const nextCategories = isChecked 
+                            ? checkedCategories.filter(c => c !== cat) 
+                            : [...checkedCategories, cat];
+                          setCheckedCategories(nextCategories);
+                          // Clear previous subcategories when changing categories to prevent cross-category mismatch
+                          setCheckedSubCategories([]);
                         }}
                         className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
                       />
@@ -385,47 +435,51 @@ export default function ShopPage() {
           )}
         </div>
 
-        {/* Subcategories Collapsible */}
-        <div className="border-t border-gray-100 pt-4 space-y-3">
-          <button 
-            onClick={() => setSubCategoriesExpanded(!subCategoriesExpanded)}
-            className="flex items-center justify-between w-full text-left cursor-pointer"
-          >
-            <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">Sub Categories</span>
-            <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
-              {subCategoriesExpanded ? '−' : '+'}
-            </span>
-          </button>
-          
-          {subCategoriesExpanded && (
-            <div className="space-y-2.5 pt-1">
-              {Array.from(new Set(PRODUCTS.map(p => p.subCategory || '').filter(Boolean))).map((sub) => {
-                const count = PRODUCTS.filter(p => (p.subCategory) === sub).length;
-                const isChecked = checkedSubCategories.includes(sub);
-                return (
-                  <label key={sub} className="flex items-center justify-between group cursor-pointer text-sm">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {
-                          setCheckedSubCategories(
-                            isChecked ? checkedSubCategories.filter(s => s !== sub) : [...checkedSubCategories, sub]
-                          );
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
-                      />
-                      <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
-                        {sub}
-                      </span>
-                    </div>
-                    <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* Subcategories Collapsible (Contextual to Category) */}
+        {availableSubCategories.length > 0 && (
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <button 
+              onClick={() => setSubCategoriesExpanded(!subCategoriesExpanded)}
+              className="flex items-center justify-between w-full text-left cursor-pointer"
+            >
+              <span className="text-xs uppercase font-extrabold text-gray-900 tracking-wider">
+                Sub Categories {activeCategoryScope.length > 0 && `(${formatCategoryName(activeCategoryScope[0])})`}
+              </span>
+              <span className="w-5 h-5 bg-[#ffece2] rounded-full flex items-center justify-center text-[#ff5c00] text-xs font-black select-none">
+                {subCategoriesExpanded ? '−' : '+'}
+              </span>
+            </button>
+            
+            {subCategoriesExpanded && (
+              <div className="space-y-2.5 pt-1">
+                {availableSubCategories.map((sub) => {
+                  const count = categoryScopedProducts.filter(p => (p.subCategory) === sub).length;
+                  const isChecked = checkedSubCategories.includes(sub);
+                  return (
+                    <label key={sub} className="flex items-center justify-between group cursor-pointer text-sm">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setCheckedSubCategories(
+                              isChecked ? checkedSubCategories.filter(s => s !== sub) : [...checkedSubCategories, sub]
+                            );
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-[#ff5c00] focus:ring-[#ff5c00] focus:ring-opacity-25 focus:ring-offset-0 accent-[#ff5c00]"
+                        />
+                        <span className={`text-xs font-medium text-gray-700 group-hover:text-black transition-colors ${isChecked ? 'text-gray-955 font-bold' : ''}`}>
+                          {sub}
+                        </span>
+                      </div>
+                      <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded-full">({count})</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Brand Collapsible */}
         <div className="border-t border-gray-100 pt-4 space-y-3">

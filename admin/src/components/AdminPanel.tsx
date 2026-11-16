@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart3, LayoutDashboard, ShoppingBag, ListOrdered, Users, Tag, Image, 
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
@@ -13,6 +13,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile } from '../types';
 import { PRODUCTS } from '../data';
+import { generateFullSimulatedCatalog } from '../utils/mockCatalogGenerator';
 import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
 
 // Import Decomposed Tab Components
@@ -60,15 +61,19 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     currencySymbol: '৳',
     insideDhakaShipping: 60,
     outsideDhakaShipping: 120,
-    freeShippingMinOrder: 3000,
+    freeShippingMinOrder: 0,
+    freeShippingEnabled: false,
     theme: 'sleek',
     paymentBanglaQrEnabled: true,
     paymentBkashEnabled: true,
     paymentNagadEnabled: true,
     paymentCodEnabled: true,
+    paymentScreenshotEnabled: true,
     paymentBkashNumber: '01600338318',
     paymentNagadNumber: '01600338318',
-    paymentBanglaQrImage: '/assets/BanglaQRcode.jpeg',
+    paymentBanglaQrImage: '/assets/Defualt_Bangla_Qr_EBL.jpeg',
+    onlinePaymentDiscountEnabled: false,
+    onlinePaymentDiscountPercent: 50,
     paymentBanglaQrInstruction: 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
     paymentMfsInstruction: 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
     paymentCodInstruction: 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
@@ -88,6 +93,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [syncLastPage, setSyncLastPage] = useState<number>(1);
   const [syncStats, setSyncStats] = useState({ fetched: 0, imported: 0, updated: 0, failed: 0 });
   const [selectedLog, setSelectedLog] = useState<any>(null);
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string>('');
+  const [syncScope, setSyncScope] = useState<'recent' | 'all' | 'custom'>('recent');
+  const [customStartPage, setCustomStartPage] = useState<number>(1);
+  const [customEndPage, setCustomEndPage] = useState<number>(5);
+  const stopSyncRef = useRef<boolean>(false);
+
+  const handleStopSync = () => {
+    stopSyncRef.current = true;
+    setSyncStatusMessage('Halting sync after current operation completes...');
+  };
 
   // Pagination states
   const [productsPage, setProductsPage] = useState<number>(1);
@@ -385,17 +400,31 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Load paginated products page
   useEffect(() => {
-    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus, activeTab === 'my-products');
+    const sourceMode = activeTab === 'my-products' 
+      ? 'manual' 
+      : activeTab === 'mohasagor-products' 
+      ? 'mohasagor' 
+      : 'all';
+    fetchProductsPage(productsPage, searchQuery, filterCategory, filterStatus, sourceMode);
   }, [productsPage, searchQuery, filterCategory, filterStatus, activeTab]);
 
-  const fetchProductsPage = async (page: number, search: string, category: string, status: string, onlyManual: boolean = false) => {
+  const fetchProductsPage = async (page: number, search: string, category: string, status: string, sourceMode: 'all' | 'manual' | 'mohasagor' = 'all') => {
     try {
       if (!isSupabaseOnline) {
-        // --- OFFLINE MOCK MODE ---
-        let localData = PRODUCTS;
+        // --- OFFLINE MOCK MODE (Realistic Full Simulation) ---
+        let localData: any[] = [];
         const stored = localStorage.getItem('rup_db_products');
         if (stored) {
-          try { localData = JSON.parse(stored); } catch (e) {}
+          try { 
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              localData = parsed;
+            }
+          } catch (e) {}
+        }
+        if (localData.length === 0) {
+          localData = generateFullSimulatedCatalog(2747);
+          try { localStorage.setItem('rup_db_products', JSON.stringify(localData)); } catch (_) {}
         }
         
         const isManualProduct = (p: any) => {
@@ -419,8 +448,12 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                                 idStr.toLowerCase().includes(search.toLowerCase());
           const matchesCategory = category === 'All' || p.category === category;
           const matchesStatus = status === 'All' || p.status === status;
-          const matchesManual = !onlyManual || isManualProduct(p);
-          return matchesSearch && matchesCategory && matchesStatus && matchesManual;
+          const matchesSource = sourceMode === 'all' 
+            ? true 
+            : sourceMode === 'manual' 
+            ? isManualProduct(p) 
+            : !isManualProduct(p);
+          return matchesSearch && matchesCategory && matchesStatus && matchesSource;
         });
         
         setTotalProductsCount(filtered.length);
@@ -440,8 +473,10 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (category !== 'All') {
         dbQuery = dbQuery.eq('category', category);
       }
-      if (onlyManual) {
-        dbQuery = dbQuery.or('source_id.is.null,source_id.eq.,source_id.eq.manual').is('source_product_id', null);
+      if (sourceMode === 'manual') {
+        dbQuery = dbQuery.or('source_id.is.null,source_id.eq.manual');
+      } else if (sourceMode === 'mohasagor') {
+        dbQuery = dbQuery.eq('source_id', 'mohasagor');
       }
       
       // Search query (fuzzy search on name/sku/id)
@@ -514,7 +549,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         fetchAllTableRows('blogs'),
         fetchAllTableRows('reviews'),
         fetchAllTableRows('users'),
-        supabase.from('settings').select('*').single()
+        supabase.from('settings').select('*').maybeSingle()
       ]);
       const sData = sDataRes.data;
 
@@ -627,19 +662,24 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           paymentBkashEnabled: sData.payment_bkash_enabled !== undefined ? sData.payment_bkash_enabled : (sData.paymentBkashEnabled !== undefined ? sData.paymentBkashEnabled : true),
           paymentNagadEnabled: sData.payment_nagad_enabled !== undefined ? sData.payment_nagad_enabled : (sData.paymentNagadEnabled !== undefined ? sData.paymentNagadEnabled : true),
           paymentCodEnabled: sData.payment_cod_enabled !== undefined ? sData.payment_cod_enabled : (sData.paymentCodEnabled !== undefined ? sData.paymentCodEnabled : true),
+          paymentScreenshotEnabled: sData.payment_screenshot_enabled !== undefined ? sData.payment_screenshot_enabled : (sData.paymentScreenshotEnabled !== undefined ? sData.paymentScreenshotEnabled : true),
           paymentBkashNumber: sData.payment_bkash_number || sData.paymentBkashNumber || '01600338318',
           paymentNagadNumber: sData.payment_nagad_number || sData.paymentNagadNumber || '01600338318',
-          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/BanglaQRcode.jpeg',
+          paymentBanglaQrImage: sData.payment_bangla_qr_image || sData.paymentBanglaQrImage || '/assets/Defualt_Bangla_Qr_EBL.jpeg',
           paymentBanglaQrInstruction: sData.payment_bangla_qr_instruction || sData.paymentBanglaQrInstruction || 'বিকাশ, নগদ, রকেট বা যেকোনো ব্যাংক অ্যাপের "Bangla QR" অথবা "Scan to Pay" অপশন ব্যবহার করে পাশের QR কোডটি স্ক্যান করুন এবং পেমেন্ট সম্পন্ন করুন।',
           paymentMfsInstruction: sData.payment_mfs_instruction || sData.paymentMfsInstruction || 'নিচের নম্বরে {amount} সেন্ড মানি (Send Money) করার পর পেমেন্ট ভেরিফাই করতে ট্রানজেকশন আইডি (TrxID) নিচে দিন।',
           paymentCodInstruction: sData.payment_cod_instruction || sData.paymentCodInstruction || 'অর্ডার প্লেস করুন এবং সারাদেশে হোম ডেলিভারি পাওয়ার পর কুরিয়ার এজেন্টের কাছে ক্যাশ টাকা দিয়ে আপনার পণ্য বুঝে নিন।',
-          socialFacebook: sData.facebook_url || sData.socialFacebook || 'https://www.facebook.com/rupanbd',
-          socialTwitter: sData.twitter_url || sData.socialTwitter || 'https://twitter.com',
-          socialYoutube: sData.youtube_url || sData.socialYoutube || 'https://youtube.com',
-          socialInstagram: sData.instagram_url || sData.socialInstagram || 'https://www.instagram.com/rupanbd',
+          onlinePaymentDiscountEnabled: sData.online_payment_discount_enabled !== undefined ? sData.online_payment_discount_enabled : (sData.onlinePaymentDiscountEnabled !== undefined ? sData.onlinePaymentDiscountEnabled : false),
+          onlinePaymentDiscountPercent: Number(sData.online_payment_discount_percent ?? sData.onlinePaymentDiscountPercent ?? 50),
+          socialFacebook: sData.facebook_url !== undefined && sData.facebook_url !== null ? sData.facebook_url : (sData.socialFacebook || 'https://www.facebook.com/rupanbd'),
+          socialTwitter: sData.twitter_url !== undefined && sData.twitter_url !== null ? sData.twitter_url : (sData.socialTwitter || 'https://twitter.com'),
+          socialYoutube: sData.youtube_url !== undefined && sData.youtube_url !== null ? sData.youtube_url : (sData.socialYoutube || 'https://youtube.com'),
+          socialInstagram: sData.instagram_url !== undefined && sData.instagram_url !== null ? sData.instagram_url : (sData.socialInstagram || 'https://www.instagram.com/rupanbd'),
           telegramBotToken: sData.telegram_bot_token || sData.telegramBotToken || '',
           telegramChatId: sData.telegram_chat_id || sData.telegramChatId || '',
           telegramNotificationsEnabled: sData.telegram_notifications_enabled !== undefined ? sData.telegram_notifications_enabled : (sData.telegramNotificationsEnabled !== undefined ? sData.telegramNotificationsEnabled : true),
+          pricing_config: sData.pricing_config || sData.pricingConfig || null,
+          pricingConfig: sData.pricing_config || sData.pricingConfig || null,
         });
 
         const hConfig = sData.homepageConfig || sData.homepage_config || {};
@@ -742,6 +782,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       payment_bkash_enabled: settings.paymentBkashEnabled,
       payment_nagad_enabled: settings.paymentNagadEnabled,
       payment_cod_enabled: settings.paymentCodEnabled,
+      payment_screenshot_enabled: settings.paymentScreenshotEnabled !== false,
       payment_bkash_number: settings.paymentBkashNumber,
       payment_nagad_number: settings.paymentNagadNumber,
       payment_bangla_qr_image: settings.paymentBanglaQrImage,
@@ -755,13 +796,58 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       telegram_bot_token: settings.telegramBotToken || settings.telegram_bot_token || null,
       telegram_chat_id: settings.telegramChatId || settings.telegram_chat_id || null,
       telegram_notifications_enabled: settings.telegramNotificationsEnabled ?? settings.telegram_notifications_enabled ?? true,
+      online_payment_discount_enabled: settings.onlinePaymentDiscountEnabled ?? false,
+      online_payment_discount_percent: Number(settings.onlinePaymentDiscountPercent ?? 50),
+      ...(settings.pricing_config || settings.pricingConfig ? { pricing_config: settings.pricing_config || settings.pricingConfig } : {})
     };
 
-    const { error } = await supabase.from('settings').update(payload).eq('id', settings.id || 1);
-    if (error) {
-      // THROW so callers (SeoMarketingTab, SettingsTab) can catch and surface the real message
-      throw new Error(error.message);
+    // Determine target record ID or check if table is empty
+    let targetId = settings.id;
+    if (!targetId) {
+      const { data: existing } = await supabase.from('settings').select('id').limit(1).maybeSingle();
+      if (existing?.id) {
+        targetId = existing.id;
+        setSettings((prev: any) => ({ ...prev, id: targetId }));
+      }
     }
+
+    let saveError: any = null;
+    if (targetId) {
+      const { error } = await supabase.from('settings').update(payload).eq('id', targetId);
+      if (error && (error.message?.includes('payment_screenshot_enabled') || error.code === 'PGRST204')) {
+        const { payment_screenshot_enabled, ...fallbackPayload } = payload;
+        const { error: retryError } = await supabase.from('settings').update(fallbackPayload).eq('id', targetId);
+        saveError = retryError;
+      } else {
+        saveError = error;
+      }
+    } else {
+      // Upsert/Insert with id: 1
+      const { data: inserted, error } = await supabase.from('settings').upsert([{ ...payload, id: 1 }]).select().maybeSingle();
+      if (error && (error.message?.includes('payment_screenshot_enabled') || error.code === 'PGRST204')) {
+        const { payment_screenshot_enabled, ...fallbackPayload } = payload;
+        const { data: insertedRetry, error: retryError } = await supabase.from('settings').upsert([{ ...fallbackPayload, id: 1 }]).select().maybeSingle();
+        saveError = retryError;
+        if (insertedRetry?.id) {
+          setSettings((prev: any) => ({ ...prev, id: insertedRetry.id }));
+        }
+      } else {
+        saveError = error;
+        if (inserted?.id) {
+          setSettings((prev: any) => ({ ...prev, id: inserted.id }));
+        }
+      }
+    }
+
+    if (saveError) {
+      console.error('[Settings] Save error:', saveError);
+      throw new Error(`Settings save failed: ${saveError.message}`);
+    }
+
+    // Backup to local storage for immediate persistence
+    try {
+      localStorage.setItem('rup_db_settings', JSON.stringify({ ...payload, id: targetId || 1 }));
+    } catch (_) {}
   };
 
   const handleUploadQrImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -860,42 +946,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         const updatedLogs = [mockLog, ...syncLogs];
         setSyncLogs(updatedLogs);
 
-        // Load mock products to state to show in dashboard catalog
-        const formattedProducts: Product[] = PRODUCTS.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-          sku: p.sku || `RUP-${p.id.toUpperCase()}`,
-          brand: p.brand || 'Rupan',
-          category: p.category || 'General',
-          subCategory: p.subCategory || '',
-          tags: p.tags || [],
-          gender: p.gender || 'Men',
-          price: Number(p.discountPrice || p.price || 0),
-          discountPrice: p.discountPrice ? Number(p.price) : undefined,
-          reviewsCount: Number(p.reviewsCount || 0),
-          rating: Number(p.rating || 5.0),
-          images: p.images || [],
-          colors: p.colors || [],
-          sizes: p.sizes || [],
-          description: p.description || '',
-          shortDescription: p.shortDescription || '',
-          features: p.features || [],
-          stock: p.stock || 50,
-          lowStockWarning: p.lowStockWarning || 5,
-          weight: p.weight || 0.35,
-          material: p.material || 'Premium Quality Blend',
-          status: p.status || 'published',
-          isFeatured: p.isFeatured || false,
-          isTrending: p.isTrending || false,
-          isNew: p.isNew || false,
-          isBestSeller: p.isBestSeller || false,
-          isFlashSale: p.isFlashSale || false
-        }) as any);
-        setProducts(formattedProducts);
+        // Generate complete realistic Mohasagor catalog (2,747 products)
+        const fullCatalog = generateFullSimulatedCatalog(2747);
+        setTotalProductsCount(fullCatalog.length);
+        const page1Data = fullCatalog.slice(0, pageSize);
+        setProducts(page1Data);
         
         // Save to LocalStorage for offline database persistence
-        localStorage.setItem('rup_db_products', JSON.stringify(formattedProducts));
+        localStorage.setItem('rup_db_products', JSON.stringify(fullCatalog));
+        window.dispatchEvent(new CustomEvent('rupan:products_updated', { detail: fullCatalog }));
         
         alert("Simulated Sync Completed!\nProcessed 2,747 products across 14 pages.\nImported: 140 new products\nUpdated: 2,607 products\nFailed: 0");
         setSyncing(false);
@@ -903,14 +962,27 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       }
 
       // --- REAL DATABASE SYNC MODE ---
-      let currentPage = 1;
-      let lastPage = 1;
+      stopSyncRef.current = false;
+      setSyncStatusMessage('Initializing sync...');
+
+      let currentPage = syncScope === 'custom' ? Math.max(1, customStartPage) : 1;
+      let lastPage = syncScope === 'custom' ? Math.max(currentPage, customEndPage) : (syncScope === 'recent' ? 5 : 1);
+      setSyncPage(currentPage);
+      setSyncLastPage(lastPage);
+
       let totalImported = 0;
       let totalUpdated = 0;
       let totalFailed = 0;
+      const THROTTLE_PAUSE_SECONDS = 13; // 13s pause between pages to strictly comply with Mohasagor max 5 req/min
 
       while (currentPage <= lastPage) {
+        if (stopSyncRef.current) {
+          setSyncStatusMessage('Sync stopped by user.');
+          break;
+        }
+
         setSyncPage(currentPage);
+        setSyncStatusMessage(`Requesting page ${currentPage} of ${lastPage}...`);
         
         // Fetch token and call serverless Sync API
         const sessionRes = await supabase.auth.getSession();
@@ -920,20 +992,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           headers['Authorization'] = `Bearer ${token}`;
         }
         
-        const response = await fetch(`/api/sync?source=${targetSource}&page=${currentPage}`, {
-          headers
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Sync API failed at page ${currentPage}: ${errorText}`);
+        let response: Response;
+        try {
+          response = await fetch(`/api/sync?source=${encodeURIComponent(targetSource)}&page=${currentPage}`, {
+            headers
+          });
+        } catch (fetchErr: any) {
+          setSyncStatusMessage(`Network error (${fetchErr.message}). Retrying page ${currentPage} in 5s...`);
+          await new Promise(r => setTimeout(r, 5000));
+          if (stopSyncRef.current) break;
+          continue;
+        }
+
+        // Safely parse response body as text first to prevent unhandled WebKit DOM exceptions
+        const rawText = await response.text();
+        let result: any = null;
+        try {
+          result = rawText ? JSON.parse(rawText) : null;
+        } catch {
+          result = null;
+        }
+
+        // Handle 429 Rate Limiting with automatic cooldown countdown and retry
+        if (response.status === 429) {
+          const retrySec = Number(result?.retry_after) || 24;
+          
+          for (let sec = retrySec + 2; sec > 0; sec--) {
+            if (stopSyncRef.current) break;
+            setSyncStatusMessage(`API rate limit active (max 5 req/min). Waiting ${sec}s cooldown before retrying page ${currentPage}...`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+          if (stopSyncRef.current) break;
+          // Retry current page without incrementing
+          continue;
+        }
+
+        if (!response.ok || !result) {
+          const detail = result?.error || (rawText ? rawText.substring(0, 160) : `HTTP ${response.status}`);
+          throw new Error(`Sync API failed at page ${currentPage} (HTTP ${response.status}): ${detail}`);
         }
         
-        const result = await response.json();
         if (!result.success) {
           throw new Error(result.error || `Sync failed at page ${currentPage}`);
         }
 
-        if (currentPage === 1) {
+        if (currentPage === 1 && syncScope === 'all') {
           lastPage = result.last_page || 1;
           setSyncLastPage(lastPage);
         }
@@ -950,10 +1053,24 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         }));
 
         setSyncProgress(Math.round((currentPage / lastPage) * 100));
+
+        // Enforce rate limit pause between pages so we never exceed 5 requests/minute
+        if (currentPage < lastPage && !stopSyncRef.current) {
+          for (let sec = THROTTLE_PAUSE_SECONDS; sec > 0; sec--) {
+            if (stopSyncRef.current) break;
+            setSyncStatusMessage(`Page ${currentPage} processed. Rate limit cooldown: next page in ${sec}s (max 5 req/min)...`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+
         currentPage++;
       }
 
-      alert(`Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+      if (stopSyncRef.current) {
+        alert(`Sync Paused by User!\nProcessed so far: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+      } else {
+        alert(`Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+      }
       
       // Reload logs & overview data
       const { data: logsData } = await supabase.from('sync_logs').select('*').order('started_at', { ascending: false }).limit(20);
@@ -1021,6 +1138,49 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     setProductModalOpen(true);
   };
 
+  // Helper to map UI Product state to Supabase snake_case columns
+  const toDbProductPayload = (form: Partial<Product>, id: string, slug: string, isUpdate = false) => {
+    const payload: any = {
+      name: form.name,
+      slug: slug,
+      sku: form.sku || null,
+      brand: form.brand || 'Rupan',
+      category: form.category,
+      sub_category: form.subCategory || (form as any).sub_category || null,
+      tags: form.tags || [],
+      gender: form.gender || 'Men',
+      price: Number(form.price || 0),
+      discount_price: form.discountPrice !== undefined && form.discountPrice !== null && form.discountPrice !== '' ? Number(form.discountPrice) : null,
+      purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && form.purchasePrice !== '' ? Number(form.purchasePrice) : null,
+      description: form.description || '',
+      short_description: form.shortDescription || (form as any).short_description || '',
+      features: form.features || [],
+      sizes: form.sizes || [],
+      colors: form.colors || [],
+      stock: Number(form.stock || 0),
+      low_stock_warning: Number(form.lowStockWarning || (form as any).low_stock_warning || 5),
+      weight: form.weight ? Number(form.weight) : null,
+      material: form.material || null,
+      status: form.status || 'published',
+      is_featured: !!form.isFeatured || !!(form as any).is_featured,
+      is_trending: !!form.isTrending || !!(form as any).is_trending,
+      is_new: form.isNew !== undefined ? !!form.isNew : true,
+      is_best_seller: !!form.isBestSeller || !!(form as any).is_best_seller,
+      is_flash_sale: !!form.isFlashSale || !!(form as any).is_flash_sale,
+      seo_title: form.seoTitle || (form as any).seo_title || null,
+      seo_description: form.seoDescription || (form as any).seo_description || null,
+      images: form.images || [],
+      source_id: (form as any).source_id || 'manual'
+    };
+
+    if (!isUpdate) {
+      payload.id = id;
+      payload.rating = form.rating !== undefined ? Number(form.rating) : 5.0;
+      payload.reviews_count = form.reviewsCount !== undefined ? Number(form.reviewsCount) : 0;
+    }
+    return payload;
+  };
+
   // Save/Update product
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1029,26 +1189,31 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return;
     }
 
+    const productId = editingProduct ? editingProduct.id : `rup-${Date.now()}`;
+    const productSlug = productForm.slug || productForm.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
     const finalProduct = {
       ...productForm,
-      id: editingProduct ? editingProduct.id : `rup-${Date.now()}`,
-      slug: productForm.slug || productForm.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      id: productId,
+      slug: productSlug,
       reviewsCount: editingProduct ? editingProduct.reviewsCount : 0,
       rating: editingProduct ? editingProduct.rating : 5.0
     } as Product;
 
     if (editingProduct) {
-      const { error } = await supabase.from('products').update(finalProduct).eq('id', editingProduct.id);
+      const dbPayload = toDbProductPayload(productForm, productId, productSlug, true);
+      const { error } = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id);
       if (!error) {
-        setProducts(products.map(p => p.id === editingProduct.id ? finalProduct : p));
+        setProducts(products.map(p => p.id === editingProduct.id ? { ...editingProduct, ...finalProduct } : p));
         alert("Product updated successfully!");
       } else {
         alert(`Error updating product: ${error.message}`);
       }
     } else {
-      const { error } = await supabase.from('products').insert([finalProduct]);
+      const dbPayload = toDbProductPayload(productForm, productId, productSlug, false);
+      const { error } = await supabase.from('products').insert([dbPayload]);
       if (!error) {
-        setProducts([...products, finalProduct]);
+        setProducts([finalProduct, ...products]);
         alert("Product created successfully!");
       } else {
         alert(`Error creating product: ${error.message}`);
@@ -1059,19 +1224,24 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Duplicate Product
   const handleDuplicateProduct = async (product: Product) => {
+    const newId = `rup-copy-${Date.now()}`;
+    const newSlug = `${product.slug || product.id}-copy-${Date.now()}`;
     const duplicated: Product = {
       ...product,
-      id: `rup-copy-${Date.now()}`,
+      id: newId,
       name: `${product.name} (Copy)`,
-      sku: `${product.sku}-COPY`,
-      slug: `${product.slug}-copy`,
+      sku: product.sku ? `${product.sku}-COPY` : undefined,
+      slug: newSlug,
       reviewsCount: 0,
       rating: 5.0
     };
-    const { error } = await supabase.from('products').insert([duplicated]);
+    const dbPayload = toDbProductPayload(duplicated, newId, newSlug, false);
+    const { error } = await supabase.from('products').insert([dbPayload]);
     if (!error) {
-      setProducts([...products, duplicated]);
+      setProducts([duplicated, ...products]);
       alert("Product duplicated successfully!");
+    } else {
+      alert(`Error duplicating product: ${error.message}`);
     }
   };
 
@@ -1345,7 +1515,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         maxDiscount: coupon.maxDiscount ?? '',
         expiryDate: coupon.expiryDate || '',
         usageLimit: coupon.usageLimit ?? '',
-        isActive: coupon.isActive ?? true
+        isActive: coupon.isActive ?? true,
+        isRecommended: coupon.isRecommended ?? coupon.is_recommended ?? false,
+        isAutoApply: coupon.isAutoApply ?? coupon.is_auto_apply ?? false
       });
     } else {
       setEditingCoupon(null);
@@ -1357,7 +1529,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         maxDiscount: '',
         expiryDate: '',
         usageLimit: '',
-        isActive: true
+        isActive: true,
+        isRecommended: false,
+        isAutoApply: false
       });
     }
     setCouponModalOpen(true);
@@ -1370,7 +1544,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       return;
     }
 
-    const payload = {
+    const payload: any = {
       code: couponForm.code.toUpperCase().trim(),
       type: couponForm.type,
       value: Number(couponForm.value),
@@ -1378,7 +1552,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       max_discount: couponForm.maxDiscount ? Number(couponForm.maxDiscount) : null,
       expiry_date: couponForm.expiryDate || null,
       usage_limit: couponForm.usageLimit ? Number(couponForm.usageLimit) : null,
-      is_active: couponForm.isActive
+      is_active: couponForm.isActive,
+      is_recommended: couponForm.isRecommended ?? false,
+      is_auto_apply: couponForm.isAutoApply ?? false
     };
 
     const finalCoupon: Coupon = {
@@ -1390,11 +1566,21 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       expiryDate: payload.expiry_date || '',
       usageLimit: payload.usage_limit || undefined,
       isActive: payload.is_active,
+      isRecommended: payload.is_recommended,
+      is_recommended: payload.is_recommended,
+      isAutoApply: payload.is_auto_apply,
+      is_auto_apply: payload.is_auto_apply,
       usedCount: editingCoupon ? editingCoupon.usedCount : 0
     };
 
     if (editingCoupon) {
-      const { error } = await supabase.from('coupons').update(payload).eq('code', editingCoupon.code);
+      let { error } = await supabase.from('coupons').update(payload).eq('code', editingCoupon.code);
+      if (error && error.message.includes('is_auto_apply')) {
+        const safePayload = { ...payload };
+        delete safePayload.is_auto_apply;
+        const res2 = await supabase.from('coupons').update(safePayload).eq('code', editingCoupon.code);
+        error = res2.error;
+      }
       if (error) {
         alert("Error updating coupon: " + error.message);
         return;
@@ -1406,7 +1592,13 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         alert("A coupon with this code already exists!");
         return;
       }
-      const { error } = await supabase.from('coupons').insert([payload]);
+      let { error } = await supabase.from('coupons').insert([payload]);
+      if (error && error.message.includes('is_auto_apply')) {
+        const safePayload = { ...payload };
+        delete safePayload.is_auto_apply;
+        const res2 = await supabase.from('coupons').insert([safePayload]);
+        error = res2.error;
+      }
       if (error) {
         alert("Error creating coupon: " + error.message);
         return;
@@ -1879,6 +2071,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('mohasagor-products'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'mohasagor-products' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <Globe className="w-4 h-4 text-blue-500" />
+                <span>Mohasagor Products</span>
+              </div>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('orders'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'orders' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -2076,6 +2280,28 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               )}
 
+              {/* TAB 2.6: MOHASAGOR PRODUCTS CATALOG */}
+              {activeTab === 'mohasagor-products' && (
+                <ProductsTab
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  filterCategory={filterCategory}
+                  setFilterCategory={setFilterCategory}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  availableCategories={availableCategories}
+                  filteredProducts={filteredProducts}
+                  totalProductsCount={totalProductsCount}
+                  productsPage={productsPage}
+                  setProductsPage={setProductsPage}
+                  pageSize={pageSize}
+                  openProductForm={openProductForm}
+                  handleDuplicateProduct={handleDuplicateProduct}
+                  handleDeleteProduct={handleDeleteProduct}
+                  isMohasagorOnly={true}
+                />
+              )}
+
               {/* TAB 3: ORDERS INDEX */}
               {activeTab === 'orders' && (
                 <OrdersTab
@@ -2195,6 +2421,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   syncLogs={syncLogs}
                   setSelectedLog={setSelectedLog}
                   runSync={runSync}
+                  syncStatusMessage={syncStatusMessage}
+                  syncScope={syncScope}
+                  setSyncScope={setSyncScope}
+                  customStartPage={customStartPage}
+                  setCustomStartPage={setCustomStartPage}
+                  customEndPage={customEndPage}
+                  setCustomEndPage={setCustomEndPage}
+                  stopSync={handleStopSync}
+                  isSupabaseOnline={isSupabaseOnline}
+                  dbSettings={settings}
                 />
               )}
 
@@ -3022,17 +3258,53 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="couponIsActive"
-                  checked={couponForm.isActive}
-                  onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
-                />
-                <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
-                  Activate Coupon Instantly (Online)
-                </label>
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="couponIsActive"
+                    checked={couponForm.isActive}
+                    onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-brand-primary accent-brand-primary focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="couponIsActive" className="text-xs text-zinc-700 font-bold cursor-pointer">
+                    Activate Coupon Instantly (সক্রিয় করুন)
+                  </label>
+                </div>
+
+                <div className="flex items-start gap-2.5 p-3 bg-purple-50/80 border border-purple-200/80 rounded-2xl">
+                  <input
+                    type="checkbox"
+                    id="couponIsAutoApply"
+                    checked={couponForm.isAutoApply ?? false}
+                    onChange={(e) => setCouponForm({ ...couponForm, isAutoApply: e.target.checked })}
+                    className="w-4 h-4 rounded text-purple-600 accent-purple-600 focus:ring-0 cursor-pointer mt-0.5"
+                  />
+                  <label htmlFor="couponIsAutoApply" className="text-xs text-purple-950 font-bold cursor-pointer flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-purple-600 fill-purple-600 shrink-0" />
+                      <span>Auto-Apply on Qualifying Cart (কার্টে স্বয়ংক্রিয়ভাবে কার্যকর হবে)</span>
+                      <span className="text-[9px] bg-purple-100 text-purple-800 font-black px-1.5 py-0.5 rounded border border-purple-300">Auto</span>
+                    </div>
+                    <p className="text-[10px] text-purple-700 font-normal leading-relaxed mt-1">
+                      কাস্টমারকে কুপন কোড লিখতে হবে না; কার্ট ভ্যালু <strong>৳{couponForm.minOrder || 0}</strong> টাকা ছাড়িয়ে গেলেই এই কুপনটি (যেমন: ফ্রি শিপিং বা ছাড়) নিজে থেকেই অ্যাপ্লাই হয়ে যাবে।
+                    </p>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="couponIsRecommended"
+                    checked={couponForm.isRecommended ?? false}
+                    onChange={(e) => setCouponForm({ ...couponForm, isRecommended: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#ff5c00] accent-[#ff5c00] focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="couponIsRecommended" className="text-xs text-zinc-700 font-bold cursor-pointer flex items-center gap-1.5">
+                    <span>Recommend to Customers (কাস্টমারদের কুপন রিকমেন্ড করুন - &quot;Apply This&quot;)</span>
+                    <span className="text-[10px] bg-amber-50 text-amber-800 font-black px-1.5 py-0.5 rounded border border-amber-200">Featured</span>
+                  </label>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">

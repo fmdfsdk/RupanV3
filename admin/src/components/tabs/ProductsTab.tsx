@@ -19,6 +19,7 @@ interface ProductsTabProps {
   handleDuplicateProduct: (p: Product) => void;
   handleDeleteProduct: (id: string) => void;
   isManualOnly?: boolean;
+  isMohasagorOnly?: boolean;
 }
 
 export default function ProductsTab({
@@ -37,17 +38,20 @@ export default function ProductsTab({
   openProductForm,
   handleDuplicateProduct,
   handleDeleteProduct,
-  isManualOnly = false
+  isManualOnly = false,
+  isMohasagorOnly = false
 }: ProductsTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">
-            {isManualOnly ? "My Added Products" : "Products Inventory"}
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
+            {isMohasagorOnly ? "🌊 Mohasagor Reseller Products" : isManualOnly ? "🏷️ My Added Products" : "Products Inventory"}
           </h1>
           <p className="text-xs text-gray-500">
-            {isManualOnly 
+            {isMohasagorOnly 
+              ? "Products imported & synchronized directly via the Mohasagor API." 
+              : isManualOnly 
               ? "Manage your manually created boutique designs and custom inventory." 
               : "Dynamically add, edit, duplicate, and configure store SKUs."}
           </p>
@@ -135,8 +139,19 @@ export default function ProductsTab({
                     </td>
                     <td className="p-4">
                       <div className="font-bold text-zinc-900 leading-tight">{p.name}</div>
-                      <div className="text-[10px] font-mono text-gray-400 mt-1 uppercase tracking-wider">
-                        SKU: {p.sku || `RUP-${p.id.toUpperCase()}`}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+                          SKU: {p.sku || `RUP-${p.id.toUpperCase()}`}
+                        </span>
+                        {(p as any).source_id === 'mohasagor' ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            🌊 Mohasagor
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🏷️ Manual
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 font-semibold text-gray-500 uppercase text-[10px]">{p.category}</td>

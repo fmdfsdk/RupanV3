@@ -37,6 +37,12 @@ export interface Product {
   flashSaleSold?: number;
   seoTitle?: string;
   seoDescription?: string;
+  purchasePrice?: number;
+  purchase_price?: number;
+  finalPrice?: number;
+  final_price?: number;
+  sourceProductId?: string;
+  source_product_id?: string;
 }
 
 export interface CartItem {
@@ -88,6 +94,12 @@ export interface Order {
   userId?: string;
   transactionId?: string;
   paidConfirm?: boolean;
+  division?: string;
+  district?: string;
+  onlinePaymentDiscount?: number;
+  couponDiscount?: number;
+  finalPriceFloor?: number;
+  paymentScreenshotUrl?: string;
 }
 
 export interface BlogPost {
@@ -114,6 +126,10 @@ export interface Coupon {
   isActive: boolean;
   usageLimit?: number;
   usedCount: number;
+  isRecommended?: boolean;
+  is_recommended?: boolean;
+  isAutoApply?: boolean;
+  is_auto_apply?: boolean;
 }
 
 export interface Banner {
@@ -130,6 +146,17 @@ export interface Banner {
   overlay_opacity?: number;
 }
 
+export interface PricingConfig {
+  deduction_percentage: number;
+  default_margin_type: 'percentage' | 'fixed';
+  default_margin_value: number;
+  category_margins?: Record<string, { type: 'percentage' | 'fixed'; value: number } | number>;
+  discount_combination_rule?: 'stack' | 'max';
+  online_payment_discount_type?: 'margin_percentage' | 'selling_percentage' | 'fixed';
+  online_payment_discount_value?: number;
+  minimum_price_protection_enabled?: boolean;
+}
+
 export interface WebsiteSettings {
   logoText: string;
   logoAccent: string;
@@ -143,6 +170,8 @@ export interface WebsiteSettings {
   theme: string;
   id?: any;
   homepageConfig?: any;
+  pricingConfig?: PricingConfig;
+  pricing_config?: PricingConfig;
   metaPixelId?: string;
   metaTestEventCode?: string;
   metaCapiAccessToken?: string;
@@ -159,11 +188,17 @@ export interface WebsiteSettings {
   paymentBanglaQrInstruction: string;
   paymentMfsInstruction: string;
   paymentCodInstruction: string;
+  paymentScreenshotEnabled?: boolean;
+  payment_screenshot_enabled?: boolean;
+  onlinePaymentDiscountEnabled?: boolean;
+  onlinePaymentDiscountPercent?: number;
   // Social Media Configurations
   socialFacebook?: string;
   socialTwitter?: string;
   socialYoutube?: string;
   socialInstagram?: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
   // Telegram Bot Backup Integration
   telegramBotToken?: string;
   telegram_bot_token?: string;

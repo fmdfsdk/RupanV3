@@ -54,7 +54,11 @@ export const orderService = {
       is_incognito_guest: isGuest && !order.userId, // guest with no account = incognito
       user_id: order.userId || null,
       transaction_id: order.transactionId || '',
-      paid_confirm: order.paidConfirm || false
+      paid_confirm: order.paidConfirm || false,
+      division: order.division || '',
+      district: order.district || '',
+      online_payment_discount: order.onlinePaymentDiscount || 0,
+      payment_screenshot_url: order.paymentScreenshotUrl || ''
     };
 
     let { error } = await supabase.from('orders').insert([fullPayload]);
@@ -101,6 +105,53 @@ export const orderService = {
 
       await supabase.from('order_items').insert(orderItems);
     } catch (_) {}
+
+    // 3. Guaranteed Telegram Alert Fallback (fires if serverless /api/place-order was unreachable or in dev mode)
+    try {
+      const { data: settingsData } = await supabase.from('settings').select('*').maybeSingle();
+      const tgToken = settingsData?.telegram_bot_token || settingsData?.telegramBotToken;
+      const tgChatId = settingsData?.telegram_chat_id || settingsData?.telegramChatId;
+      const tgEnabled = settingsData?.telegram_notifications_enabled ?? true;
+
+      if (tgToken && tgChatId && tgEnabled) {
+        const escapeHtml = (text: string) => (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const itemDetailsHtml = (order.items || []).map(i => 
+          `• <b>${escapeHtml(i.productName)}</b> (${escapeHtml(i.size)}, ${escapeHtml(i.color)}) x ${i.quantity} — ৳${i.price * i.quantity}`
+        ).join('\n');
+
+        const paymentLine = order.paymentMethod === 'Bangla QR'
+          ? `💳 <b>Payment:</b> Bangla QR${order.paidConfirm ? ' ✅ Confirmed' : ''}`
+          : `💳 <b>Payment:</b> ${escapeHtml(order.paymentMethod)}${order.transactionId ? ` (TxID: <code>${escapeHtml(order.transactionId)}</code>)` : ''}`;
+
+        const discountLine = (order.onlinePaymentDiscount && order.onlinePaymentDiscount > 0)
+          ? `\n🎁 <b>Online Payment Discount:</b> -৳${order.onlinePaymentDiscount}`
+          : '';
+
+        const tgMessageHtml = `<b>🛍️ NEW ORDER RECEIVED! <code>#${escapeHtml(order.id)}</code></b>\n\n` +
+          `👤 <b>Customer:</b> ${escapeHtml(order.customerName)}\n` +
+          `📞 <b>Phone:</b> <code>${escapeHtml(order.phone)}</code>\n` +
+          `📍 <b>Address:</b> ${escapeHtml(order.address)}\n` +
+          `🗺️ <b>Area:</b> ${order.district ? `${escapeHtml(order.district)}, ` : ''}${order.division ? `${escapeHtml(order.division)} — ` : ''}${escapeHtml(order.area)}\n` +
+          `${paymentLine}${order.paymentScreenshotUrl ? `\n🖼️ <b>Screenshot:</b> <a href="${order.paymentScreenshotUrl}">View</a>` : ''}\n\n` +
+          `📦 <b>Items (${(order.items || []).length}):</b>\n${itemDetailsHtml}\n\n` +
+          `💰 <b>Subtotal:</b> ৳${order.subtotal}\n` +
+          `🚚 <b>Shipping Fee:</b> ৳${order.shippingFee}` +
+          `${discountLine}\n` +
+          `💵 <b>TOTAL AMOUNT:</b> ৳${order.total}`;
+
+        await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: String(tgChatId).trim(),
+            text: tgMessageHtml,
+            parse_mode: 'HTML'
+          })
+        });
+      }
+    } catch (tgErr) {
+      console.warn("Could not dispatch fallback telegram notification:", tgErr);
+    }
   },
 
   /**

@@ -146,6 +146,32 @@ function AppLayout() {
     loadInitialData();
   }, [isSupabaseOnline, loadInitialData]);
 
+  // Live Instant Catalog Sync: Listen for admin margin and price updates across tabs
+  useEffect(() => {
+    const handleProductsUpdated = (e: any) => {
+      const updated = e.detail;
+      if (Array.isArray(updated) && updated.length > 0) {
+        useStore.setState({ dbProducts: updated });
+      }
+    };
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'rup_db_products' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            useStore.setState({ dbProducts: parsed });
+          }
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('rupan:products_updated', handleProductsUpdated);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('rupan:products_updated', handleProductsUpdated);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Map clicks on Header/Footer navigation properties to react-router page paths
   const handlePageChange = (pageId: string) => {
     if (pageId === 'home' || pageId === '/') {
@@ -244,9 +270,12 @@ function AppLayout() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/order-success" element={<OrderSuccessPage />} />
               <Route path="/track-order" element={<OrderTrackingPage />} />
+              <Route path="/order-tracking" element={<OrderTrackingPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/about-us" element={<AboutPage />} />
+              <Route path="/about" element={<AboutPage />} />
               <Route path="/contact-us" element={<ContactPage />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/offers" element={<OffersPage />} />
               <Route path="/offer" element={<OffersPage />} />
               <Route path="/new-arrival" element={<NewArrivalsPage />} />
@@ -262,6 +291,7 @@ function AppLayout() {
               <Route path="/blog/:id" element={<BlogPage />} />
               <Route path="/blogs" element={<BlogPage />} />
               <Route path="/product-search" element={<SearchPage />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/*" element={<CatchAllRoute />} />
             </Routes>
           </Suspense>
