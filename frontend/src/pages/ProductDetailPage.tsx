@@ -123,16 +123,25 @@ export default function ProductDetailPage() {
     return () => { cancelled = true; };
   }, [id, products, catalogIndex]);
 
-  // Canonical URL auto-correction:
-  // If the user lands via legacy URL, offset ID, or malformed slug (e.g. /product/-8586 or /product/-5586),
-  // smoothly replace the URL with the proper canonical slug in the browser address bar.
+  // Canonical URL auto-correction (Safe, Non-disruptive):
+  // If the user lands via raw numeric ID or negative offset (e.g. /product/-8586 or /product/8586),
+  // smoothly update the browser address bar with the canonical slug WITHOUT unmounting or re-rendering.
+  const hasReplacedUrl = React.useRef(false);
   useEffect(() => {
-    if (!product || !id) return;
-    const canonicalSlug = getProductSlug(product.name, product.id);
-    if (canonicalSlug && id !== canonicalSlug) {
-      navigate(`/product/${canonicalSlug}`, { replace: true });
+    if (!product || !id || hasReplacedUrl.current) return;
+    const isLegacyId = id.startsWith('-') || /^\d+$/.test(id);
+    if (isLegacyId) {
+      hasReplacedUrl.current = true;
+      const canonicalSlug = getProductSlug(product.name, product.id);
+      if (canonicalSlug && id !== canonicalSlug) {
+        try {
+          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+            window.history.replaceState(window.history.state, '', `/product/${canonicalSlug}`);
+          }
+        } catch (_) {}
+      }
     }
-  }, [product, id, navigate]);
+  }, [product, id]);
 
   const dbSettings = useStore((state) => state.dbSettings);
 
@@ -143,7 +152,11 @@ export default function ProductDetailPage() {
       hasTrackedView.current = product.id;
       const eventId = generateEventId('ViewContent');
       const testCode = dbSettings?.metaTestEventCode || dbSettings?.meta_test_event_code;
-      trackViewContent(product, eventId, testCode);
+      try {
+        trackViewContent(product, eventId, testCode);
+      } catch (e) {
+        console.warn('[Meta Pixel] trackViewContent error:', e);
+      }
     }
   }, [product, dbSettings]);
 
