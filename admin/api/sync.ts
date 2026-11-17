@@ -66,6 +66,37 @@ function sanitizeForJsonb(obj: any): any {
   return obj;
 }
 
+// Detect product gender dynamically based on category and name
+function detectProductGender(category: string, name: string): 'Men' | 'Women' | 'Couple' | 'Kids' | 'Accessories' {
+  const cat = (category || '').toLowerCase();
+  const title = (name || '').toLowerCase();
+  const text = `${cat} ${title}`;
+
+  if (cat.includes('kid')) return 'Kids';
+
+  const isCouple = /(couple|combo)/i.test(text);
+  if (isCouple) return 'Couple';
+
+  if (cat.includes('women') || cat.includes('female') || cat.includes('ladies')) return 'Women';
+  if (cat.includes('men') && !cat.includes('women')) return 'Men';
+
+  const isFemale = /(women|female|saree|sari|three\s*piece|three-piece|kurti|kurtis|lehenga|salwar|kamiz|kameez|hijab|abaya|borqa|borkha|ladies|girl|bra|panties)/i.test(title);
+  if (isFemale) return 'Women';
+
+  const isKids = /(kids|baby|children|child|toddler|infant|boy\'s|girls\')/i.test(title);
+  if (isKids) return 'Kids';
+
+  const isMale = /(\bmen\b|\bmale\b|panjabi|punjabi|\bshirt\b|\bpolo\b|t-shirt|tshirt|\bboy\b|\bgents\b)/i.test(title);
+  if (isMale) return 'Men';
+
+  const isAccessoryCategory = /(gadget|electronic|home|lifestyle|gift|food|kitchen|living|decor|mug|speaker|watch|bottle|phone|cable|charger|cleaner|light|device|other)/i.test(cat);
+  if (isAccessoryCategory) {
+    return 'Accessories';
+  }
+
+  return 'Accessories';
+}
+
 // Extends subcategory detection dynamically based on product tags and name
 function extractSubCategory(name: string, category: string): string {
   const n = name.toLowerCase();
@@ -342,14 +373,24 @@ export default async function handler(req: any, res: any) {
 
         const colors = Array.from(colorsMap.values());
         const sizes = Array.from(sizesSet);
+        // Only retain genuine variant sizes provided by API; do not inject dummy sizes
 
-        // Fallback default sizes if none provided (only for clothing categories)
-        const clothingCategories = ['panjabi', 'saree', 'kurti', 'shirt', 'polo', 'clothing', 'women', 'men', 'couple', 'fashion', 'kids'];
-        const itemCategoryLower = (item.category || '').toLowerCase();
-        const isClothing = clothingCategories.some(c => itemCategoryLower.includes(c));
-
-        if (sizes.length === 0 && isClothing) {
-          sizes.push('M', 'L', 'XL');
+        const variantsList: any[] = [];
+        if (sizes.length > 0) {
+          variantsList.push({
+            id: 'var_size',
+            title: 'Size',
+            mandatory: false,
+            options: sizes.map((s: string) => ({ value: s, extraPrice: 0 }))
+          });
+        }
+        if (colors.length > 0) {
+          variantsList.push({
+            id: 'var_color',
+            title: 'Color',
+            mandatory: false,
+            options: colors.map((c: any) => ({ value: c.name, extraPrice: 0 }))
+          });
         }
 
         // Parse category for margin lookup
@@ -438,7 +479,7 @@ export default async function handler(req: any, res: any) {
           category: categoryId,
           sub_category: extractSubCategory(item.name, categoryName),
           tags: tags,
-          gender: 'Men', // Default, editable from dashboard
+          gender: detectProductGender(categoryName, item.name),
           price: finalPrice,
           discount_price: finalDiscountPrice,
           purchase_price: wholesaleCost,
@@ -448,6 +489,9 @@ export default async function handler(req: any, res: any) {
           images: images,
           colors: colors,
           sizes: sizes,
+          variants: variantsList,
+          variant_stock: {},
+          variant_images: {},
           description: item.details || item.name,
           short_description: item.details ? item.details.substring(0, 150) + '...' : item.name,
           features: [],

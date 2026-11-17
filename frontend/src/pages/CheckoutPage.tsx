@@ -499,7 +499,7 @@ export default function CheckoutPage() {
 
   // Auto-Apply Qualified Coupons on Cart Threshold Engine
   useEffect(() => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.product.discountPrice || item.product.price) * item.quantity, 0);
+    const subtotal = cart.reduce((sum, item) => sum + ((item.product.discountPrice || item.product.price) + (item.extraPrice || 0)) * item.quantity, 0);
     if (subtotal <= 0 || !dbCoupons || dbCoupons.length === 0) return;
 
     // Filter active auto-apply coupons
@@ -677,7 +677,7 @@ export default function CheckoutPage() {
     cart.reduce((sum, item) => sum + getItemFloorPrice(item.product) * item.quantity, 0);
 
   const getSubtotal = () =>
-    cart.reduce((sum, item) => sum + (item.product.discountPrice || item.product.price) * item.quantity, 0);
+    cart.reduce((sum, item) => sum + ((item.product.discountPrice || item.product.price) + (item.extraPrice || 0)) * item.quantity, 0);
 
   const getMaxAllowedDiscount = () => Math.max(0, getSubtotal() - getFloorSubtotal());
 
@@ -1175,11 +1175,14 @@ export default function CheckoutPage() {
                 <div className="flex-1 min-w-0">
                   <h4 className="text-xs font-bold text-brand-text truncate">{item.product.name}</h4>
                   <span className="text-[10px] text-gray-400 block mt-0.5">
-                    {item.selectedSize} / {item.selectedColor} • Qty {item.quantity}
+                    {item.selectedVariants && Object.keys(item.selectedVariants).length > 0
+                      ? Object.values(item.selectedVariants).join(' / ')
+                      : `${item.selectedSize} / ${item.selectedColor}`}{' '}
+                    • Qty {item.quantity}
                   </span>
                 </div>
                 <span className="text-xs font-bold text-brand-primary shrink-0">
-                  ৳{((item.product.discountPrice || item.product.price) * item.quantity).toLocaleString('en-IN')}
+                  ৳{(((item.product.discountPrice || item.product.price) + (item.extraPrice || 0)) * item.quantity).toLocaleString('en-IN')}
                 </span>
               </div>
             ))}

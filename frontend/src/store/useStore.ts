@@ -24,7 +24,7 @@ interface StoreState {
   wishlist: Product[];
   orders: Order[];
   currentUser: any;
-  appliedCoupon: { code: string; discount: number; type?: string; minOrder?: number } | null;
+  appliedCoupon: { code: string; discount: number; type?: string; minOrder?: number; isAutoApply?: boolean } | null;
   lastPlacedOrder: Order | null;
   recentlyViewedIds: string[];
   checkoutForm: {
@@ -131,7 +131,14 @@ interface StoreState {
 
   // Business Actions
   loadInitialData: () => Promise<void>;
-  addToCart: (product: Product, size: string, color: string, qty?: number) => void;
+  addToCart: (
+    product: Product,
+    size: string,
+    color: string,
+    qty?: number,
+    selectedVariants?: Record<string, string>,
+    extraPrice?: number
+  ) => void;
   updateCartQty: (index: number, newQty: number) => void;
   toggleWishlist: (product: Product) => void;
   applyCoupon: (code: string) => {
@@ -140,6 +147,7 @@ interface StoreState {
     message: string;
     minOrder?: number;
   };
+  removeCoupon: () => void;
   placeOrder: (formInputs: any) => Promise<Order | null>;
   logout: () => void;
   
@@ -315,6 +323,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ orders });
   },
   setAppliedCoupon: (appliedCoupon) => set({ appliedCoupon }),
+  removeCoupon: () => set({ appliedCoupon: null }),
   setLastPlacedOrder: (lastPlacedOrder) => {
     if (lastPlacedOrder) {
       localStorage.setItem('rup_last_placed_order', JSON.stringify(lastPlacedOrder));
@@ -516,14 +525,15 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  addToCart: (product, size, color, qty = 1) => {
+  addToCart: (product, size, color, qty = 1, selectedVariants, extraPrice = 0) => {
     const { cart, dbSettings } = get();
-    const existingIndex = cart.findIndex(
-      (item) =>
-        item.product.id === product.id &&
-        item.selectedSize === size &&
-        item.selectedColor === color
-    );
+    const existingIndex = cart.findIndex((item) => {
+      if (item.product.id !== product.id) return false;
+      if (selectedVariants && item.selectedVariants) {
+        return JSON.stringify(item.selectedVariants) === JSON.stringify(selectedVariants);
+      }
+      return item.selectedSize === size && item.selectedColor === color;
+    });
 
     let newCart = [...cart];
     if (existingIndex > -1) {
@@ -531,8 +541,10 @@ export const useStore = create<StoreState>((set, get) => ({
     } else {
       newCart.push({
         product,
-        selectedSize: size || (product.sizes && product.sizes[0]) || 'M',
-        selectedColor: color || (product.colors && product.colors[0]?.name) || 'Default',
+        selectedSize: size || (product.sizes && product.sizes[0]) || '',
+        selectedColor: color || (product.colors && product.colors[0]?.name) || '',
+        selectedVariants,
+        extraPrice: extraPrice || 0,
         quantity: qty
       });
     }
@@ -746,15 +758,21 @@ export const useStore = create<StoreState>((set, get) => ({
       paidConfirm: formInputs.paidConfirm,
       paymentScreenshotUrl: formInputs.paymentScreenshotUrl || '',
       onlinePaymentDiscount,
-      items: cart.map((item) => ({
-        productId: item.product.id,
-        productName: item.product.name,
-        color: item.selectedColor,
-        size: item.selectedSize,
-        price: item.product.discountPrice || item.product.price,
-        quantity: item.quantity,
-        image: item.product.images[0]
-      })),
+      items: cart.map((item) => {
+        const itemPrice = (item.product.discountPrice || item.product.price) + (item.extraPrice || 0);
+        const variantSummary = item.selectedVariants
+          ? Object.values(item.selectedVariants).join(', ')
+          : '';
+        return {
+          productId: item.product.id,
+          productName: item.product.name,
+          color: item.selectedColor || variantSummary || 'Default',
+          size: item.selectedSize || variantSummary || 'Standard',
+          price: itemPrice,
+          quantity: item.quantity,
+          image: item.product.images[0]
+        };
+      }),
       subtotal,
       shippingFee,
       total,

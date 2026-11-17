@@ -197,12 +197,18 @@ function AppLayout() {
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cart.reduce((sum, item) => {
-    const price = item.product.discountPrice || item.product.price;
+    const price = (item.product.discountPrice || item.product.price) + (item.extraPrice || 0);
     return sum + price * item.quantity;
   }, 0);
 
-  const handleBuyNow = (product: any, size: string, color: string) => {
-    addToCart(product, size, color, 1);
+  const handleBuyNow = (
+    product: any,
+    size: string,
+    color: string,
+    selectedVariants?: Record<string, string>,
+    extraPrice?: number
+  ) => {
+    addToCart(product, size, color, 1, selectedVariants, extraPrice);
     navigate('/checkout');
   };
 

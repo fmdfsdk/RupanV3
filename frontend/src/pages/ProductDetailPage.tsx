@@ -23,8 +23,8 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const handleBuyNow = (p: Product, size: string, color: string) => {
-    addToCart(p, size, color, 1);
+  const handleBuyNow = (p: Product, size: string, color: string, selectedVariants?: Record<string, string>, extraPrice?: number) => {
+    addToCart(p, size, color, 1, selectedVariants, extraPrice);
     navigate('/checkout');
   };
 

@@ -1150,8 +1150,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       tags: form.tags || [],
       gender: form.gender || 'Men',
       price: Number(form.price || 0),
-      discount_price: form.discountPrice !== undefined && form.discountPrice !== null && form.discountPrice !== '' ? Number(form.discountPrice) : null,
-      purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && form.purchasePrice !== '' ? Number(form.purchasePrice) : null,
+      discount_price: form.discountPrice !== undefined && form.discountPrice !== null && (form.discountPrice as any) !== '' ? Number(form.discountPrice) : null,
+      purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && (form.purchasePrice as any) !== '' ? Number(form.purchasePrice) : null,
       description: form.description || '',
       short_description: form.shortDescription || (form as any).short_description || '',
       features: form.features || [],
@@ -1599,13 +1599,6 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         const res2 = await supabase.from('coupons').insert([safePayload]);
         error = res2.error;
       }
-      if (error) {
-        alert("Error creating coupon: " + error.message);
-        return;
-      }
-      setCoupons([...coupons, finalCoupon]);
-      alert("Coupon created successfully!");
-    }
       if (error) {
         alert("Error creating coupon: " + error.message);
         return;

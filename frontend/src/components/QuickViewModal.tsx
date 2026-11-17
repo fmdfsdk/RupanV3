@@ -9,12 +9,13 @@ import { Product } from '../types';
 import { getOptimizedImageUrl } from '../utils/image';
 import ProductImage from './ProductImage';
 import { formatDescriptionToHtml } from '../lib/formatter';
+import { computeExtraPrice } from '../utils/variantUtils';
 
 interface QuickViewModalProps {
   product: Product | null;
   onClose: () => void;
-  onAddToCart: (product: Product, size: string, color: string, qty: number) => void;
-  onBuyNow: (product: Product, size: string, color: string) => void;
+  onAddToCart: (product: Product, size: string, color: string, qty: number, selectedVariants?: Record<string, string>, extraPrice?: number) => void;
+  onBuyNow: (product: Product, size: string, color: string, selectedVariants?: Record<string, string>, extraPrice?: number) => void;
   onToggleWishlist: (product: Product) => void;
   isWishlisted: boolean;
   onOpenSizeGuide: (category: string) => void;
@@ -31,22 +32,76 @@ export default function QuickViewModal({
 }: QuickViewModalProps) {
   const productColors = Array.isArray(product?.colors) ? product.colors : [];
   const productSizes = Array.isArray(product?.sizes) ? product.sizes : [];
+  const hasNewVariants = Array.isArray(product?.variants) && product.variants.length > 0 && product.variants.some((v) => v.options && v.options.length > 0);
 
   const [selectedImage, setSelectedImage] = useState(product?.images?.[0] || '');
   const [selectedColor, setSelectedColor] = useState(productColors[0]?.name || '');
   const [selectedSize, setSelectedSize] = useState(productSizes[0] || '');
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     if (product) {
       setSelectedImage(product.images?.[0] || '');
-      setSelectedColor(productColors[0]?.name || '');
-      setSelectedSize(productSizes[0] || '');
+      if (hasNewVariants) {
+        const initial: Record<string, string> = {};
+        product.variants!.forEach((v) => {
+          if (v.options.length > 0) {
+            initial[v.id] = v.options[0].value;
+          }
+        });
+        setSelectedVariants(initial);
+
+        // Check if any initial variant option has an image
+        for (const v of product.variants!) {
+          const val = initial[v.id];
+          const mappedImg = product.variant_images?.[v.id]?.[val] || product.variantImages?.[v.id]?.[val];
+          if (mappedImg) {
+            setSelectedImage(mappedImg);
+            break;
+          }
+        }
+
+        const colorVar = product.variants!.find((v) => /colou?r/i.test(v.title));
+        if (colorVar && initial[colorVar.id]) setSelectedColor(initial[colorVar.id]);
+        const sizeVar = product.variants!.find((v) => /size/i.test(v.title));
+        if (sizeVar && initial[sizeVar.id]) setSelectedSize(initial[sizeVar.id]);
+      } else {
+        setSelectedColor(productColors[0]?.name || '');
+        setSelectedSize(productSizes[0] || '');
+        setSelectedVariants({});
+      }
       setQuantity(1);
     }
   }, [product]);
 
   if (!product) return null;
+
+  const extraPrice = computeExtraPrice(product.variants, selectedVariants);
+
+  const handleSelectVariantOption = (variantId: string, value: string) => {
+    setSelectedVariants((prev) => {
+      const updated = { ...prev, [variantId]: value };
+
+      const mappedImg =
+        product.variant_images?.[variantId]?.[value] ||
+        product.variantImages?.[variantId]?.[value];
+      if (mappedImg) {
+        setSelectedImage(mappedImg);
+      }
+
+      const v = product.variants?.find((item) => item.id === variantId);
+      if (v) {
+        if (/colou?r/i.test(v.title)) {
+          setSelectedColor(value);
+        } else if (/size/i.test(v.title)) {
+          setSelectedSize(value);
+        }
+      }
+
+      return updated;
+    });
+  };
 
   const discountPercent = product.discountPrice
     ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
@@ -142,10 +197,10 @@ export default function QuickViewModal({
             {product.discountPrice ? (
               <>
                 <span className="text-2xl font-extrabold text-brand-primary">
-                  ৳{product.discountPrice.toLocaleString('en-IN')}
+                  ৳{(product.discountPrice + extraPrice).toLocaleString('en-IN')}
                 </span>
                 <span className="text-sm text-gray-400 line-through">
-                  ৳{product.price.toLocaleString('en-IN')}
+                  ৳{(product.price + extraPrice).toLocaleString('en-IN')}
                 </span>
                 <span className="text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-md ml-auto">
                   Save ৳{(product.price - product.discountPrice).toLocaleString('en-IN')}
@@ -153,7 +208,7 @@ export default function QuickViewModal({
               </>
             ) : (
               <span className="text-2xl font-extrabold text-brand-primary">
-                ৳{product.price.toLocaleString('en-IN')}
+                ৳{(product.price + extraPrice).toLocaleString('en-IN')}
               </span>
             )}
           </div>
@@ -164,62 +219,119 @@ export default function QuickViewModal({
             dangerouslySetInnerHTML={{ __html: formatDescriptionToHtml(product.description || '') }}
           />
 
-          {/* Color swatches selector */}
-          {productColors.length > 0 && (
-            <div className="mb-4">
-              <span className="block text-xs font-bold text-gray-700 uppercase mb-2 tracking-wider">
-                Selected Color: <strong className="text-brand-primary font-semibold">{selectedColor}</strong>
-              </span>
-              <div className="flex items-center gap-2">
-                {productColors.map((color) => (
-                  <button
-                    key={color.name}
-                    onClick={() => setSelectedColor(color.name)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all ${
-                      selectedColor === color.name
-                        ? 'border-brand-primary bg-blue-50/30 text-brand-primary font-bold ring-2 ring-brand-primary/20'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className={`w-3 h-3 rounded-full ${color.class}`} />
-                    {color.name}
-                  </button>
-                ))}
-              </div>
+          {/* Variants Selection or Legacy Color/Size */}
+          {hasNewVariants ? (
+            <div className="space-y-4 mb-5">
+              {product.variants!.map((variant) => (
+                <div key={variant.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      {variant.title}:{' '}
+                      <strong className="text-brand-primary font-semibold">
+                        {selectedVariants[variant.id] || ''}
+                      </strong>
+                    </span>
+                    {/size/i.test(variant.title) && (
+                      <button
+                        onClick={() => onOpenSizeGuide(product.category)}
+                        className="flex items-center gap-1 text-xs font-semibold text-brand-accent hover:text-amber-600 transition-colors cursor-pointer"
+                      >
+                        <Ruler className="w-3.5 h-3.5" />
+                        Size Guide
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {variant.options.map((opt) => {
+                      const isSelected = selectedVariants[variant.id] === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => handleSelectVariantOption(variant.id, opt.value)}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-brand-primary text-white shadow-md'
+                              : 'border border-gray-200 text-gray-600 hover:border-brand-primary'
+                          }`}
+                        >
+                          <span>{opt.value}</span>
+                          {opt.extraPrice > 0 && (
+                            <span
+                              className={`text-[10px] ${
+                                isSelected ? 'text-amber-300' : 'text-amber-600'
+                              }`}
+                            >
+                              +৳{opt.extraPrice}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          ) : (
+            <>
+              {/* Color swatches selector */}
+              {productColors.length > 0 && (
+                <div className="mb-4">
+                  <span className="block text-xs font-bold text-gray-700 uppercase mb-2 tracking-wider">
+                    Selected Color: <strong className="text-brand-primary font-semibold">{selectedColor}</strong>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {productColors.map((color) => (
+                      <button
+                        key={color.name}
+                        onClick={() => setSelectedColor(color.name)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all ${
+                          selectedColor === color.name
+                            ? 'border-brand-primary bg-blue-50/30 text-brand-primary font-bold ring-2 ring-brand-primary/20'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        <span className={`w-3 h-3 rounded-full ${color.class}`} />
+                        {color.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* Size Select & Size Guide Link */}
-          {productSizes.length > 0 && (
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Select Size: <strong className="text-brand-primary font-semibold">{selectedSize}</strong>
-                </span>
-                <button
-                  onClick={() => onOpenSizeGuide(product.category)}
-                  className="flex items-center gap-1 text-xs font-semibold text-brand-accent hover:text-amber-600 transition-colors cursor-pointer"
-                >
-                  <Ruler className="w-3.5 h-3.5" />
-                  Size Guide
-                </button>
-              </div>
-              <div className="flex gap-2">
-                {productSizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`w-11 h-11 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
-                      selectedSize === size
-                        ? 'bg-brand-primary text-white shadow-md'
-                        : 'border border-gray-200 text-gray-500 hover:border-brand-primary hover:text-brand-primary'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
+              {/* Size Select & Size Guide Link */}
+              {productSizes.length > 0 && (
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Select Size: <strong className="text-brand-primary font-semibold">{selectedSize}</strong>
+                    </span>
+                    <button
+                      onClick={() => onOpenSizeGuide(product.category)}
+                      className="flex items-center gap-1 text-xs font-semibold text-brand-accent hover:text-amber-600 transition-colors cursor-pointer"
+                    >
+                      <Ruler className="w-3.5 h-3.5" />
+                      Size Guide
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    {productSizes.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        className={`w-11 h-11 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                          selectedSize === size
+                            ? 'bg-brand-primary text-white shadow-md'
+                            : 'border border-gray-200 text-gray-500 hover:border-brand-primary hover:text-brand-primary'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Quantity Selector & Stock Indicator */}
@@ -267,7 +379,7 @@ export default function QuickViewModal({
           <div className="grid grid-cols-5 gap-3 mb-6">
             <button
               onClick={() => {
-                onAddToCart(product, selectedSize, selectedColor, quantity);
+                onAddToCart(product, selectedSize, selectedColor, quantity, selectedVariants, extraPrice);
                 onClose();
               }}
               disabled={product.stock === 0}
@@ -277,7 +389,7 @@ export default function QuickViewModal({
             </button>
             <button
               onClick={() => {
-                onBuyNow(product, selectedSize, selectedColor);
+                onBuyNow(product, selectedSize, selectedColor, selectedVariants, extraPrice);
                 onClose();
               }}
               disabled={product.stock === 0}

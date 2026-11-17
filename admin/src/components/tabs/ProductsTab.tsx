@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Search, Edit, Copy, Trash2 } from 'lucide-react';
 import { Product } from '../../types';
+import { resolveProductVariants } from '../../utils/variantUtils';
 
 interface ProductsTabProps {
   searchQuery: string;
@@ -152,6 +153,15 @@ export default function ProductsTab({
                             🏷️ Manual
                           </span>
                         )}
+                        {(() => {
+                          const vars = resolveProductVariants(p);
+                          if (!vars || vars.length === 0) return null;
+                          return (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                              ✨ {vars.map(v => `${v.title}: ${v.options.length}`).join(' · ')}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="p-4 font-semibold text-gray-500 uppercase text-[10px]">{p.category}</td>

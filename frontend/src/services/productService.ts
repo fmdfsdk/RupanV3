@@ -1,13 +1,54 @@
 import { supabase } from '../lib/supabase';
 import { Product } from '../types';
 
+function detectProductGender(
+  category: string = '',
+  name: string = '',
+  existingGender?: string
+): 'Men' | 'Women' | 'Couple' | 'Kids' | 'Accessories' {
+  const cat = (category || '').toLowerCase();
+  const title = (name || '').toLowerCase();
+  const text = `${cat} ${title}`;
+
+  if (cat.includes('kid')) return 'Kids';
+
+  const isCouple = /(couple|combo)/i.test(text);
+  if (isCouple) return 'Couple';
+
+  if (cat.includes('women') || cat.includes('female') || cat.includes('ladies')) return 'Women';
+  if (cat.includes('men') && !cat.includes('women')) return 'Men';
+
+  const isFemale = /(women|female|saree|sari|three\s*piece|three-piece|kurti|kurtis|lehenga|salwar|kamiz|kameez|hijab|abaya|borqa|borkha|ladies|girl|bra|panties)/i.test(title);
+  if (isFemale) return 'Women';
+
+  const isKids = /(kids|baby|children|child|toddler|infant|boy\'s|girls\')/i.test(title);
+  if (isKids) return 'Kids';
+
+  const isMale = /(\bmen\b|\bmale\b|panjabi|punjabi|\bshirt\b|\bpolo\b|t-shirt|tshirt|\bboy\b|\bgents\b)/i.test(title);
+  if (isMale) return 'Men';
+
+  const isAccessoryCategory = /(gadget|electronic|home|lifestyle|gift|food|kitchen|living|decor|mug|speaker|watch|bottle|phone|cable|charger|cleaner|light|device|other)/i.test(cat);
+  if (isAccessoryCategory) {
+    return 'Accessories';
+  }
+
+  if (existingGender && ['Women', 'Couple', 'Kids', 'Accessories'].includes(existingGender)) {
+    return existingGender as any;
+  }
+  if (existingGender === 'Men' && !isAccessoryCategory) {
+    return 'Men';
+  }
+
+  return 'Accessories';
+}
+
 export const productService = {
   /**
    * Fetches first 1000 published products (full fields) for the initial browsing experience.
    * Fast: single query, used to render shop/homepage on first load.
    */
   async fetchProducts(): Promise<Product[]> {
-    const columns = 'id, name, price, discount_price, purchase_price, final_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug';
+    const columns = 'id, name, price, discount_price, purchase_price, final_price, category, sub_category, brand, images, colors, sizes, variants, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug, gender';
     let { data, error } = await supabase
       .from('products')
       .select(columns)
@@ -16,8 +57,8 @@ export const productService = {
       .limit(1000);
 
     if (error) {
-      console.warn("Product fetch with final_price failed, falling back to base columns:", error.message);
-      const fallbackColumns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug';
+      console.warn("Product fetch with variants failed, falling back to base columns:", error.message);
+      const fallbackColumns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug, gender';
       const fallbackRes = await supabase
         .from('products')
         .select(fallbackColumns)
@@ -32,8 +73,11 @@ export const productService = {
       const purchPrice = Number(p.purchase_price ?? regPrice);
       const diffX = Math.max(0, regPrice - purchPrice);
       const calcFloor = Math.round(regPrice - 0.25 * diffX);
+      const accurateGender = detectProductGender(p.category, p.name, p.gender);
+
       return {
         ...p,
+        gender: accurateGender,
         discountPrice: p.discount_price,
         purchasePrice: p.purchase_price,
         finalPrice: p.final_price ?? calcFloor
@@ -47,7 +91,7 @@ export const productService = {
    * Runs in parallel background chunks after initial load.
    */
   async fetchProductCatalogIndex(): Promise<Product[]> {
-    const columns = 'id, name, slug, category, images, price, discount_price, purchase_price, final_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale';
+    const columns = 'id, name, slug, category, images, price, discount_price, purchase_price, final_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, gender';
     try {
       let allItems: Product[] = [];
       let page = 0;
@@ -66,6 +110,7 @@ export const productService = {
         } else {
           const mappedPage = (data || []).map((p: any) => ({
             ...p,
+            gender: detectProductGender(p.category, p.name, p.gender),
             discountPrice: p.discount_price,
             purchasePrice: p.purchase_price,
             finalPrice: p.final_price

@@ -3,6 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface VariantOption {
+  value: string;
+  extraPrice: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  title: string;
+  mandatory: boolean;
+  options: VariantOption[];
+}
+
+export type VariantStock = Record<string, Record<string, { qty: number; active: boolean }>>;
+export type VariantImages = Record<string, Record<string, string>>;
+
 export interface Product {
   id: string;
   name: string;
@@ -26,6 +41,19 @@ export interface Product {
   stock: number;
   lowStockWarning?: number;
   weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  unitName?: string;
+  unit_name?: string;
+  initialSold?: number;
+  initial_sold?: number;
+  detailsList?: { type: string; description: string }[];
+  details_list?: { type: string; description: string }[];
+  shippingOption?: 'default' | 'custom';
+  insideDhakaShipping?: number;
+  outsideDhakaShipping?: number;
+  condition?: 'New' | 'Used' | 'Refurbished';
   material?: string;
   status?: 'published' | 'draft' | 'archived';
   isFeatured?: boolean;
@@ -43,12 +71,22 @@ export interface Product {
   final_price?: number;
   sourceProductId?: string;
   source_product_id?: string;
+  // Variants overhaul
+  variants?: ProductVariant[];
+  variant_stock?: VariantStock;
+  variantStock?: VariantStock;
+  variant_images?: VariantImages;
+  variantImages?: VariantImages;
+  maintain_variant_stock?: boolean;
+  maintainVariantStock?: boolean;
 }
 
 export interface CartItem {
   product: Product;
   selectedColor: string;
   selectedSize: string;
+  selectedVariants?: Record<string, string>;
+  extraPrice?: number;
   quantity: number;
 }
 
@@ -167,6 +205,7 @@ export interface WebsiteSettings {
   insideDhakaShipping: number;
   outsideDhakaShipping: number;
   freeShippingMinOrder: number;
+  freeShippingEnabled?: boolean;
   theme: string;
   id?: any;
   homepageConfig?: any;
@@ -223,11 +262,16 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
-  image?: string;
-  parentId?: string;
+  image?: string | null;
+  parent_id?: string | null;
+  parentId?: string | null;
+  sort_order?: number;
   sortOrder?: number;
+  is_active?: boolean;
   isActive?: boolean;
-  createdAt: string;
+  created_at?: string;
+  createdAt?: string;
+  productCount?: number;
 }
 
 export interface OrderItem {

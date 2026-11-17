@@ -4,14 +4,15 @@ import {
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap,
+  FolderTree
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell 
 } from 'recharts';
 import { supabase } from '../lib/supabase';
-import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile } from '../types';
+import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile, Category } from '../types';
 import { PRODUCTS } from '../data';
 import { generateFullSimulatedCatalog } from '../utils/mockCatalogGenerator';
 import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
@@ -19,6 +20,7 @@ import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
 // Import Decomposed Tab Components
 import OverviewTab from './tabs/OverviewTab';
 import ProductsTab from './tabs/ProductsTab';
+import CategoriesTab from './tabs/CategoriesTab';
 import OrdersTab from './tabs/OrdersTab';
 import InventoryTab from './tabs/InventoryTab';
 import CustomersTab from './tabs/CustomersTab';
@@ -31,6 +33,8 @@ import SettingsTab from './tabs/SettingsTab';
 import SeoMarketingTab from './tabs/SeoMarketingTab';
 import SyncTab from './tabs/SyncTab';
 import MarginsTab from './tabs/MarginsTab';
+import ProductEditorModal from './product/ProductEditorModal';
+import { detectProductGender, resolveProductVariants } from '../utils/variantUtils';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -46,6 +50,9 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   
   // Database state fetched from Supabase (or fallback)
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [productCountsByCategory, setProductCountsByCategory] = useState<Record<string, number>>({});
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -737,11 +744,38 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (sourcesData && sourcesData.length > 0) setSyncSources(sourcesData); else setSyncSources(sourcesFallback);
       if (logsData && logsData.length > 0) setSyncLogs(logsData); else setSyncLogs(logsFallback);
 
+      // Fetch Categories from dedicated table
+      let fetchedCategories: Category[] = [];
+      try {
+        const { data: catRows } = await supabase
+          .from('categories')
+          .select('*')
+          .order('sort_order', { ascending: true });
+        if (catRows && catRows.length > 0) {
+          fetchedCategories = catRows;
+          setCategories(catRows);
+        }
+      } catch (err) {
+        console.warn("Could not fetch categories table:", err);
+      }
+
       if (isSupabaseOnline) {
         const { data: catData } = await supabase.from('products').select('category');
         if (catData) {
-          const uniqueCats = Array.from(new Set(catData.map(c => (c as any).category).filter(Boolean))) as string[];
-          setAvailableCategories(['All', ...uniqueCats]);
+          const counts: Record<string, number> = {};
+          const uniqueCats = new Set<string>();
+          catData.forEach((c: any) => {
+            if (c.category) {
+              uniqueCats.add(c.category);
+              const k = c.category.toLowerCase().trim();
+              counts[k] = (counts[k] || 0) + 1;
+            }
+          });
+          setProductCountsByCategory(counts);
+          
+          const dbCatNames = fetchedCategories.map((c: any) => c.name);
+          const merged = Array.from(new Set([...dbCatNames, ...uniqueCats]));
+          setAvailableCategories(['All', ...merged]);
         }
       } else {
         let localData = PRODUCTS;
@@ -749,7 +783,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         if (stored) {
           try { localData = JSON.parse(stored); } catch (e) {}
         }
-        const uniqueCats = Array.from(new Set(localData.map(p => p.category).filter(Boolean)));
+        const counts: Record<string, number> = {};
+        const uniqueCats = Array.from(new Set(localData.map(p => {
+          if (p.category) {
+            const k = p.category.toLowerCase().trim();
+            counts[k] = (counts[k] || 0) + 1;
+          }
+          return p.category;
+        }).filter(Boolean)));
+        setProductCountsByCategory(counts);
         setAvailableCategories(['All', ...uniqueCats]);
       }
 
@@ -1036,9 +1078,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           throw new Error(result.error || `Sync failed at page ${currentPage}`);
         }
 
-        if (currentPage === 1 && syncScope === 'all') {
-          lastPage = result.last_page || 1;
+        // Dynamically update lastPage from the live API response on every iteration
+        if (syncScope === 'all' && result.last_page) {
+          lastPage = result.last_page;
           setSyncLastPage(lastPage);
+        }
+
+        // Early exit if the upstream catalog returned zero products for this page
+        if (result.items_fetched === 0 && currentPage > 1) {
+          setSyncStatusMessage(`Reached end of live catalog at page ${currentPage}. Finishing sync.`);
+          break;
         }
 
         totalImported += result.imported || 0;
@@ -1140,6 +1189,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Helper to map UI Product state to Supabase snake_case columns
   const toDbProductPayload = (form: Partial<Product>, id: string, slug: string, isUpdate = false) => {
+    // If form explicitly specifies variants (even if empty []), use them;
+    // only fallback to resolveProductVariants if form.variants is undefined/null
+    const finalVariants = Array.isArray(form.variants)
+      ? form.variants
+      : resolveProductVariants(form);
+
+    // Derive fallback sizes/colors from variants to ensure 100% backward compatibility
+    let derivedSizes: string[] = [];
+    let derivedColors: { name: string; class: string; hex: string }[] = [];
+
+    if (Array.isArray(finalVariants) && finalVariants.length > 0) {
+      const sizeVariant = finalVariants.find((v) => /size/i.test(v.title));
+      if (sizeVariant && sizeVariant.options.length > 0) {
+        derivedSizes = sizeVariant.options.map((o) => o.value);
+      }
+      const colorVariant = finalVariants.find((v) => /colou?r|age/i.test(v.title));
+      if (colorVariant && colorVariant.options.length > 0) {
+        derivedColors = colorVariant.options.map((o) => ({
+          name: o.value,
+          class: 'bg-zinc-800',
+          hex: '#1E3A8A'
+        }));
+      }
+    } else if (!Array.isArray(form.variants)) {
+      // Only keep legacy form.sizes/colors if variants was not explicitly provided
+      derivedSizes = form.sizes || [];
+      derivedColors = form.colors || [];
+    }
+
+    // Extract material and features from detailsList if provided
+    let materialVal = form.material || null;
+    let featuresList = Array.isArray(form.features) ? [...form.features] : [];
+
+    if (Array.isArray((form as any).detailsList) && (form as any).detailsList.length > 0) {
+      const matItem = (form as any).detailsList.find((d: any) => /material/i.test(d.type));
+      if (matItem && matItem.description) {
+        materialVal = matItem.description;
+      }
+      if (featuresList.length === 0) {
+        featuresList = (form as any).detailsList
+          .filter((d: any) => d.type && d.description)
+          .map((d: any) => `${d.type}: ${d.description}`);
+      }
+    }
+
     const payload: any = {
       name: form.name,
       slug: slug,
@@ -1148,19 +1242,19 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       category: form.category,
       sub_category: form.subCategory || (form as any).sub_category || null,
       tags: form.tags || [],
-      gender: form.gender || 'Men',
+      gender: form.gender || detectProductGender(form.category, form.name),
       price: Number(form.price || 0),
-      discount_price: form.discountPrice !== undefined && form.discountPrice !== null && form.discountPrice !== '' ? Number(form.discountPrice) : null,
-      purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && form.purchasePrice !== '' ? Number(form.purchasePrice) : null,
+      discount_price: form.discountPrice !== undefined && form.discountPrice !== null && (form.discountPrice as any) !== '' ? Number(form.discountPrice) : null,
+      purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && (form.purchasePrice as any) !== '' ? Number(form.purchasePrice) : null,
       description: form.description || '',
       short_description: form.shortDescription || (form as any).short_description || '',
-      features: form.features || [],
-      sizes: form.sizes || [],
-      colors: form.colors || [],
+      features: featuresList,
+      sizes: derivedSizes,
+      colors: derivedColors,
       stock: Number(form.stock || 0),
       low_stock_warning: Number(form.lowStockWarning || (form as any).low_stock_warning || 5),
       weight: form.weight ? Number(form.weight) : null,
-      material: form.material || null,
+      material: materialVal,
       status: form.status || 'published',
       is_featured: !!form.isFeatured || !!(form as any).is_featured,
       is_trending: !!form.isTrending || !!(form as any).is_trending,
@@ -1170,7 +1264,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       seo_title: form.seoTitle || (form as any).seo_title || null,
       seo_description: form.seoDescription || (form as any).seo_description || null,
       images: form.images || [],
-      source_id: (form as any).source_id || 'manual'
+      source_id: (form as any).source_id || 'manual',
+      // Dynamic variants overhaul
+      variants: finalVariants,
+      variant_stock: (finalVariants.length > 0 && form.maintain_variant_stock)
+        ? (form.variant_stock || (form as any).variantStock || {})
+        : {},
+      variant_images: finalVariants.length > 0
+        ? (form.variant_images || (form as any).variantImages || {})
+        : {},
+      maintain_variant_stock: finalVariants.length > 0 && !!form.maintain_variant_stock
     };
 
     if (!isUpdate) {
@@ -1181,19 +1284,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     return payload;
   };
 
-  // Save/Update product
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!productForm.name || !productForm.category || !productForm.price) {
+  // Save/Update product (called from ProductEditorModal)
+  const handleSaveProduct = async (productData?: Partial<Product> | React.FormEvent) => {
+    // Check if called directly from form submit event or with product data
+    const activeData: Partial<Product> = (productData && !(productData as any).preventDefault)
+      ? (productData as Partial<Product>)
+      : productForm;
+
+    if (!activeData.name || !activeData.category || !activeData.price) {
       alert("Please fill in Name, Category, and Price");
       return;
     }
 
     const productId = editingProduct ? editingProduct.id : `rup-${Date.now()}`;
-    const productSlug = productForm.slug || productForm.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const productSlug = activeData.slug || activeData.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     const finalProduct = {
-      ...productForm,
+      ...activeData,
       id: productId,
       slug: productSlug,
       reviewsCount: editingProduct ? editingProduct.reviewsCount : 0,
@@ -1201,19 +1308,45 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     } as Product;
 
     if (editingProduct) {
-      const dbPayload = toDbProductPayload(productForm, productId, productSlug, true);
+      const dbPayload = toDbProductPayload(activeData, productId, productSlug, true);
       const { error } = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id);
       if (!error) {
-        setProducts(products.map(p => p.id === editingProduct.id ? { ...editingProduct, ...finalProduct } : p));
+        // Merge dbPayload so that in-memory state has the exact derived sizes, colors, variants, and stock
+        const mergedProduct: Product = {
+          ...editingProduct,
+          ...finalProduct,
+          ...dbPayload,
+          discountPrice: dbPayload.discount_price,
+          purchasePrice: dbPayload.purchase_price,
+          isFeatured: dbPayload.is_featured,
+          isTrending: dbPayload.is_trending,
+          isNew: dbPayload.is_new,
+          isBestSeller: dbPayload.is_best_seller,
+          isFlashSale: dbPayload.is_flash_sale
+        };
+        setProducts(products.map(p => p.id === editingProduct.id ? mergedProduct : p));
+        setEditingProduct(null);
         alert("Product updated successfully!");
       } else {
         alert(`Error updating product: ${error.message}`);
       }
     } else {
-      const dbPayload = toDbProductPayload(productForm, productId, productSlug, false);
+      const dbPayload = toDbProductPayload(activeData, productId, productSlug, false);
       const { error } = await supabase.from('products').insert([dbPayload]);
       if (!error) {
-        setProducts([finalProduct, ...products]);
+        const newProduct: Product = {
+          ...finalProduct,
+          ...dbPayload,
+          discountPrice: dbPayload.discount_price,
+          purchasePrice: dbPayload.purchase_price,
+          isFeatured: dbPayload.is_featured,
+          isTrending: dbPayload.is_trending,
+          isNew: dbPayload.is_new,
+          isBestSeller: dbPayload.is_best_seller,
+          isFlashSale: dbPayload.is_flash_sale
+        };
+        setProducts([newProduct, ...products]);
+        setEditingProduct(null);
         alert("Product created successfully!");
       } else {
         alert(`Error creating product: ${error.message}`);
@@ -1618,6 +1751,97 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
     setCoupons(coupons.filter(c => c.code !== code));
     alert("Coupon deleted successfully!");
+  };
+
+  // --- Category Handlers ---
+  const handleSaveCategory = async (catData: Partial<Category>, isEdit: boolean) => {
+    try {
+      setCategoriesLoading(true);
+      const payload: any = {
+        id: catData.id,
+        name: catData.name,
+        slug: catData.slug,
+        image: catData.image || null,
+        sort_order: catData.sort_order ?? 0,
+        is_active: catData.is_active !== false
+      };
+
+      const { data, error } = await supabase.from('categories').upsert(payload).select().single();
+      if (error) throw error;
+
+      setCategories((prev) => {
+        const idx = prev.findIndex((c) => c.id === payload.id);
+        let next: Category[];
+        if (idx >= 0) {
+          next = [...prev];
+          next[idx] = { ...next[idx], ...payload };
+        } else {
+          next = [...prev, payload as Category];
+        }
+        return next.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      });
+
+      setAvailableCategories((prev) => {
+        if (!prev.includes(payload.name)) {
+          return [...prev, payload.name];
+        }
+        return prev;
+      });
+
+      alert(`Category "${payload.name}" saved successfully!`);
+    } catch (err: any) {
+      console.error('Error saving category:', err);
+      alert('Error saving category: ' + err.message);
+      throw err;
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      setCategoriesLoading(true);
+      const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+      if (error) throw error;
+
+      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+      alert('Category deleted successfully!');
+    } catch (err: any) {
+      console.error('Error deleting category:', err);
+      alert('Error deleting category: ' + err.message);
+      throw err;
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleToggleCategoryStatus = async (categoryId: string, currentStatus: boolean) => {
+    try {
+      const nextStatus = !currentStatus;
+      const { error } = await supabase.from('categories').update({ is_active: nextStatus }).eq('id', categoryId);
+      if (error) throw error;
+
+      setCategories((prev) =>
+        prev.map((c) => (c.id === categoryId ? { ...c, is_active: nextStatus, isActive: nextStatus } : c))
+      );
+    } catch (err: any) {
+      console.error('Error updating category status:', err);
+      alert('Error toggling category status: ' + err.message);
+      throw err;
+    }
+  };
+
+  const handleQuickAddCategory = async (name: string) => {
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const id = name.toLowerCase().trim();
+    await handleSaveCategory({
+      id,
+      name,
+      slug,
+      image: null,
+      sort_order: categories.length + 1,
+      is_active: true
+    }, false);
   };
 
   const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false) => {
@@ -2083,6 +2307,21 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { setActiveTab('categories'); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'categories' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <FolderTree className="w-4 h-4 text-emerald-500" />
+                <span>Categories</span>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {categories.length}
+              </span>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('orders'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'orders' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -2302,6 +2541,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               )}
 
+              {/* TAB: CATEGORY MANAGEMENT */}
+              {activeTab === 'categories' && (
+                <CategoriesTab
+                  categories={categories}
+                  productCountsByCategory={productCountsByCategory}
+                  onSaveCategory={handleSaveCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  onToggleStatus={handleToggleCategoryStatus}
+                  loading={categoriesLoading}
+                />
+              )}
+
               {/* TAB 3: ORDERS INDEX */}
               {activeTab === 'orders' && (
                 <OrdersTab
@@ -2450,483 +2701,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
       </div>
 
-      {/* MODAL 1: ADD / EDIT PRODUCT */}
-      {productModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-              <h2 className="text-xl font-black tracking-tight text-zinc-900">
-                {editingProduct ? `Edit Product: ${editingProduct.name}` : "Create New Store SKU"}
-              </h2>
-              <button 
-                onClick={() => setProductModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProduct} className="space-y-6">
-              
-              {/* Image upload choice */}
-              <div className="space-y-3 p-4 bg-gray-50 border border-gray-100 rounded-2xl">
-                <span className="text-[10px] font-bold uppercase text-gray-400 block">Product Images Acquisition</span>
-                <div className="flex gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setImageInputMethod('url')}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 border cursor-pointer transition-all ${
-                      imageInputMethod === 'url' ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm' : 'bg-white text-zinc-600 border-gray-200'
-                    }`}
-                  >
-                    <Link className="w-4 h-4" />
-                    External Image URL (Preferred)
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setImageInputMethod('upload')}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 border cursor-pointer transition-all ${
-                      imageInputMethod === 'upload' ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm' : 'bg-white text-zinc-600 border-gray-200'
-                    }`}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Image to Supabase
-                  </button>
-                </div>
-
-                {imageInputMethod === 'url' ? (
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Paste product picture URL (e.g., https://images.unsplash.com/...)"
-                      value={customImageUrl}
-                      onChange={(e) => setCustomImageUrl(e.target.value)}
-                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={addImageUrl}
-                      className="bg-brand-primary text-white text-xs font-bold px-4 py-2 rounded-xl"
-                    >
-                      Add Image
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
-                    <input 
-                      type="file" 
-                      id="admin-file-upload" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const dummyUrl = URL.createObjectURL(file);
-                          setProductForm({
-                            ...productForm,
-                            images: [...(productForm.images || []), dummyUrl]
-                          });
-                          alert(`Simulated file upload: ${file.name} uploaded successfully!`);
-                        }
-                      }}
-                    />
-                    <label htmlFor="admin-file-upload" className="cursor-pointer space-y-1 block">
-                      <Upload className="w-8 h-8 text-gray-300 mx-auto" />
-                      <p className="text-xs font-bold text-brand-primary">Click to select files or drag-and-drop</p>
-                      <p className="text-[10px] text-gray-400">Supports WebP, AVIF, PNG, JPG. Optimized automatically.</p>
-                    </label>
-                  </div>
-                )}
-
-                {/* Images Preview list */}
-                {productForm.images && productForm.images.length > 0 && (
-                  <div className="flex flex-wrap gap-3 mt-3">
-                    {productForm.images.map((url, idx) => (
-                      <div key={idx} className="relative w-16 h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                        <img src={url || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        <button
-                          type="button"
-                          onClick={() => setProductForm({
-                            ...productForm,
-                            images: productForm.images?.filter((_, i) => i !== idx) || []
-                          })}
-                          className="absolute top-1 right-1 bg-black/60 p-0.5 rounded-full text-white hover:bg-black"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Core Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-semibold text-zinc-700">
-                <div className="md:col-span-2 space-y-1">
-                  <label>Product Name</label>
-                  <input 
-                    type="text" 
-                    value={productForm.name || ''}
-                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                    placeholder="e.g. Signature Golden Jaal Jacquard Panjabi"
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>SKU (Store Keeping Unit)</label>
-                  <input 
-                    type="text" 
-                    value={productForm.sku || ''}
-                    onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Price (৳)</label>
-                  <input 
-                    type="number" 
-                    value={productForm.price || ''}
-                    onChange={(e) => setProductForm({ ...productForm, price: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Discount price (৳) (Optional)</label>
-                  <input 
-                    type="number" 
-                    value={productForm.discountPrice || ''}
-                    onChange={(e) => setProductForm({ ...productForm, discountPrice: parseInt(e.target.value) || undefined })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Reseller Cost (৳) (Optional)</label>
-                  <input 
-                    type="number" 
-                    value={productForm.purchasePrice || ''}
-                    onChange={(e) => setProductForm({ ...productForm, purchasePrice: parseInt(e.target.value) || undefined })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Profit Margin Markup (%)</label>
-                  <div className="flex gap-1.5">
-                    <input 
-                      type="number" 
-                      placeholder="Enter % to calc price"
-                      value={
-                        productForm.purchasePrice && (productForm.discountPrice || productForm.price)
-                          ? Math.round((((productForm.discountPrice || productForm.price) - productForm.purchasePrice) / productForm.purchasePrice) * 100)
-                          : ''
-                      }
-                      onChange={(e) => {
-                        const m = parseInt(e.target.value) || 0;
-                        const cost = productForm.purchasePrice || 0;
-                        if (cost > 0) {
-                          const sell = Math.round(cost * (1 + m / 100));
-                          setProductForm({
-                            ...productForm,
-                            price: sell,
-                            discountPrice: undefined // Reset discount if setting markup
-                          });
-                        }
-                      }}
-                      className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                    />
-                    <span className="bg-gray-100 border border-gray-200 text-gray-500 font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center text-xs">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Gender classification</label>
-                  <select 
-                    value={productForm.gender}
-                    onChange={(e) => setProductForm({ ...productForm, gender: e.target.value as any })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary cursor-pointer"
-                  >
-                    <option value="Men">Men</option>
-                    <option value="Women">Women</option>
-                    <option value="Couple">Couple Collection</option>
-                    <option value="Kids">Kids</option>
-                    <option value="Accessories">Accessories</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Category</label>
-                  <select 
-                    value={productForm.category}
-                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Panjabi">Panjabi</option>
-                    <option value="Saree">Saree</option>
-                    <option value="Shirts">Shirts</option>
-                    <option value="Couple Collection">Couple Collection</option>
-                    <option value="Accessories">Accessories</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Sub-Category</label>
-                  <input 
-                    type="text" 
-                    value={productForm.subCategory || ''}
-                    onChange={(e) => setProductForm({ ...productForm, subCategory: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Status</label>
-                  <select 
-                    value={productForm.status || 'published'}
-                    onChange={(e) => setProductForm({ ...productForm, status: e.target.value as any })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
-                  >
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Inventory stock level</label>
-                  <input 
-                    type="number" 
-                    value={productForm.stock || 0}
-                    onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Safety Alert Threshold</label>
-                  <input 
-                    type="number" 
-                    value={productForm.lowStockWarning || 5}
-                    onChange={(e) => setProductForm({ ...productForm, lowStockWarning: parseInt(e.target.value) || 5 })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Material composition</label>
-                  <input 
-                    type="text" 
-                    value={productForm.material || ''}
-                    onChange={(e) => setProductForm({ ...productForm, material: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Product Flags */}
-              <div className="space-y-2 text-xs font-semibold text-zinc-700">
-                <label className="block text-gray-500 uppercase tracking-wider text-[10px]">Product Flags / Badges</label>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isFeatured || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isFeatured: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Featured</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isTrending || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isTrending: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Trending</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isNew || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isNew: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>New Arrival</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isBestSeller || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Best Seller</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isFlashSale || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isFlashSale: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Flash Sale</span>
-                  </label>
-                </div>
-              </div>
-
-
-              {/* Descriptions & Rich Details */}
-              <div className="space-y-4">
-                <div className="space-y-1 text-xs font-semibold">
-                  <label>Short Description (SEO-friendly snippet)</label>
-                  <input 
-                    type="text" 
-                    value={productForm.shortDescription || ''}
-                    onChange={(e) => setProductForm({ ...productForm, shortDescription: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1 text-xs font-semibold">
-                  <label>Full Product Description (Rich Text/Markdown supported)</label>
-                  <textarea 
-                    rows={4}
-                    value={productForm.description || ''}
-                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic properties lists: tags, features, colors */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-semibold">
-                
-                {/* tags editing */}
-                <div className="space-y-2">
-                  <label>Add Search tags</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Traditional, Jacquard"
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={addTag}
-                      className="bg-zinc-800 text-white px-3 py-2 rounded-xl"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {productForm.tags?.map(t => (
-                      <span key={t} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-1">
-                        {t}
-                        <button type="button" onClick={() => removeTag(t)} className="text-gray-400 hover:text-red-500">×</button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* color specifications adding */}
-                <div className="space-y-2">
-                  <label>Color Swatch Specifications</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Color Name"
-                      value={newColorName}
-                      onChange={(e) => setNewColorName(e.target.value)}
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2"
-                    />
-                    <input 
-                      type="color" 
-                      value={newColorHex}
-                      onChange={(e) => setNewColorHex(e.target.value)}
-                      className="w-10 h-9 p-0 bg-transparent border-none cursor-pointer"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={addColor}
-                      className="bg-zinc-800 text-white px-3 py-2 rounded-xl"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {productForm.colors?.map((col, i) => (
-                      <span key={i} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full border border-gray-200" style={{ backgroundColor: col.hex }}></span>
-                        {col.name}
-                        <button type="button" onClick={() => removeColor(i)} className="text-gray-400 hover:text-red-500">×</button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Form buttons */}
-              <div className="flex justify-end gap-3 border-t border-gray-100 pt-6">
-                {editingProduct && (
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      const sourceProductId = editingProduct.sourceProductId || editingProduct.source_product_id || editingProduct.id.split('-')[1] || editingProduct.id;
-                      const productCode = editingProduct.sku ? editingProduct.sku.split('-').slice(1).join('-') : sourceProductId;
-                      
-                      const apiFormat = {
-                        id: Number(sourceProductId) || sourceProductId,
-                        name: editingProduct.name,
-                        slug: editingProduct.slug,
-                        product_code: productCode,
-                        brand: editingProduct.brand || 'Rupan',
-                        category: editingProduct.category,
-                        details: editingProduct.description || editingProduct.name,
-                        price: editingProduct.price,
-                        sale_price: editingProduct.purchasePrice || editingProduct.purchase_price || editingProduct.price,
-                        stock_status: editingProduct.stock > 0 ? 'in_stock' : 'out_of_stock',
-                        thumbnail_img: editingProduct.images?.[0] || '',
-                        product_images: (editingProduct.images || []).map(img => ({ product_image: img })),
-                        product_variants: [
-                          ...(editingProduct.colors || []).map((c: any) => ({ attribute: 'color', variant: c.name || c })),
-                          ...(editingProduct.sizes || []).map((s: any) => ({ attribute: 'size', variant: s }))
-                        ]
-                      };
-                      
-                      navigator.clipboard.writeText(JSON.stringify(apiFormat, null, 2));
-                      alert("Copied raw API JSON to clipboard!");
-                    }}
-                    className="mr-auto bg-zinc-800 hover:bg-black text-white text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy API JSON</span>
-                  </button>
-                )}
-                <button 
-                  type="button" 
-                  onClick={() => setProductModalOpen(false)}
-                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer text-xs uppercase tracking-wider"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-900 transition-all cursor-pointer text-xs uppercase tracking-wider"
-                >
-                  {editingProduct ? "Save Changes" : "Create Product SKU"}
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
+      {/* MODAL 1: ADD / EDIT PRODUCT (OVERHAULED ACCORDION FORM WITH CUSTOM VARIANTS) */}
+      <ProductEditorModal
+        open={productModalOpen}
+        onClose={() => setProductModalOpen(false)}
+        editingProduct={editingProduct}
+        onSave={handleSaveProduct}
+        availableCategories={availableCategories}
+        onQuickAddCategory={handleQuickAddCategory}
+      />
 
       {/* MODAL 5: INSPECT SYNC LOG */}
       {selectedLog && (

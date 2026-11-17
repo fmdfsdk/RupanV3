@@ -27,7 +27,7 @@ export default function CartPage() {
 
   const getSubtotal = () => {
     return cart.reduce((sum, item) => {
-      const price = item.product.discountPrice || item.product.price;
+      const price = (item.product.discountPrice || item.product.price) + (item.extraPrice || 0);
       return sum + price * item.quantity;
     }, 0);
   };
@@ -99,20 +99,30 @@ export default function CartPage() {
                   
                   {/* selected configurations */}
                   <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-gray-500 font-medium">
-                    <span>Size: <strong className="text-brand-text">{item.selectedSize}</strong></span>
-                    <span className="flex items-center gap-1">
-                      Color: <strong className="text-brand-text">{item.selectedColor}</strong>
-                    </span>
+                    {item.selectedVariants && Object.keys(item.selectedVariants).length > 0 ? (
+                      Object.entries(item.selectedVariants).map(([key, val]) => (
+                        <span key={key} className="bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                          <strong className="text-brand-text">{val}</strong>
+                        </span>
+                      ))
+                    ) : (
+                      <>
+                        <span>Size: <strong className="text-brand-text">{item.selectedSize}</strong></span>
+                        <span className="flex items-center gap-1">
+                          Color: <strong className="text-brand-text">{item.selectedColor}</strong>
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   {/* pricing calculation */}
                   <div className="flex items-baseline gap-2 mt-2">
                     <span className="text-base font-extrabold text-brand-primary">
-                      ৳{(item.product.discountPrice || item.product.price).toLocaleString('en-IN')}
+                      ৳{((item.product.discountPrice || item.product.price) + (item.extraPrice || 0)).toLocaleString('en-IN')}
                     </span>
                     {item.product.discountPrice && (
                       <span className="text-xs text-gray-400 line-through">
-                        ৳{item.product.price.toLocaleString('en-IN')}
+                        ৳{(item.product.price + (item.extraPrice || 0)).toLocaleString('en-IN')}
                       </span>
                     )}
                   </div>
