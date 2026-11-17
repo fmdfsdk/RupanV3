@@ -1139,12 +1139,43 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Delete product
   const handleDeleteProduct = async (id: string) => {
-    if (confirm("Are you sure you want to delete this product? This is irreversible.")) {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (!error) {
-        setProducts(products.filter(p => p.id !== id));
-      }
+    if (!confirm("Are you sure you want to delete this product? This is irreversible.")) return;
+
+    let deleted = false;
+    let deleteError: any = null;
+
+    try {
+      const { data, error } = await supabase.from('products').delete().eq('id', id).select();
+      deleteError = error;
+      if (data && data.length > 0) deleted = true;
+    } catch (err: any) {
+      deleteError = err;
     }
+
+    // Fallback to secure serverless endpoint if client-side was blocked by RLS
+    if (!deleted) {
+      try {
+        const apiRes = await fetch('/api/save-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id })
+        });
+        const apiJson = await apiRes.json();
+        if (apiJson && apiJson.success) deleted = true;
+        else if (apiJson?.error) deleteError = { message: apiJson.error, code: apiJson.code };
+      } catch (_) {}
+    }
+
+    if (!deleted) {
+      const detail = deleteError
+        ? `Error [${deleteError.code || 'RLS_BLOCK'}]: ${deleteError.message}`
+        : '0 rows were deleted in database (operation blocked by permissions).';
+      alert(`❌ Delete Failed!\n\n${detail}\n\nProduct was NOT removed from the database.`);
+      return;
+    }
+
+    setProducts(products.filter(p => p.id !== id));
+    alert("Product deleted successfully.");
   };
 
   // Open Product Modal
@@ -1309,48 +1340,125 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
     if (editingProduct) {
       const dbPayload = toDbProductPayload(activeData, productId, productSlug, true);
-      const { error } = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id);
-      if (!error) {
-        // Merge dbPayload so that in-memory state has the exact derived sizes, colors, variants, and stock
-        const mergedProduct: Product = {
-          ...editingProduct,
-          ...finalProduct,
-          ...dbPayload,
-          discountPrice: dbPayload.discount_price,
-          purchasePrice: dbPayload.purchase_price,
-          isFeatured: dbPayload.is_featured,
-          isTrending: dbPayload.is_trending,
-          isNew: dbPayload.is_new,
-          isBestSeller: dbPayload.is_best_seller,
-          isFlashSale: dbPayload.is_flash_sale
-        };
-        setProducts(products.map(p => p.id === editingProduct.id ? mergedProduct : p));
-        setEditingProduct(null);
-        alert("Product updated successfully!");
-      } else {
-        alert(`Error updating product: ${error.message}`);
+      let updateData: any = null;
+      let updateError: any = null;
+
+      // 1. Direct Supabase update with .select() verification
+      try {
+        const res = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id).select();
+        updateError = res.error;
+        if (res.data && res.data.length > 0) {
+          updateData = res.data[0];
+        }
+      } catch (err: any) {
+        updateError = err;
       }
+
+      // 2. Server-side fallback via /api/save-product if client-side write was blocked by RLS
+      if (!updateData) {
+        try {
+          const apiRes = await fetch('/api/save-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update', id: editingProduct.id, product: dbPayload })
+          });
+          const apiJson = await apiRes.json();
+          if (apiJson && apiJson.success && apiJson.data) {
+            updateData = apiJson.data;
+            updateError = null;
+          } else if (apiJson && apiJson.error) {
+            updateError = { message: apiJson.error, code: apiJson.code || 'API_ERROR' };
+          }
+        } catch (apiErr: any) {
+          console.warn("Fallback /api/save-product request failed:", apiErr);
+        }
+      }
+
+      // 3. Strict verification: NEVER display fake success message if 0 rows were updated!
+      if (!updateData) {
+        const errorDetail = updateError 
+          ? `[${updateError.code || 'RLS_BLOCK'}]: ${updateError.message}` 
+          : '0 rows were updated in Supabase (write blocked by Row Level Security policy or unauthenticated session).';
+        alert(`❌ Database Save Failed!\n\n${errorDetail}\n\nYour changes could NOT be saved to the database. Please execute the Supabase RLS migration in your Supabase SQL Editor.`);
+        return;
+      }
+
+      // 4. Truly verified saved in database!
+      const mergedProduct: Product = {
+        ...editingProduct,
+        ...finalProduct,
+        ...updateData,
+        discountPrice: updateData.discount_price,
+        purchasePrice: updateData.purchase_price,
+        isFeatured: updateData.is_featured,
+        isTrending: updateData.is_trending,
+        isNew: updateData.is_new,
+        isBestSeller: updateData.is_best_seller,
+        isFlashSale: updateData.is_flash_sale
+      };
+      setProducts(products.map(p => p.id === editingProduct.id ? mergedProduct : p));
+      setEditingProduct(null);
+      alert("✅ Product updated successfully in database!");
     } else {
       const dbPayload = toDbProductPayload(activeData, productId, productSlug, false);
-      const { error } = await supabase.from('products').insert([dbPayload]);
-      if (!error) {
-        const newProduct: Product = {
-          ...finalProduct,
-          ...dbPayload,
-          discountPrice: dbPayload.discount_price,
-          purchasePrice: dbPayload.purchase_price,
-          isFeatured: dbPayload.is_featured,
-          isTrending: dbPayload.is_trending,
-          isNew: dbPayload.is_new,
-          isBestSeller: dbPayload.is_best_seller,
-          isFlashSale: dbPayload.is_flash_sale
-        };
-        setProducts([newProduct, ...products]);
-        setEditingProduct(null);
-        alert("Product created successfully!");
-      } else {
-        alert(`Error creating product: ${error.message}`);
+      let insertData: any = null;
+      let insertError: any = null;
+
+      // 1. Direct Supabase insert with .select() verification
+      try {
+        const res = await supabase.from('products').insert([dbPayload]).select();
+        insertError = res.error;
+        if (res.data && res.data.length > 0) {
+          insertData = res.data[0];
+        }
+      } catch (err: any) {
+        insertError = err;
       }
+
+      // 2. Server-side fallback via /api/save-product if client-side write was blocked by RLS
+      if (!insertData) {
+        try {
+          const apiRes = await fetch('/api/save-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'insert', product: dbPayload })
+          });
+          const apiJson = await apiRes.json();
+          if (apiJson && apiJson.success && apiJson.data) {
+            insertData = apiJson.data;
+            insertError = null;
+          } else if (apiJson && apiJson.error) {
+            insertError = { message: apiJson.error, code: apiJson.code || 'API_ERROR' };
+          }
+        } catch (apiErr: any) {
+          console.warn("Fallback /api/save-product insert failed:", apiErr);
+        }
+      }
+
+      // 3. Strict verification
+      if (!insertData) {
+        const errorDetail = insertError 
+          ? `[${insertError.code || 'RLS_BLOCK'}]: ${insertError.message}` 
+          : '0 rows were inserted in Supabase (write blocked by Row Level Security policy).';
+        alert(`❌ Database Insert Failed!\n\n${errorDetail}\n\nProduct was NOT saved to the database.`);
+        return;
+      }
+
+      // 4. Truly verified inserted in database!
+      const newProduct: Product = {
+        ...finalProduct,
+        ...insertData,
+        discountPrice: insertData.discount_price,
+        purchasePrice: insertData.purchase_price,
+        isFeatured: insertData.is_featured,
+        isTrending: insertData.is_trending,
+        isNew: insertData.is_new,
+        isBestSeller: insertData.is_best_seller,
+        isFlashSale: insertData.is_flash_sale
+      };
+      setProducts([newProduct, ...products]);
+      setEditingProduct(null);
+      alert("✅ Product created successfully in database!");
     }
     setProductModalOpen(false);
   };
