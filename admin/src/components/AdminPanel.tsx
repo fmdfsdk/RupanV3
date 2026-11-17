@@ -752,8 +752,22 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           .select('*')
           .order('sort_order', { ascending: true });
         if (catRows && catRows.length > 0) {
-          fetchedCategories = catRows;
-          setCategories(catRows);
+          const normalized = catRows.map((cat: any) => {
+            const pId = cat.parent_id !== undefined ? cat.parent_id : (cat.parentId !== undefined ? cat.parentId : null);
+            return {
+              ...cat,
+              parent_id: pId,
+              parentId: pId,
+              banner_image: cat.banner_image || cat.bannerImage || null,
+              bannerImage: cat.banner_image || cat.bannerImage || null,
+              description: cat.description || cat.short_description || cat.shortDescription || null,
+              sort_order: cat.sort_order ?? cat.sortOrder ?? 0,
+              sortOrder: cat.sort_order ?? cat.sortOrder ?? 0,
+              is_active: cat.is_active !== undefined ? cat.is_active : (cat.isActive !== false)
+            };
+          });
+          fetchedCategories = normalized;
+          setCategories(normalized);
         }
       } catch (err) {
         console.warn("Could not fetch categories table:", err);
@@ -1862,29 +1876,72 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   };
 
   // --- Category Handlers ---
+  const fetchCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const { data: catRows } = await supabase
+        .from('categories')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (catRows && catRows.length > 0) {
+        const normalized = catRows.map((cat: any) => {
+          const pId = cat.parent_id !== undefined ? cat.parent_id : (cat.parentId !== undefined ? cat.parentId : null);
+          return {
+            ...cat,
+            parent_id: pId,
+            parentId: pId,
+            banner_image: cat.banner_image || cat.bannerImage || null,
+            bannerImage: cat.banner_image || cat.bannerImage || null,
+            description: cat.description || cat.short_description || cat.shortDescription || null,
+            sort_order: cat.sort_order ?? cat.sortOrder ?? 0,
+            sortOrder: cat.sort_order ?? cat.sortOrder ?? 0,
+            is_active: cat.is_active !== undefined ? cat.is_active : (cat.isActive !== false)
+          };
+        });
+        setCategories(normalized);
+      }
+    } catch (err) {
+      console.warn("Error refetching categories:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   const handleSaveCategory = async (catData: Partial<Category>, isEdit: boolean) => {
     try {
       setCategoriesLoading(true);
+      const pId = catData.parent_id !== undefined ? catData.parent_id : ((catData as any).parentId !== undefined ? (catData as any).parentId : null);
       const payload: any = {
         id: catData.id,
         name: catData.name,
         slug: catData.slug,
         image: catData.image || null,
-        sort_order: catData.sort_order ?? 0,
+        banner_image: catData.banner_image || catData.bannerImage || null,
+        description: catData.description || (catData as any).short_description || null,
+        parent_id: pId,
+        sort_order: catData.sort_order ?? (catData as any).sortOrder ?? 0,
         is_active: catData.is_active !== false
       };
 
       const { data, error } = await supabase.from('categories').upsert(payload).select().single();
       if (error) throw error;
 
+      const normalizedPayload = {
+        ...payload,
+        parentId: payload.parent_id,
+        bannerImage: payload.banner_image,
+        sortOrder: payload.sort_order,
+        isActive: payload.is_active
+      };
+
       setCategories((prev) => {
         const idx = prev.findIndex((c) => c.id === payload.id);
         let next: Category[];
         if (idx >= 0) {
           next = [...prev];
-          next[idx] = { ...next[idx], ...payload };
+          next[idx] = { ...next[idx], ...normalizedPayload };
         } else {
-          next = [...prev, payload as Category];
+          next = [...prev, normalizedPayload as Category];
         }
         return next.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       });
@@ -1939,7 +1996,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
   };
 
-  const handleQuickAddCategory = async (name: string) => {
+  const handleQuickAddCategory = async (name: string, parentId: string | null = null) => {
     const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const id = name.toLowerCase().trim();
     await handleSaveCategory({
@@ -1947,6 +2004,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       name,
       slug,
       image: null,
+      parent_id: parentId,
       sort_order: categories.length + 1,
       is_active: true
     }, false);
@@ -2415,7 +2473,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
-              onClick={() => { setActiveTab('categories'); setMobileSidebarOpen(false); }}
+              onClick={() => { 
+                setActiveTab('categories'); 
+                setMobileSidebarOpen(false); 
+                fetchCategories();
+              }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'categories' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
               }`}
@@ -2425,7 +2487,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 <span>Categories</span>
               </div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {categories.length}
+                {categories.filter(c => !(c.parent_id || (c as any).parentId)).length}
               </span>
             </button>
 
@@ -2657,6 +2719,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                   onSaveCategory={handleSaveCategory}
                   onDeleteCategory={handleDeleteCategory}
                   onToggleStatus={handleToggleCategoryStatus}
+                  onRefresh={fetchCategories}
                   loading={categoriesLoading}
                 />
               )}
@@ -2816,6 +2879,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         editingProduct={editingProduct}
         onSave={handleSaveProduct}
         availableCategories={availableCategories}
+        categories={categories}
         onQuickAddCategory={handleQuickAddCategory}
       />
 

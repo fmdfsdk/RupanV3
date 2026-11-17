@@ -526,9 +526,10 @@ export default async function handler(req: any, res: any) {
         is_active: true
       }));
 
+      // Use ignoreDuplicates: true to preserve existing categories and their parent_id hierarchy
       const { error: catError } = await supabase
         .from('categories')
-        .upsert(categoryRows, { onConflict: 'id' });
+        .upsert(categoryRows, { onConflict: 'id', ignoreDuplicates: true });
         
       if (catError) {
         console.warn("Category upsert failed during sync:", catError.message);
@@ -537,21 +538,74 @@ export default async function handler(req: any, res: any) {
 
     // 4. Perform bulk database upsert
     if (upsertBuffer.length > 0) {
-      // Fetch existing rows to calculate exact insert vs update count and preserve established slugs
+      // Fetch full existing rows to preserve all admin customizations, flags, categories, and variant stocks
       const idsToUpsert = upsertBuffer.map(p => p.id);
       const { data: existingProducts } = await supabase
         .from('products')
-        .select('id, slug')
+        .select('*')
         .in('id', idsToUpsert);
 
       const existingMap = new Map((existingProducts || []).map(p => [p.id, p]));
       const existingIds = new Set(existingProducts?.map(p => p.id) || []);
       
-      // Preserve existing slugs to prevent unique constraint conflicts on updates
+      // Preserve admin modifications on existing products
       upsertBuffer.forEach(p => {
         const existing = existingMap.get(p.id);
-        if (existing?.slug) {
-          p.slug = existing.slug;
+        if (existing) {
+          // 1. Preserve URL slug
+          if (existing.slug) p.slug = existing.slug;
+
+          // 2. Preserve Merchandising & Feature Flags
+          if (existing.is_featured !== undefined && existing.is_featured !== null) {
+            p.is_featured = existing.is_featured;
+          }
+          if (existing.is_trending !== undefined && existing.is_trending !== null) {
+            p.is_trending = existing.is_trending;
+          }
+          if (existing.is_best_seller !== undefined && existing.is_best_seller !== null) {
+            p.is_best_seller = existing.is_best_seller;
+          }
+          if (existing.is_flash_sale !== undefined && existing.is_flash_sale !== null) {
+            p.is_flash_sale = existing.is_flash_sale;
+            p.flash_sale_limit = existing.flash_sale_limit ?? p.flash_sale_limit;
+            p.flash_sale_sold = existing.flash_sale_sold ?? p.flash_sale_sold;
+          }
+          if (existing.is_new !== undefined && existing.is_new !== null) {
+            p.is_new = existing.is_new;
+          }
+
+          // 3. Preserve Admin Status & Visibility (e.g. if draft or archived)
+          if (existing.status) {
+            p.status = existing.status;
+          }
+
+          // 4. Preserve Category & Sub-category (if admin assigned to organized hierarchy)
+          if (existing.category) {
+            p.category = existing.category;
+          }
+          if (existing.sub_category) {
+            p.sub_category = existing.sub_category;
+          }
+
+          // 5. Preserve Variants & Variant-wise Stock
+          if (existing.maintain_variant_stock !== undefined && existing.maintain_variant_stock !== null) {
+            p.maintain_variant_stock = existing.maintain_variant_stock;
+          }
+          if (existing.variant_stock && typeof existing.variant_stock === 'object' && Object.keys(existing.variant_stock).length > 0) {
+            p.variant_stock = existing.variant_stock;
+          }
+          if (existing.variant_images && typeof existing.variant_images === 'object' && Object.keys(existing.variant_images).length > 0) {
+            p.variant_images = existing.variant_images;
+          }
+          if (existing.variants && Array.isArray(existing.variants) && existing.variants.length > 0) {
+            p.variants = existing.variants;
+          }
+
+          // 6. Preserve Custom SEO & Reviews overrides
+          if (existing.seo_title) p.seo_title = existing.seo_title;
+          if (existing.seo_description) p.seo_description = existing.seo_description;
+          if (existing.rating !== undefined && existing.rating !== null) p.rating = existing.rating;
+          if (existing.reviews_count !== undefined && existing.reviews_count !== null) p.reviews_count = existing.reviews_count;
         }
       });
       

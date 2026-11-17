@@ -121,13 +121,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.myrupan.com/shop?category=kids-zone</loc>
+    <loc>https://www.myrupan.com/shop?category=women-s-fashion</loc>
     <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.myrupan.com/shop?category=women-s-fashion</loc>
+    <loc>https://www.myrupan.com/shop?category=kids-zone</loc>
     <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -218,12 +218,6 @@
   </url>
   <url>
     <loc>https://www.myrupan.com/product/premium-casual-shirt-8205</loc>
-    <lastmod>2026-11-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.myrupan.com/product/sup-game-box-400-in-1-plus-10186</loc>
     <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -452,6 +446,12 @@
   </url>
   <url>
     <loc>https://www.myrupan.com/product/vmax-v54-power-bank-mobile-dual-antenna-6200mah-4-sim-supported-8185</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.myrupan.com/product/sup-game-box-400-in-1-plus-10186</loc>
     <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -842,6 +842,12 @@
   </url>
   <url>
     <loc>https://www.myrupan.com/product/stylish-premium-kids-hoodie-8754</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.myrupan.com/product/full-face-cover-winter-mask-9652</loc>
     <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -8702,12 +8708,6 @@
   </url>
   <url>
     <loc>https://www.myrupan.com/product/a-glossy-golden-crumpled-texture-jewellery-set-to-bring-out-a-regal-elegance-in-your-look-9042</loc>
-    <lastmod>2026-11-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.myrupan.com/product/full-face-cover-winter-mask-9652</loc>
     <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

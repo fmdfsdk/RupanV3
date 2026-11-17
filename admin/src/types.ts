@@ -263,6 +263,11 @@ export interface Category {
   name: string;
   slug: string;
   image?: string | null;
+  banner_image?: string | null;
+  bannerImage?: string | null;
+  description?: string | null;
+  short_description?: string | null;
+  shortDescription?: string | null;
   parent_id?: string | null;
   parentId?: string | null;
   sort_order?: number;
@@ -272,6 +277,7 @@ export interface Category {
   created_at?: string;
   createdAt?: string;
   productCount?: number;
+  subcategories_count?: number;
 }
 
 export interface OrderItem {

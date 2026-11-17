@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   X, Plus, ChevronDown, ChevronUp, Upload, Link as LinkIcon,
   Trash2, Image as ImageIcon, Video, HelpCircle, Layers, Check,
-  Copy, ExternalLink, Sparkles
+  Copy, ExternalLink, Sparkles, FolderTree
 } from 'lucide-react';
-import { Product, ProductVariant, VariantStock, VariantImages } from '../../types';
+import { Product, ProductVariant, VariantStock, VariantImages, Category } from '../../types';
 import ProductVariantsManager from './ProductVariantsManager';
 import ManageStockModal from './ManageStockModal';
 import SetupVariantImageModal from './SetupVariantImageModal';
+import AssignCategoriesModal from './AssignCategoriesModal';
 import { detectProductGender, resolveProductVariants } from '../../utils/variantUtils';
 
 interface ProductEditorModalProps {
@@ -16,7 +17,8 @@ interface ProductEditorModalProps {
   editingProduct: Product | null;
   onSave: (formData: Partial<Product>) => Promise<void> | void;
   availableCategories: string[];
-  onQuickAddCategory?: (name: string) => Promise<void>;
+  categories?: Category[];
+  onQuickAddCategory?: (name: string, parentId?: string | null) => Promise<void>;
 }
 
 export default function ProductEditorModal({
@@ -25,6 +27,7 @@ export default function ProductEditorModal({
   editingProduct,
   onSave,
   availableCategories,
+  categories = [],
   onQuickAddCategory
 }: ProductEditorModalProps) {
   // --- Form State ---
@@ -75,6 +78,7 @@ export default function ProductEditorModal({
   const [variantsModalOpen, setVariantsModalOpen] = useState<boolean>(false);
   const [stockModalOpen, setStockModalOpen] = useState<boolean>(false);
   const [variantImageModalOpen, setVariantImageModalOpen] = useState<boolean>(false);
+  const [assignCatModalOpen, setAssignCatModalOpen] = useState<boolean>(false);
 
   // --- New Item Helper States ---
   const [newImageUrl, setNewImageUrl] = useState<string>('');
@@ -1038,6 +1042,21 @@ export default function ProductEditorModal({
                 )}
 
                 <div className="space-y-2">
+                  {/* Visual Category & Subcategory Assign Button (Screenshot 1) */}
+                  <button
+                    type="button"
+                    onClick={() => setAssignCatModalOpen(true)}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 bg-[#EDE9FE] hover:bg-[#DDD6FE] text-[#5B21B6] rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FolderTree className="w-4 h-4 text-[#5B21B6]" />
+                      <span>Assign Categories (Pills)</span>
+                    </div>
+                    <span className="text-[10px] bg-[#5B21B6] text-white px-2 py-0.5 rounded-full font-bold">
+                      Select +
+                    </span>
+                  </button>
+
                   <select
                     value={formData.category}
                     onChange={(e) => {
@@ -1401,6 +1420,29 @@ export default function ProductEditorModal({
               ...prev,
               variant_images: newImages
             }));
+          }}
+        />
+
+        {/* MODAL: ASSIGN CATEGORIES PILLS (SCREENSHOT 1) */}
+        <AssignCategoriesModal
+          open={assignCatModalOpen}
+          onClose={() => setAssignCatModalOpen(false)}
+          categories={categories}
+          selectedCategory={formData.category || ''}
+          selectedSubCategory={formData.subCategory || ''}
+          assignedCategories={formData.tags || []}
+          onApply={(primaryCat, primarySub, allAssigned) => {
+            setFormData((prev) => ({
+              ...prev,
+              category: primaryCat || prev.category,
+              subCategory: primarySub || prev.subCategory,
+              gender: detectProductGender(primaryCat || prev.category || '', prev.name, prev.gender)
+            }));
+          }}
+          onQuickAddCategory={async (name, parentId) => {
+            if (onQuickAddCategory) {
+              await onQuickAddCategory(name, parentId);
+            }
           }}
         />
 
