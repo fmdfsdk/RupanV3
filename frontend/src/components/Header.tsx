@@ -116,6 +116,7 @@ export default function Header({
             {/* Mobile menu toggle */}
             <button 
               onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
               className="md:hidden p-1.5 text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             >
               <Menu className="w-6 h-6" />
@@ -125,14 +126,17 @@ export default function Header({
               onClick={() => onPageChange('home')}
               className="flex items-center cursor-pointer select-none border-2 border-white bg-white/10 rounded-lg p-1.5 px-3 max-h-[50px] md:max-h-[60px] transition-all hover:bg-white/20 shadow-sm"
             >
-              <img 
-                src="/assets/Rupan Logo Final.png" 
-                alt="Rupan" 
-                width={200}
-                height={200}
-                className="h-8 md:h-10 w-auto object-contain"
-                referrerPolicy="no-referrer"
-              />
+              <picture>
+                <source srcSet="/assets/rupan-logo.avif" type="image/avif" />
+                <img 
+                  src="/assets/rupan-logo.png" 
+                  alt="Rupan" 
+                  width={160}
+                  height={40}
+                  className="h-8 md:h-10 w-auto object-contain"
+                  fetchPriority="high"
+                />
+              </picture>
             </div>
           </div>
 
@@ -153,6 +157,7 @@ export default function Header({
               />
               <button 
                 type="submit"
+                aria-label="Search products"
                 className="bg-[#ff5c00] hover:bg-[#e04f00] text-white px-5 py-2.5 transition-colors cursor-pointer flex items-center justify-center border-l border-gray-100"
               >
                 <Search className="w-4.5 h-4.5" />
@@ -221,6 +226,7 @@ export default function Header({
             {/* Search trigger on mobile */}
             <button 
               onClick={onOpenSearch}
+              aria-label="Open search dialog"
               className="md:hidden p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
             >
               <Search className="w-5.5 h-5.5" />
@@ -229,6 +235,7 @@ export default function Header({
             {/* Wishlist */}
             <button 
               onClick={() => onPageChange('wishlist')}
+              aria-label="View Wishlist"
               className="p-2 text-white hover:bg-white/10 rounded-full transition-colors relative cursor-pointer flex items-center gap-1.5"
               title="Wishlist"
             >
@@ -243,6 +250,7 @@ export default function Header({
             {/* Customer Dashboard Link */}
             <button 
               onClick={() => onPageChange('account')}
+              aria-label="My Account"
               className="hidden sm:flex p-2 text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer items-center gap-1.5"
               title="My Account"
             >
@@ -252,6 +260,7 @@ export default function Header({
             {/* Cart Bag with "0b" text next to it exactly as in image */}
             <button 
               onClick={() => onPageChange('cart')}
+              aria-label="View Shopping Cart"
               className="flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
               title="Shopping Cart"
             >
@@ -332,17 +341,20 @@ export default function Header({
                 onClick={() => { onPageChange('home'); setMobileMenuOpen(false); }}
                 className="flex items-center cursor-pointer select-none border-2 border-[#ff5c00] bg-[#ff5c00]/5 rounded-lg p-1 px-2.5 max-h-[45px] transition-all hover:bg-[#ff5c00]/10 shadow-xs"
               >
-                <img 
-                  src="/assets/Rupan Logo Final.png" 
-                  alt="Rupan" 
-                  width={200}
-                  height={200}
-                  className="h-7 w-auto object-contain"
-                  referrerPolicy="no-referrer"
-                />
+                <picture>
+                  <source srcSet="/assets/rupan-logo.avif" type="image/avif" />
+                  <img 
+                    src="/assets/rupan-logo.png" 
+                    alt="Rupan" 
+                    width={160}
+                    height={35}
+                    className="h-7 w-auto object-contain"
+                  />
+                </picture>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation menu"
                 className="p-1 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5 text-gray-500" />

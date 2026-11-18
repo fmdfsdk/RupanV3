@@ -81,6 +81,10 @@ export default function HeroCarousel({
               alt={currentBanner.highlight || currentBanner.title || 'Hero Banner'}
               className="absolute inset-0 w-full h-full object-cover object-top"
               referrerPolicy="no-referrer"
+              fetchPriority="high"
+              decoding="sync"
+              width={1200}
+              height={420}
             />
             {/* Custom Opacity Overlay */}
             <div 
@@ -147,6 +151,7 @@ export default function HeroCarousel({
                 className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer ${
                   heroSlide === idx ? 'bg-[#ff5c00] w-6' : 'bg-white/50 hover:bg-white'
                 }`}
+                aria-label={`Go to slide ${idx + 1}`}
                 title={`Go to slide ${idx + 1}`}
               />
             ))}
@@ -155,12 +160,14 @@ export default function HeroCarousel({
           {/* Arrow Controls */}
           <button 
             onClick={() => setHeroSlide((prev) => (prev - 1 + heroBanners.length) % heroBanners.length)}
+            aria-label="Previous slide"
             className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 z-20 cursor-pointer text-lg font-bold"
           >
             ‹
           </button>
           <button 
             onClick={() => setHeroSlide((prev) => (prev + 1) % heroBanners.length)}
+            aria-label="Next slide"
             className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 z-20 cursor-pointer text-lg font-bold"
           >
             ›

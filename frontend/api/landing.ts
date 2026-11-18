@@ -14,8 +14,23 @@ const REACT_ROUTES = new Set([
 ]);
 
 const REACT_ROUTE_PREFIXES = [
-  '/product/', '/shop/', '/account/', '/order/', '/category/',
+  '/shop/', '/account/', '/order/', '/category/',
 ];
+
+function isCrawlerBot(userAgent: string): boolean {
+  if (!userAgent) return false;
+  const botPatterns = [
+    'facebookexternalhit', 'facebot', 'whatsapp', 'telegrambot',
+    'twitterbot', 'linkedinbot', 'slackbot', 'discordbot',
+    'googlebot', 'bingbot', 'yandexbot', 'duckduckbot', 'baiduspider',
+    'gptbot', 'chatgpt-user', 'anthropic-ai', 'claude-web',
+    'ccbot', 'petalbot', 'applebot', 'amazonbot', 'perplexitybot',
+    'youbot', 'googleother', 'ia_archiver', 'semrushbot', 'ahrefsbot',
+    'bot', 'crawler', 'spider', 'scraper', 'preview'
+  ];
+  const ua = userAgent.toLowerCase();
+  return botPatterns.some(p => ua.includes(p));
+}
 
 function isKnownReactRoute(urlPath: string): boolean {
   const pathname = urlPath.split('?')[0];
@@ -390,6 +405,136 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Fallback: redirect to /shop if product resolution fails
       res.setHeader('Location', '/shop');
       return res.status(302).end();
+    }
+
+    // B. Handle Product Page Requests
+    if (cleanPath.startsWith('/product/')) {
+      const userAgent = (req.headers['user-agent'] as string) || '';
+      const isBot = isCrawlerBot(userAgent);
+
+      // Normal human browser: immediately serve index.html with zero database query
+      if (!isBot) {
+        return serveIndexHtml(res);
+      }
+
+      // Crawler bot: fetch product from Supabase, inject rich dynamic OG tags & JSON-LD
+      const productSlug = cleanPath.replace('/product/', '').split('?')[0].trim();
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+      if (productSlug && supabaseUrl && supabaseKey) {
+        try {
+          const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+            auth: { persistSession: false, autoRefreshToken: false }
+          });
+
+          // Fetch product by slug, ID, or SKU
+          const { data: product } = await supabaseClient
+            .from('products')
+            .select('id, name, slug, images, price, discount_price, final_price, description, category, sub_category, brand, stock, sku')
+            .or(`slug.eq.${productSlug},id.eq.${productSlug},sku.eq.${productSlug}`)
+            .eq('status', 'published')
+            .maybeSingle();
+
+          if (product) {
+            const rawImages = Array.isArray(product.images)
+              ? product.images
+              : (product.images ? [product.images] : []);
+            const firstImg = rawImages[0] || '';
+            let ogImage = 'https://www.myrupan.com/assets/rupan-logo.png';
+
+            if (firstImg) {
+              if (firstImg.startsWith('http')) {
+                // Optimize through wsrv.nl to guarantee fast loading for social scrapers
+                ogImage = `https://wsrv.nl/?url=${encodeURIComponent(firstImg)}&w=1200&h=630&fit=cover&output=webp&q=85`;
+              } else if (firstImg.startsWith('/')) {
+                ogImage = `https://www.myrupan.com${firstImg}`;
+              }
+            }
+
+            const productUrl = `https://www.myrupan.com/product/${product.slug || product.id}`;
+            const price = Number(product.final_price || product.discount_price || product.price || 0);
+            const title = `${product.name} | Rupan`;
+            const cleanDesc = product.description
+              ? product.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
+              : `${product.name} — মাত্র ৳${price}। Rupan থেকে অনলাইন অর্ডার করুন সারা বাংলাদেশে ক্যাশ অন ডেলিভারি সহ।`;
+            const inStock = (product.stock ?? 1) > 0;
+
+            const productJsonLd = {
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: product.name,
+              image: rawImages.length > 0 ? rawImages : [ogImage],
+              description: cleanDesc,
+              sku: product.sku || product.id,
+              brand: { '@type': 'Brand', name: product.brand || 'Rupan' },
+              offers: {
+                '@type': 'Offer',
+                url: productUrl,
+                priceCurrency: 'BDT',
+                price: price.toFixed(2),
+                priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                itemCondition: 'https://schema.org/NewCondition',
+                availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                seller: { '@type': 'Organization', name: 'Rupan' }
+              }
+            };
+
+            const botHtml = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <meta name="description" content="${cleanDesc.replace(/"/g, '&quot;')}">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="${productUrl}">
+
+  <!-- Open Graph / Facebook / WhatsApp / LinkedIn -->
+  <meta property="og:type" content="product">
+  <meta property="og:site_name" content="Rupan">
+  <meta property="og:locale" content="bn_BD">
+  <meta property="og:url" content="${productUrl}">
+  <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+  <meta property="og:description" content="${cleanDesc.replace(/"/g, '&quot;')}">
+  <meta property="og:image" content="${ogImage}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${product.name.replace(/"/g, '&quot;')}">
+  <meta property="product:price:amount" content="${price}">
+  <meta property="product:price:currency" content="BDT">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@RupanBD">
+  <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
+  <meta name="twitter:description" content="${cleanDesc.replace(/"/g, '&quot;')}">
+  <meta name="twitter:image" content="${ogImage}">
+
+  <!-- JSON-LD Structured Data for Google and AI Crawlers -->
+  <script type="application/ld+json">${JSON.stringify(productJsonLd)}</script>
+</head>
+<body>
+  <h1>${product.name}</h1>
+  <p>${cleanDesc}</p>
+  <p>Price: ৳${price} BDT (${inStock ? 'In Stock' : 'Out of Stock'})</p>
+  <img src="${ogImage}" alt="${product.name.replace(/"/g, '&quot;')}" />
+  <p><a href="${productUrl}">View on Rupan Storefront</a></p>
+</body>
+</html>`;
+
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=3600');
+            res.setHeader('X-Served-By', 'rupan-product-bot-preview');
+            return res.status(200).send(botHtml);
+          }
+        } catch (botErr) {
+          console.error('[BotPreview] Failed to generate product preview:', botErr);
+        }
+      }
+
+      // If product not found or error, fall back to index.html
+      return serveIndexHtml(res);
     }
 
     // 1. If it's a known React SPA route, serve index.html immediately (no DB lookup)

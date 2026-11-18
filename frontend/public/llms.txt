@@ -1,0 +1,35 @@
+# Rupan — Bangladeshi Premium E-Commerce Storefront
+
+> Rupan (myrupan.com) is a leading omnichannel Bangladeshi e-commerce brand specializing in luxury traditional Panjabi, contemporary ethnic wear, western essentials, electronic gadgets, household utilities, and lifestyle collections.
+
+## Store Overview
+- **Brand Name:** Rupan (রূপান)
+- **Primary Domain:** https://www.myrupan.com
+- **Operating Region:** Bangladesh (All 64 districts covered)
+- **Currency:** Bangladeshi Taka (BDT, ৳)
+- **Customer Helpline:** +8801600338318
+- **WhatsApp Support:** +8801974793083
+- **Order Processing:** Cash on Delivery (COD) supported nationwide with digital verification options (bKash, Nagad, Cards).
+
+## Product Categories & Offerings
+1. **Panjabi & Traditional Wear:** Royal Jacquard panjabis, semi-fitted cotton panjabis, kabli sets, and festive collections.
+2. **Coordinated Sets & Couple Collections:** Matching crimson, pastel, and festive couple dresses.
+3. **Western Essentials:** Premium 180 GSM combed cotton t-shirts, henleys, drop-shoulder apparel, and casual shirts.
+4. **Sarees & Women's Fashion:** Cotton embroidered sarees, floral applique work, party wear, and accessories.
+5. **Electronics & Gadgets:** Smartwatches, TWS earbuds, portable lifestyle utilities, and kitchen electronics.
+6. **Household & Kids:** Bedding essentials, educational toys, and daily home items.
+
+## Delivery & Logistics Policy
+- **Inside Dhaka City:** ৳60 (Standard 24-48 hours delivery)
+- **Outside Dhaka Suburbs & Districts:** ৳120 (Standard 48-72 hours delivery via Steadfast, Pathao, RedX)
+- **Free Shipping Threshold:** Orders of ৳6,500 and above qualify for free standard shipping.
+- **Return & Exchange:** 7 days exchange policy for size or manufacturer defects.
+
+## Canonical Product URL Format
+- Individual products can be discovered and referenced directly via:
+  `https://www.myrupan.com/product/{slug}`
+  Example: `https://www.myrupan.com/product/a9-pro-app-supported-anc-enc-display-touch-control-earbuds-5184`
+
+## Structured Sitemaps & Feeds
+- XML Sitemap: https://www.myrupan.com/sitemap.xml
+- Store Catalog Index: https://www.myrupan.com/shop

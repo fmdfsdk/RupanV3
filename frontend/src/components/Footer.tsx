@@ -195,14 +195,17 @@ export default function Footer({ onPageChange }: FooterProps) {
               onClick={() => onPageChange('home')}
               className="inline-flex items-center cursor-pointer select-none border-2 border-white bg-[#ff5c00] rounded-lg p-1.5 px-3 max-h-[50px] transition-all hover:bg-[#e04f00] shadow-md"
             >
-              <img 
-                src="/assets/Rupan Logo Final.png" 
-                alt="Rupan" 
-                width={200}
-                height={200}
-                className="h-8 w-auto object-contain"
-                referrerPolicy="no-referrer"
-              />
+              <picture>
+                <source srcSet="/assets/rupan-logo.avif" type="image/avif" />
+                <img 
+                  src="/assets/rupan-logo.png" 
+                  alt="Rupan" 
+                  width={160}
+                  height={40}
+                  className="h-8 w-auto object-contain"
+                  loading="lazy"
+                />
+              </picture>
             </div>
             
             <p className="text-sm text-gray-500 leading-relaxed">
@@ -288,16 +291,16 @@ export default function Footer({ onPageChange }: FooterProps) {
               </h4>
               <p className="text-sm text-gray-500 mb-3">Stay connected with us</p>
               <div className="flex items-center gap-2.5">
-                <a href={dbSettings?.socialFacebook || dbSettings?.facebook_url || "https://www.facebook.com/rupanbd"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#3b5998] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Facebook">
+                <a href={dbSettings?.socialFacebook || dbSettings?.facebook_url || "https://www.facebook.com/rupanbd"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#3b5998] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Facebook" aria-label="Follow Rupan on Facebook">
                   <Facebook className="w-4 h-4 fill-current" />
                 </a>
-                <a href={dbSettings?.socialTwitter || dbSettings?.twitter_url || "https://twitter.com"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-black hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Twitter">
+                <a href={dbSettings?.socialTwitter || dbSettings?.twitter_url || "https://twitter.com"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-black hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Twitter" aria-label="Follow Rupan on X (Twitter)">
                   <span className="font-extrabold text-xs">𝕏</span>
                 </a>
-                <a href={dbSettings?.socialYoutube || dbSettings?.youtube_url || "https://youtube.com"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#ff0000] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="YouTube">
+                <a href={dbSettings?.socialYoutube || dbSettings?.youtube_url || "https://youtube.com"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#ff0000] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="YouTube" aria-label="Follow Rupan on YouTube">
                   <Youtube className="w-4 h-4 fill-current" />
                 </a>
-                <a href={dbSettings?.socialInstagram || dbSettings?.instagram_url || "https://www.instagram.com/rupanbd"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#c13584] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Instagram">
+                <a href={dbSettings?.socialInstagram || dbSettings?.instagram_url || "https://www.instagram.com/rupanbd"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#c13584] hover:opacity-90 text-white flex items-center justify-center transition-opacity" title="Instagram" aria-label="Follow Rupan on Instagram">
                   <Instagram className="w-4 h-4" />
                 </a>
               </div>

@@ -495,14 +495,34 @@ export const useStore = create<StoreState>((set, get) => ({
         });
       }
 
-      // TIER 2: Background — fetch full catalog index (all products, minimal fields)
-      // This runs AFTER initial data is loaded so it doesn't block the UI
-      productService.fetchProductCatalogIndex().then((indexData) => {
-        if (indexData && indexData.length > 0) {
-          set({ productCatalogIndex: indexData as Product[] });
-          localStorage.setItem('rup_catalog_index', JSON.stringify(indexData));
+      // TIER 2: Background — fetch full catalog index with TTL cache (30 minutes)
+      // Runs in idle time so it never blocks LCP or first user interaction
+      const cachedIndexTs = localStorage.getItem('rup_catalog_index_ts');
+      const now = Date.now();
+      const isIndexFresh = cachedIndexTs && (now - parseInt(cachedIndexTs, 10)) < 30 * 60 * 1000;
+      const hasCachedIndex = (get().productCatalogIndex || []).length > 0;
+
+      if (!isIndexFresh || !hasCachedIndex) {
+        const scheduleIndexFetch = () => {
+          productService.fetchProductCatalogIndex().then((indexData) => {
+            if (indexData && indexData.length > 0) {
+              set({ productCatalogIndex: indexData as Product[] });
+              try {
+                localStorage.setItem('rup_catalog_index', JSON.stringify(indexData));
+                localStorage.setItem('rup_catalog_index_ts', String(Date.now()));
+              } catch {
+                // Ignore localStorage quota errors on low-memory devices
+              }
+            }
+          }).catch((e) => console.error('Catalog index load failed:', e));
+        };
+
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(scheduleIndexFetch, { timeout: 5000 });
+        } else {
+          setTimeout(scheduleIndexFetch, 3500);
         }
-      }).catch((e) => console.error('Catalog index load failed:', e));
+      }
 
       // Mark data as loaded — unblocks CatchAllRoute from showing 404
       set({ isDataLoaded: true });

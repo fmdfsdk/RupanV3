@@ -1,17 +1,62 @@
+# Rupan (myrupan.com) — robots.txt
+# Optimized for Web Indexers, AI Assistants, and Search Engines
+
 User-agent: *
 Allow: /
+Allow: /product/
+Allow: /shop
+Allow: /categories
+Allow: /blogs
+Allow: /blog/
+Allow: /about-us
+Allow: /contact-us
+Allow: /offers
+Allow: /new-arrivals
 
-# Private / Non-indexable pages
+# Non-indexable and private routes
 Disallow: /cart
 Disallow: /checkout
 Disallow: /account
 Disallow: /my-account
 Disallow: /order-success
-Disallow: /product-search
-Disallow: /search
 Disallow: /track-order
 Disallow: /order-tracking
 Disallow: /register
+Disallow: /admin
+Disallow: /api/
 
-# Sitemap location
+# ─────────────────────────────────────────────────────────────
+# Dedicated Declarations for AI Crawlers & Conversational Agents
+# ─────────────────────────────────────────────────────────────
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: AmazonBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# Canonical Sitemaps & Machine-Readable LLM Info
 Sitemap: https://www.myrupan.com/sitemap.xml

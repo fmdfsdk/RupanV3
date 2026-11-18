@@ -99,11 +99,51 @@
     },
     {
       "source": "/product/:id*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(bot|facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|yandexbot|duckduckbot|baiduspider|gptbot|chatgpt-user|anthropic-ai|claude-web|ccbot|petalbot|applebot|amazonbot|perplexitybot|youbot|crawler|spider|preview).*"
+        }
+      ],
+      "destination": "/api/landing?__path=/product/:id*"
+    },
+    {
+      "source": "/product/:id*",
       "destination": "/index.html"
     },
     {
       "source": "/:path*",
       "destination": "/api/landing?__path=/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
+      "source": "/llms.txt",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
     }
   ]
 }
