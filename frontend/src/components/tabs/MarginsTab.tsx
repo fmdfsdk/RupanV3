@@ -35,6 +35,7 @@ export default function MarginsTab({
 
   // Global Calculation Parameters (MOHASAGOR Pricing Logic)
   const [deductionPercentage, setDeductionPercentage] = useState<number>(25); // Default 25%
+  const [resellerDeliveryCost, setResellerDeliveryCost] = useState<number>(120); // Default 120 BDT per product
   const [defaultMarginType, setDefaultMarginType] = useState<'percentage' | 'fixed'>('percentage');
   const [defaultMarginValue, setDefaultMarginValue] = useState<number>(10); // Default 10%
   const [categoryMargins, setCategoryMargins] = useState<Record<string, { type: 'percentage' | 'fixed'; value: number } | number>>({});
@@ -154,6 +155,8 @@ export default function MarginsTab({
 
       const rawDeduction = pConfig.deduction_percentage ?? pConfig.deductionPercentage;
       setDeductionPercentage(rawDeduction !== undefined ? Number(rawDeduction) : 25);
+      const rawResellerCost = pConfig.reseller_delivery_cost ?? pConfig.resellerDeliveryCost;
+      setResellerDeliveryCost(rawResellerCost !== undefined ? Number(rawResellerCost) : 120);
       setDefaultMarginType(pConfig.default_margin_type || pConfig.defaultMarginType || 'percentage');
       const rawMarginVal = pConfig.default_margin_value ?? pConfig.defaultMarginValue ?? hConfig.default_margin;
       setDefaultMarginValue(rawMarginVal !== undefined ? Number(rawMarginVal) : 10);
@@ -269,6 +272,8 @@ export default function MarginsTab({
       const updatedPricingConfig = {
         deduction_percentage: deductionPercentage,
         deductionPercentage: deductionPercentage,
+        reseller_delivery_cost: resellerDeliveryCost,
+        resellerDeliveryCost: resellerDeliveryCost,
         default_margin_type: defaultMarginType,
         defaultMarginType: defaultMarginType,
         default_margin_value: defaultMarginValue,
@@ -806,6 +811,34 @@ export default function MarginsTab({
                 </div>
               </div>
 
+              {/* Reseller Delivery / Handling Cost Setting */}
+              <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase text-blue-950 block">
+                      Mohasagor Reseller Delivery Cost (সাপ্লায়ার পরিবহন/ডেলিভারি খরচ)
+                    </span>
+                    <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-full font-mono">
+                      +৳{resellerDeliveryCost} / পণ্য
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-500 block mt-0.5">
+                    মহাসাগর থেকে প্রতিটি পণ্য আপনার কাছে আনতে পরিবহন/ডেলিভারি খরচ হিসেবে যে <strong>৳{resellerDeliveryCost}</strong> খরচ হয়, তা এখানে সেট করুন। সিঙ্ক এবং প্রাইসিং ক্যালকুলেশনে এটি স্বয়ংক্রিয়ভাবে ক্রয়মূল্য ও বিক্রয়মূল্যে যুক্ত হবে।
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 w-36 shrink-0">
+                  <span className="text-sm font-black text-blue-600 font-mono">৳</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={resellerDeliveryCost}
+                    onChange={(e) => setResellerDeliveryCost(Math.max(0, Number(e.target.value)))}
+                    className="w-full text-right px-3 py-2 border border-blue-200 rounded-lg text-sm font-black outline-none focus:ring-1 focus:ring-blue-500 bg-white text-blue-950 font-mono"
+                  />
+                </div>
+              </div>
+
               {/* Deduction Percentage Setting */}
               <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -837,10 +870,11 @@ export default function MarginsTab({
                   <span>সক্রিয় গাণিতিক ফর্মুলা (Active Mathematical Formula):</span>
                 </div>
                 <div className="pl-4 border-l-2 border-[#ff5c00] space-y-1">
-                  <div>1. <span className="text-blue-700 font-bold">X</span> = price (MSRP) - sale_price (Cost)</div>
-                  <div>2. <span className="text-emerald-700 font-bold">Final Price</span> = price - ({deductionPercentage}% × X)</div>
-                  <div>3. <span className="text-[#ff5c00] font-bold">Selling Price</span> = Final Price + Margin</div>
-                  <div>4. <span className="text-purple-700 font-bold">Final Payable</span> = max(Final Price, Discounted Selling Price)</div>
+                  <div>1. <span className="text-blue-700 font-bold">Landed Cost</span> = sale_price + ৳{resellerDeliveryCost} (সাপ্লায়ার ডেলিভারি খরচ)</div>
+                  <div>2. <span className="text-blue-700 font-bold">X</span> = price (MSRP) - Landed Cost</div>
+                  <div>3. <span className="text-emerald-700 font-bold">Final Price</span> = price - ({deductionPercentage}% × X)</div>
+                  <div>4. <span className="text-[#ff5c00] font-bold">Selling Price</span> = Final Price + Margin</div>
+                  <div>5. <span className="text-purple-700 font-bold">Final Payable</span> = max(Final Price, Discounted Selling Price)</div>
                 </div>
               </div>
             </div>

@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, Eye, Globe, Code, Save, X, 
   Layout, Monitor, Smartphone, ExternalLink, Copy,
-  ChevronRight, Loader2, CheckCircle, Info, ChevronDown, ChevronUp
+  ChevronRight, Loader2, CheckCircle, Info, ChevronDown, ChevronUp,
+  BookOpen, Sparkles
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import LandingPageGuideModal from './LandingPageGuideModal';
 
 interface LandingPage {
   id: string;         // Full URL path e.g. /eid-sale
@@ -81,6 +83,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   const [copiedScript, setCopiedScript] = useState(false);
   const [showFinalCodeModal, setShowFinalCodeModal] = useState(false);
   const [copiedFinalCode, setCopiedFinalCode] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
   const previewRef = useRef<HTMLIFrameElement>(null);
   const codeRef = useRef<HTMLTextAreaElement>(null);
@@ -141,6 +144,10 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
     const insideDhaka = String(settings?.inside_dhaka_shipping || '60');
     const outsideDhaka = String(settings?.outside_dhaka_shipping || '120');
     const freeShippingMin = String(settings?.free_shipping_min_order || '3000');
+    const banglaQrImage = settings?.payment_bangla_qr_image || 'https://psedkelwvpcxsmulgwry.supabase.co/storage/v1/object/public/banners/banglaqr-1794762015437.jpg';
+    const bkashNumber = settings?.payment_bkash_number || '01600338318';
+    const nagadNumber = settings?.payment_nagad_number || '01600338318';
+    const whatsappNumber = settings?.whatsapp_number || '+8801974793083';
 
     html = html
       .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID|YOUR_PIXEL_ID|YOUR_PIXEL_ID_HERE|YOUR_FACEBOOK_PIXEL_ID|FB_PIXEL_ID/g, pixelId)
@@ -150,7 +157,12 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
       .replace(/RUPAN_GA4_ID|GA4_ID|YOUR_GA4_ID|YOUR_GA_ID/g, gaId)
       .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
       .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
-      .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
+      .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin)
+      .replace(/RUPAN_BANGLA_QR_IMAGE/g, banglaQrImage)
+      .replace(/RUPAN_BKASH_NUMBER/g, bkashNumber)
+      .replace(/RUPAN_NAGAD_NUMBER/g, nagadNumber)
+      .replace(/RUPAN_WHATSAPP_NUMBER/g, whatsappNumber)
+      .replace(/RUPAN_STORE_DOMAIN/g, storeDomain || 'https://www.myrupan.com');
 
     // Get keys from window (or mock if offline/blank)
     const supUrl = (window as any).SUPABASE_URL || (window as any).location.origin || 'https://yourdomain.supabase.co';
@@ -531,6 +543,14 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
               <Code className="w-3.5 h-3.5" />
               <span>Show Final Compiled Code</span>
             </button>
+            <button
+              onClick={() => setShowGuideModal(true)}
+              className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-2.5 py-1 rounded-lg flex items-center gap-1 font-bold text-[10px] uppercase transition-all cursor-pointer"
+              title="View full guidelines, dynamic variables table, and AI prompt"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>গাইড ও AI প্রম্পট</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -635,6 +655,16 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
               <div><span className="font-bold text-brand-primary">RUPAN_GTM_ID</span>: GTM Container ID</div>
               <div><span className="font-bold text-brand-primary">RUPAN_GA4_ID</span>: GA4 ID</div>
               <div><span className="font-bold text-brand-primary font-sans">অন্যান্য:</span> <code>RUPAN_INSIDE_DHAKA_SHIPPING</code>, <code>RUPAN_OUTSIDE_DHAKA_SHIPPING</code>, <code>RUPAN_FREE_SHIPPING_MIN</code>, <code>RUPAN_META_TEST_CODE</code></div>
+            </div>
+            <div className="pt-2 border-t border-gray-100 mt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(true)}
+                className="text-[11px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>সম্পূর্ণ গাইডলাইন, ভেরিয়েবল টেবিল, AI প্রম্পট ও ডেমো কোড দেখুন &rarr;</span>
+              </button>
             </div>
           </div>
 
@@ -782,6 +812,15 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
             </div>
           </div>
         )}
+
+        {/* GUIDE MODAL */}
+        <LandingPageGuideModal
+          isOpen={showGuideModal}
+          onClose={() => setShowGuideModal(false)}
+          onLoadDemoTemplate={(code) => {
+            setFormContent(code);
+          }}
+        />
       </div>
     );
   }
@@ -790,7 +829,7 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
             <Layout className="w-6 h-6 text-brand-primary" />
@@ -800,23 +839,38 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
             Create standalone HTML/CSS/JS landing pages with any URL path. Paste any advanced page builder code here.
           </p>
         </div>
-        <button
-          onClick={openNewPage}
-          className="bg-brand-primary text-white text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl flex items-center space-x-2 hover:bg-blue-900 transition-all cursor-pointer shadow-md"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Landing Page</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowGuideModal(true)}
+            className="bg-white border border-gray-200 hover:border-orange-500 text-gray-700 hover:text-orange-600 text-xs font-bold px-4 py-3 rounded-xl flex items-center space-x-2 transition-all cursor-pointer shadow-xs"
+          >
+            <BookOpen className="w-4 h-4 text-orange-500" />
+            <span>ল্যান্ডিং পেজ ও AI গাইড</span>
+          </button>
+          <button
+            onClick={openNewPage}
+            className="bg-brand-primary text-white text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl flex items-center space-x-2 hover:bg-blue-900 transition-all cursor-pointer shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Landing Page</span>
+          </button>
+        </div>
       </div>
 
       {/* Info banner */}
       <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
         <Code className="w-5 h-5 text-brand-primary shrink-0 mt-0.5" />
-        <div>
+        <div className="flex-1">
           <p className="text-xs font-bold text-brand-primary">Fully Custom HTML/CSS/JS Landing Pages</p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
             Paste complete HTML documents here including CSS and JavaScript. Pages are rendered in an isolated sandbox — 
             your custom code won't conflict with Rupan's styling. Set any URL path (e.g. <code className="bg-blue-100 px-1 rounded font-mono">/eid-sale</code>, <code className="bg-blue-100 px-1 rounded font-mono">/campaign</code>).
+            <button 
+              onClick={() => setShowGuideModal(true)} 
+              className="ml-2 text-brand-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>সিস্টেম গাইডলাইন, ভেরিয়েবল টেবিল ও ডেমো কোড দেখুন &rarr;</span>
+            </button>
           </p>
         </div>
       </div>
@@ -925,6 +979,23 @@ export default function LandingPagesTab({ storeDomain = 'https://www.myrupan.com
           </table>
         </div>
       )}
+
+      {/* GUIDE MODAL (LIST VIEW) */}
+      <LandingPageGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onLoadDemoTemplate={(code) => {
+          setEditingPage(null);
+          setFormTitle('A9 Pro ANC Earbuds Offer');
+          setFormPath('/a9-pro');
+          setFormContent(code);
+          setFormStatus('published');
+          setFormSeoEnabled(true);
+          setFormMarketingEnabled(true);
+          setPreviewMode('editor');
+          setEditorOpen(true);
+        }}
+      />
     </div>
   );
 }

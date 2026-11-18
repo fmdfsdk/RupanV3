@@ -143,7 +143,8 @@ export default function HomePage() {
           const found = extendedPool.find(p => {
             const pId = String(p.id).toLowerCase();
             const pSlug = String(p.slug || '').toLowerCase();
-            return pId === searchId || pSlug === searchId || pId.endsWith('-' + searchId);
+            const pSku = String((p as any).sku || '').toLowerCase();
+            return pId === searchId || pSlug === searchId || (pSku && pSku === searchId) || pId.endsWith('-' + searchId);
           });
 
           if (found) {
@@ -336,7 +337,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {getHomepageProducts('trending', (p) => p.isFeatured, 12).map((product) => (
+          {getHomepageProducts('trending', (p) => Boolean(p.isFeatured || (p as any).is_featured), 12).map((product) => (
             <ProductCard
               key={product.id}
               product={product}

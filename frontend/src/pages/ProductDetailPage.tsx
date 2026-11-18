@@ -53,32 +53,45 @@ export default function ProductDetailPage() {
       setLoading(true);
       setProduct(null);
 
-      // Helper: find by numeric code (with offset tolerance) or exact ID/slug in any list
-      const findIn = (list: Product[]) => {
+      // Helper: Strict exact match on ID, slug, SKU, or numeric code across any list
+      const findExactIn = (list: Product[]) => {
         if (!list || list.length === 0) return null;
 
-        // 1. Exact match on ID or slug first
+        // 1. Exact match on ID, slug, or SKU
         const exact = list.find(p => 
           String(p.id).toLowerCase() === slug || 
-          (p.slug && String(p.slug).toLowerCase() === slug)
+          (p.slug && String(p.slug).toLowerCase() === slug) ||
+          (p.sku && String(p.sku).toLowerCase() === slug)
         );
         if (exact) return exact;
 
-        // 2. Numeric ID match (exact and offset tolerance)
-        for (const num of candidateNumbers) {
-          const found = list.find(p => 
-            String(p.id).endsWith(`-${num}`) || 
-            String(p.id) === String(num) ||
-            (p.slug && (String(p.slug).endsWith(`-${num}`) || String(p.slug) === String(num)))
+        // 2. Exact match on extracted numeric code (e.g. mohasagor-5795, 5795, MOHASAGOR-5795)
+        if (numericId) {
+          // Priority A: Product ID match (mohasagor-{num} or ending with -{num} or equal to {num})
+          const foundId = list.find(p => 
+            String(p.id).toLowerCase() === `mohasagor-${numericId}` ||
+            String(p.id).endsWith(`-${numericId}`) || 
+            String(p.id) === numericId ||
+            (p.slug && (String(p.slug).endsWith(`-${numericId}`) || String(p.slug) === numericId))
           );
-          if (found) return found;
+          if (foundId) return foundId;
+
+          // Priority B: Product SKU match (MOHASAGOR-{num} or ending with -{num} or equal to {num})
+          const foundSku = list.find(p => 
+            p.sku && (
+              String(p.sku).toLowerCase() === `mohasagor-${numericId}` ||
+              String(p.sku).endsWith(`-${numericId}`) || 
+              String(p.sku) === numericId
+            )
+          );
+          if (foundSku) return foundSku;
         }
 
         return null;
       };
 
-      // STEP 1: Check local 1000 products (instant)
-      const inLocal = findIn(products);
+      // STEP 1: Check local 1000 products for EXACT match (instant)
+      const inLocal = findExactIn(products);
       if (inLocal && !cancelled) {
         setProduct(inLocal);
         setLoading(false);
@@ -90,8 +103,8 @@ export default function ProductDetailPage() {
         return;
       }
 
-      // STEP 2: Check full catalog index
-      const inIndex = findIn(catalogIndex);
+      // STEP 2: Check full catalog index for EXACT match (all 3,500+ items)
+      const inIndex = findExactIn(catalogIndex);
       if (inIndex && !cancelled) {
         setProduct(inIndex);
         setLoading(false);
@@ -102,9 +115,8 @@ export default function ProductDetailPage() {
         return;
       }
 
-      // STEP 3: Guaranteed DB fetch — works for brand new customers & shared links
+      // STEP 3: Guaranteed DB fetch for EXACT product by ID, slug, or SKU
       try {
-        // numericId gives us a direct mohasagor-{num} lookup — very fast
         const lookupId = numericId ? `mohasagor-${numericId}` : id;
         const data = await productService.fetchProductByIdOrSlug(lookupId);
         if (data && !cancelled) {
@@ -113,7 +125,38 @@ export default function ProductDetailPage() {
           return;
         }
       } catch (e) {
-        console.error('Product fetch failed:', id, e);
+        console.error('Product direct DB fetch failed:', id, e);
+      }
+
+      // STEP 4: Fallback ONLY — If NO exact product exists anywhere across the catalog or DB,
+      // try offset tolerance (±3000) for legacy external links
+      if (candidateNumbers.length > 0) {
+        const offsetNumbers = candidateNumbers.filter(n => n !== searchNum);
+        for (const num of offsetNumbers) {
+          // Check local products with offset
+          const altLocal = products.find(p => 
+            String(p.id).endsWith(`-${num}`) || 
+            String(p.id) === String(num) ||
+            (p.slug && String(p.slug).endsWith(`-${num}`))
+          );
+          if (altLocal && !cancelled) {
+            setProduct(altLocal);
+            setLoading(false);
+            return;
+          }
+
+          // Check catalog index with offset
+          const altIndex = catalogIndex.find(p => 
+            String(p.id).endsWith(`-${num}`) || 
+            String(p.id) === String(num) ||
+            (p.slug && String(p.slug).endsWith(`-${num}`))
+          );
+          if (altIndex && !cancelled) {
+            setProduct(altIndex);
+            setLoading(false);
+            return;
+          }
+        }
       }
 
       if (!cancelled) setLoading(false);

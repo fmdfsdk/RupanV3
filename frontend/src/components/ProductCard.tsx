@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Heart, Eye, Star } from 'lucide-react';
 import { Product } from '../types';
 import { getOptimizedImageUrl, getProductSlug } from '../utils/image';
@@ -28,6 +29,7 @@ export default function ProductCard({
   isWishlisted
 }: ProductCardProps) {
   const [hovered, setHovered] = useState(false);
+  const navigate = useNavigate();
 
   // Calculate discount percentage
   const discountPercent = product.discountPrice
@@ -50,8 +52,7 @@ export default function ProductCard({
 
   const handleProductClick = () => {
     const slug = getProductSlug(product.name, product.id);
-    window.history.pushState(null, '', `/product/${slug}`);
-    window.dispatchEvent(new Event('popstate'));
+    navigate(`/product/${slug}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

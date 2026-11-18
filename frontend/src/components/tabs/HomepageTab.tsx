@@ -237,7 +237,7 @@ export default function HomepageTab({
             type="button"
             onClick={async () => {
               const settingsIdTarget = settingsId || 1;
-              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig, homepageConfig: homepageConfig }).eq('id', settingsIdTarget);
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsIdTarget);
               if (!error) {
                 try {
                   const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
@@ -289,9 +289,17 @@ export default function HomepageTab({
                                 [type]: idsList.filter((item: string) => item !== id)
                               }
                             };
-                            const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', settingsId || 1);
+                            const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', settingsId || 1);
                             if (!error) {
                               setHomepageConfig(updatedConfig);
+                              try {
+                                const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                                cached.homepage_config = updatedConfig;
+                                cached.homepageConfig = updatedConfig;
+                                localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                              } catch (_) {}
+                            } else {
+                              alert(`Failed to remove product: ${error.message}`);
                             }
                           }}
                           className="text-red-500 hover:text-red-700 font-bold px-1"
@@ -318,10 +326,17 @@ export default function HomepageTab({
                           [type]: [...idsList, newId]
                         }
                       };
-                      const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', settingsId || 1);
+                      const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', settingsId || 1);
                       if (!error) {
                         setHomepageConfig(updatedConfig);
+                        try {
+                          const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                          cached.homepage_config = updatedConfig;
+                          cached.homepageConfig = updatedConfig;
+                          localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                        } catch (_) {}
                         input.value = '';
+                        alert("Product successfully added to collection!");
                       } else {
                         alert(`Failed to save: ${error.message}`);
                       }
@@ -350,14 +365,38 @@ export default function HomepageTab({
 
       {/* Section 3: Homepage Featured Categories */}
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
-        <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-3 flex items-center gap-2">
-          <Tag className="w-4 h-4 text-purple-500" />
-          Showcase Categories Grid (Home)
-        </h3>
+        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-purple-500" />
+            Showcase Categories Grid (Home)
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              const list = [...(homepageConfig.featured_categories || [])];
+              list.push({ name: 'New Showcase Category', desc: 'Detailed description of this category...', icon: '📦', bg: 'from-blue-50 to-sky-50/10' });
+              setHomepageConfig({ ...homepageConfig, featured_categories: list });
+            }}
+            className="bg-brand-primary text-white text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg hover:bg-blue-900 transition-all cursor-pointer"
+          >
+            Add Showcase Block
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(homepageConfig.featured_categories || []).map((cat: any, index: number) => (
-            <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3">
+            <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3 relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const list = homepageConfig.featured_categories.filter((_: any, i: number) => i !== index);
+                  setHomepageConfig({ ...homepageConfig, featured_categories: list });
+                }}
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-[10px] px-2 py-0.5 rounded bg-white border border-gray-100 hover:bg-red-50 cursor-pointer"
+              >
+                Delete
+              </button>
+
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{cat.icon}</span>
                 <div className="flex-1">
@@ -386,6 +425,21 @@ export default function HomepageTab({
                   }}
                   className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs focus:outline-none h-16 resize-none font-semibold text-gray-600"
                   placeholder="Category description..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400">Database Category Link (Slug)</label>
+                <input
+                  type="text"
+                  value={cat.mappedId || ''}
+                  onChange={(e) => {
+                    const list = [...homepageConfig.featured_categories];
+                    list[index] = { ...cat, mappedId: e.target.value };
+                    setHomepageConfig({ ...homepageConfig, featured_categories: list });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none"
+                  placeholder="e.g. panjabi or watch"
                 />
               </div>
 
@@ -427,8 +481,14 @@ export default function HomepageTab({
           <button
             type="button"
             onClick={async () => {
-              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', settingsId || 1);
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsId || 1);
               if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
                 alert("Homepage category configurations saved successfully!");
               } else {
                 alert(`Failed to save categories: ${error.message}`);
@@ -440,6 +500,300 @@ export default function HomepageTab({
           </button>
         </div>
       </div>
+
+      {/* Section 4: Homepage Circular Categories (Circular Bubbles) */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
+        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-[#ff5c00]" />
+            Homepage Circular Categories (Bubbles)
+          </h3>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-zinc-700">
+              <label>Bubble Shape:</label>
+              <select
+                value={homepageConfig.category_style || 'circular'}
+                onChange={(e) => {
+                  setHomepageConfig({ ...homepageConfig, category_style: e.target.value });
+                }}
+                className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer"
+              >
+                <option value="circular">Circular</option>
+                <option value="square">Square</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const list = [...(homepageConfig.homepage_categories || [])];
+                list.push({ 
+                  name: 'New Category', 
+                  image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=150', 
+                  mappedId: 'all' 
+                });
+                setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+              }}
+              className="bg-brand-primary text-white text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg hover:bg-blue-900 transition-all cursor-pointer"
+            >
+              Add Circular Bubble
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {(homepageConfig.homepage_categories || []).map((cat: any, index: number) => (
+            <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3 relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const list = homepageConfig.homepage_categories.filter((_: any, i: number) => i !== index);
+                  setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                }}
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-[10px] px-2 py-0.5 rounded bg-white border border-gray-100 hover:bg-red-50 cursor-pointer"
+              >
+                Delete
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex items-center justify-center bg-white shrink-0">
+                  <img 
+                    src={cat.image || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&q=80&w=150'} 
+                    alt={cat.name} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={cat.name}
+                    onChange={(e) => {
+                      const list = [...homepageConfig.homepage_categories];
+                      list[index] = { ...cat, name: e.target.value };
+                      setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                    }}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none"
+                    placeholder="Category Name"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400">Image URL</label>
+                <input
+                  type="text"
+                  value={cat.image || ''}
+                  onChange={(e) => {
+                    const list = [...homepageConfig.homepage_categories];
+                    list[index] = { ...cat, image: e.target.value };
+                    setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none"
+                  placeholder="https://images.unsplash.com/..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400">Database Category Link (Slug)</label>
+                <input
+                  type="text"
+                  value={cat.mappedId || ''}
+                  onChange={(e) => {
+                    const list = [...homepageConfig.homepage_categories];
+                    list[index] = { ...cat, mappedId: e.target.value };
+                    setHomepageConfig({ ...homepageConfig, homepage_categories: list });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none"
+                  placeholder="e.g. panjabi or watch"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end pt-3">
+          <button
+            type="button"
+            onClick={async () => {
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsId || 1);
+              if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
+                alert("Homepage configurations saved successfully!");
+              } else {
+                alert(`Failed to save configurations: ${error.message}`);
+              }
+            }}
+            className="bg-[#ff5c00] text-white text-xs font-bold uppercase tracking-wider px-6 py-3.5 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+          >
+            Save Homepage Configurations
+          </button>
+        </div>
+      </div>
+
+      {/* Section 5: Homepage Promo Banner (BIG SALE) */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
+        <h3 className="font-bold text-sm uppercase tracking-wide text-gray-500 border-b border-gray-100 pb-3 flex items-center gap-2">
+          <Image className="w-4 h-4 text-rose-500" />
+          Homepage Promo Banner (BIG SALE)
+        </h3>
+
+        {(() => {
+          const promo = homepageConfig.promo_banner || {
+            badge: 'Store Promo',
+            title: 'BIG SALE',
+            discount: 'UP TO 70% OFF',
+            description: 'Fashion • Electronics • Beauty • Home • Grocery',
+            image1: 'https://images.unsplash.com/photo-1565026057447-bc90a3dca487?q=80&w=400&auto=format&fit=crop',
+            image2: 'https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?q=80&w=400&auto=format&fit=crop',
+            cta_category: 'All',
+            bg_color: '#ff5c00'
+          };
+
+          const updatePromo = (fields: any) => {
+            setHomepageConfig({
+              ...homepageConfig,
+              promo_banner: { ...promo, ...fields }
+            });
+          };
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-semibold text-zinc-700">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label>Badge Text</label>
+                    <input
+                      type="text"
+                      value={promo.badge || ''}
+                      onChange={(e) => updatePromo({ badge: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={promo.title || ''}
+                      onChange={(e) => updatePromo({ title: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label>Discount Tag</label>
+                    <input
+                      type="text"
+                      value={promo.discount || ''}
+                      onChange={(e) => updatePromo({ discount: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label>Background Color (Hex)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promo.bg_color || ''}
+                        onChange={(e) => updatePromo({ bg_color: e.target.value })}
+                        className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                      />
+                      <input
+                        type="color"
+                        value={promo.bg_color || '#ff5c00'}
+                        onChange={(e) => updatePromo({ bg_color: e.target.value })}
+                        className="w-10 h-10 p-0 bg-transparent border-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label>Description / Features List</label>
+                  <input
+                    type="text"
+                    value={promo.description || ''}
+                    onChange={(e) => updatePromo({ description: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label>CTA Redirect Category (e.g. All, Panjabi)</label>
+                  <input
+                    type="text"
+                    value={promo.cta_category || ''}
+                    onChange={(e) => updatePromo({ cta_category: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label>Left Image URL</label>
+                  <input
+                    type="text"
+                    value={promo.image1 || ''}
+                    onChange={(e) => updatePromo({ image1: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                  />
+                  {promo.image1 && (
+                    <div className="h-16 w-24 rounded border border-gray-200 overflow-hidden mt-1.5">
+                      <img src={promo.image1} className="w-full h-full object-contain bg-zinc-50" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label>Right Image URL</label>
+                  <input
+                    type="text"
+                    value={promo.image2 || ''}
+                    onChange={(e) => updatePromo({ image2: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+                  />
+                  {promo.image2 && (
+                    <div className="h-16 w-24 rounded border border-gray-200 overflow-hidden mt-1.5">
+                      <img src={promo.image2} className="w-full h-full object-contain bg-zinc-50" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        <div className="flex justify-end pt-3">
+          <button
+            type="button"
+            onClick={async () => {
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsId || 1);
+              if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
+                alert("Promo banner saved successfully!");
+              } else {
+                alert(`Failed to save promo banner: ${error.message}`);
+              }
+            }}
+            className="bg-[#ff5c00] text-white text-xs font-bold uppercase tracking-wider px-6 py-3.5 rounded-xl hover:bg-orange-600 transition-all cursor-pointer shadow-md"
+          >
+            Save Promo Banner Configuration
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 }

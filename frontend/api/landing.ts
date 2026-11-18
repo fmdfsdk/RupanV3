@@ -121,6 +121,10 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
     const insideDhaka = String(settings.inside_dhaka_shipping || '60');
     const outsideDhaka = String(settings.outside_dhaka_shipping || '120');
     const freeShippingMin = String(settings.free_shipping_min_order || '3000');
+    const banglaQrImage = settings.payment_bangla_qr_image || 'https://psedkelwvpcxsmulgwry.supabase.co/storage/v1/object/public/banners/banglaqr-1794762015437.jpg';
+    const bkashNumber = settings.payment_bkash_number || '01600338318';
+    const nagadNumber = settings.payment_nagad_number || '01600338318';
+    const whatsappNumber = settings.whatsapp_number || '+8801974793083';
 
     modifiedHtml = modifiedHtml
       .replace(/RUPAN_META_PIXEL_ID|META_PIXEL_ID|YOUR_PIXEL_ID|YOUR_PIXEL_ID_HERE|YOUR_FACEBOOK_PIXEL_ID|FB_PIXEL_ID/g, pixelId)
@@ -130,7 +134,12 @@ function injectMarketingAndSEO(html: string, page: any, settings: any, metadata:
       .replace(/RUPAN_GA4_ID|GA4_ID|YOUR_GA4_ID|YOUR_GA_ID/g, gaId)
       .replace(/RUPAN_INSIDE_DHAKA_SHIPPING/g, insideDhaka)
       .replace(/RUPAN_OUTSIDE_DHAKA_SHIPPING/g, outsideDhaka)
-      .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin);
+      .replace(/RUPAN_FREE_SHIPPING_MIN/g, freeShippingMin)
+      .replace(/RUPAN_BANGLA_QR_IMAGE/g, banglaQrImage)
+      .replace(/RUPAN_BKASH_NUMBER/g, bkashNumber)
+      .replace(/RUPAN_NAGAD_NUMBER/g, nagadNumber)
+      .replace(/RUPAN_WHATSAPP_NUMBER/g, whatsappNumber)
+      .replace(/RUPAN_STORE_DOMAIN/g, 'https://www.myrupan.com');
   }
 
   modifiedHtml = modifiedHtml
@@ -282,19 +291,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
           let product: any = null;
 
-          // 1. Try exact match first
+          // 1. Try exact match on ID, slug, or SKU first
           const { data: exact } = await supabaseClient
             .from('products')
-            .select('id, slug')
-            .or(`id.eq.${cleanId},slug.eq.${cleanId}`)
+            .select('id, slug, name')
+            .or(`id.eq.${cleanId},slug.eq.${cleanId},sku.eq.${cleanId}`)
             .maybeSingle();
 
           if (exact) {
             product = exact;
           } else {
-            // 2. If exact match fails, apply 3000 offset tolerance mapping
             const numMatch = cleanId.match(/\d+$/);
+            // 2. Exact match by numeric code (without offset)
             if (numMatch) {
+              const num = numMatch[0];
+              const { data: numIdData } = await supabaseClient
+                .from('products')
+                .select('id, slug, name')
+                .or(`id.eq.mohasagor-${num},id.eq.${num}`)
+                .maybeSingle();
+
+              if (numIdData) {
+                product = numIdData;
+              } else {
+                const { data: numSkuData } = await supabaseClient
+                  .from('products')
+                  .select('id, slug, name')
+                  .or(`sku.eq.MOHASAGOR-${num},sku.eq.${num}`)
+                  .maybeSingle();
+
+                if (numSkuData) {
+                  product = numSkuData;
+                }
+              }
+            }
+
+            // 3. Fallback ONLY — If no exact match found, apply 3000 offset tolerance mapping
+            if (!product && numMatch) {
               const searchNum = parseInt(numMatch[0], 10);
               const prefixMatch = cleanId.match(/^[a-zA-Z]+/);
               const prefix = prefixMatch ? prefixMatch[0].toLowerCase() : 'mohasagor';
@@ -307,7 +340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   const altId = `${prefix}-${altNum}`;
                   const { data: altData } = await supabaseClient
                     .from('products')
-                    .select('id, slug')
+                    .select('id, slug, name')
                     .or(`id.eq.${altId},id.eq.${altNum}`)
                     .maybeSingle();
 
@@ -326,7 +359,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const altId = `mohasagor-${altNum}`;
                     const { data: altData } = await supabaseClient
                       .from('products')
-                      .select('id, slug')
+                      .select('id, slug, name')
                       .eq('id', altId)
                       .maybeSingle();
 

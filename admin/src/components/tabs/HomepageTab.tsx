@@ -237,7 +237,7 @@ export default function HomepageTab({
             type="button"
             onClick={async () => {
               const settingsIdTarget = settingsId || 1;
-              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig, homepageConfig: homepageConfig }).eq('id', settingsIdTarget);
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsIdTarget);
               if (!error) {
                 try {
                   const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
@@ -289,9 +289,17 @@ export default function HomepageTab({
                                 [type]: idsList.filter((item: string) => item !== id)
                               }
                             };
-                            const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', settingsId || 1);
+                            const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', settingsId || 1);
                             if (!error) {
                               setHomepageConfig(updatedConfig);
+                              try {
+                                const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                                cached.homepage_config = updatedConfig;
+                                cached.homepageConfig = updatedConfig;
+                                localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                              } catch (_) {}
+                            } else {
+                              alert(`Failed to remove product: ${error.message}`);
                             }
                           }}
                           className="text-red-500 hover:text-red-700 font-bold px-1"
@@ -318,10 +326,17 @@ export default function HomepageTab({
                           [type]: [...idsList, newId]
                         }
                       };
-                      const { error } = await supabase.from('settings').update({ homepageConfig: updatedConfig }).eq('id', settingsId || 1);
+                      const { error } = await supabase.from('settings').update({ homepage_config: updatedConfig }).eq('id', settingsId || 1);
                       if (!error) {
                         setHomepageConfig(updatedConfig);
+                        try {
+                          const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                          cached.homepage_config = updatedConfig;
+                          cached.homepageConfig = updatedConfig;
+                          localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                        } catch (_) {}
                         input.value = '';
+                        alert("Product successfully added to collection!");
                       } else {
                         alert(`Failed to save: ${error.message}`);
                       }
@@ -466,8 +481,14 @@ export default function HomepageTab({
           <button
             type="button"
             onClick={async () => {
-              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', settingsId || 1);
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsId || 1);
               if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
                 alert("Homepage category configurations saved successfully!");
               } else {
                 alert(`Failed to save categories: ${error.message}`);
@@ -594,8 +615,14 @@ export default function HomepageTab({
           <button
             type="button"
             onClick={async () => {
-              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', settingsId || 1);
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsId || 1);
               if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
                 alert("Homepage configurations saved successfully!");
               } else {
                 alert(`Failed to save configurations: ${error.message}`);
@@ -747,8 +774,14 @@ export default function HomepageTab({
           <button
             type="button"
             onClick={async () => {
-              const { error } = await supabase.from('settings').update({ homepageConfig: homepageConfig }).eq('id', settingsId || 1);
+              const { error } = await supabase.from('settings').update({ homepage_config: homepageConfig }).eq('id', settingsId || 1);
               if (!error) {
+                try {
+                  const cached = JSON.parse(localStorage.getItem('rup_db_settings') || '{}');
+                  cached.homepage_config = homepageConfig;
+                  cached.homepageConfig = homepageConfig;
+                  localStorage.setItem('rup_db_settings', JSON.stringify(cached));
+                } catch (_) {}
                 alert("Promo banner saved successfully!");
               } else {
                 alert(`Failed to save promo banner: ${error.message}`);

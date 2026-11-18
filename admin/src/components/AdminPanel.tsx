@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
   UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap,
-  FolderTree
+  FolderTree, BookOpen
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
@@ -34,6 +34,8 @@ import SeoMarketingTab from './tabs/SeoMarketingTab';
 import SyncTab from './tabs/SyncTab';
 import MarginsTab from './tabs/MarginsTab';
 import ProductEditorModal from './product/ProductEditorModal';
+import DiscontinuedProductsModal from './product/DiscontinuedProductsModal';
+import LandingPageGuideModal from './tabs/LandingPageGuideModal';
 import { detectProductGender, resolveProductVariants } from '../utils/variantUtils';
 
 interface AdminPanelProps {
@@ -47,6 +49,8 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [versionModalOpen, setVersionModalOpen] = useState<boolean>(false);
   const [versionCopied, setVersionCopied] = useState<boolean>(false);
+  const [discontinuedModalOpen, setDiscontinuedModalOpen] = useState<boolean>(false);
+  const [discontinuedProducts, setDiscontinuedProducts] = useState<Product[]>([]);
   
   // Database state fetched from Supabase (or fallback)
   const [products, setProducts] = useState<Product[]>([]);
@@ -181,6 +185,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
   const [showFinalCodeModal, setShowFinalCodeModal] = useState<boolean>(false);
   const [copiedFinalCode, setCopiedFinalCode] = useState<boolean>(false);
+  const [showLandingGuideModal, setShowLandingGuideModal] = useState<boolean>(false);
 
   // Close blog composer modal on Escape key
   useEffect(() => {
@@ -951,7 +956,60 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
   };
 
+  // Discontinued products action handlers
+  const handleMarkOutOfStock = async (selectedIds: string[]) => {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        action: 'mark_out_of_stock',
+        source: activeSource,
+        product_ids: selectedIds
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to update stock');
+    }
+
+    // Update local state
+    const idSet = new Set(selectedIds);
+    setProducts(prev => prev.map(p => idSet.has(p.id) ? { ...p, stock: 0 } : p));
+    alert(`Successfully marked ${selectedIds.length} discontinued products as Out of Stock (Stock: 0).`);
+  };
+
+  const handleDeleteDiscontinued = async (selectedIds: string[]) => {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        action: 'delete_discontinued',
+        source: activeSource,
+        product_ids: selectedIds
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to delete products');
+    }
+
+    // Remove from local state
+    const idSet = new Set(selectedIds);
+    setProducts(prev => prev.filter(p => !idSet.has(p.id)));
+    alert(`Successfully deleted ${selectedIds.length} products from your store.`);
+  };
 
   // Synchronize reseller products page-by-page
   const runSync = async () => {
@@ -1029,6 +1087,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       let totalImported = 0;
       let totalUpdated = 0;
       let totalFailed = 0;
+      const seenProductIds = new Set<string>();
       const THROTTLE_PAUSE_SECONDS = 13; // 13s pause between pages to strictly comply with Mohasagor max 5 req/min
 
       while (currentPage <= lastPage) {
@@ -1098,6 +1157,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           setSyncLastPage(lastPage);
         }
 
+        // Collect all processed product IDs from live supplier payload
+        if (Array.isArray(result.processed_ids)) {
+          result.processed_ids.forEach((pId: string) => seenProductIds.add(pId));
+        }
+
         // Early exit if the upstream catalog returned zero products for this page
         if (result.items_fetched === 0 && currentPage > 1) {
           setSyncStatusMessage(`Reached end of live catalog at page ${currentPage}. Finishing sync.`);
@@ -1129,10 +1193,63 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         currentPage++;
       }
 
+      // --- DISCONTINUED PRODUCTS RECONCILIATION & POP-UP REVIEW ---
+      // STRICT SAFETY RULES:
+      // 1. MUST be Full Sync (syncScope === 'all') — Partial/Recent syncs NEVER touch existing stock!
+      // 2. MUST have completed 100% without being paused/cancelled by user (!stopSyncRef.current && currentPage > lastPage)
+      // 3. MUST have seen at least 500 active products (guard against upstream blank API responses)
+      // 4. STRICTLY filters by source_id = targetSource so manual products are 100% immune!
+      let discontinuedCandidates: Product[] = [];
+      if (syncScope === 'all' && !stopSyncRef.current && currentPage > lastPage && seenProductIds.size >= 500) {
+        setSyncStatusMessage(`Checking for discontinued products against ${seenProductIds.size} active items...`);
+        try {
+          const sessionRes = await supabase.auth.getSession();
+          const token = sessionRes.data.session?.access_token;
+          const reconcileHeaders: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          if (token) reconcileHeaders['Authorization'] = `Bearer ${token}`;
+
+          const reconcileRes = await fetch('/api/sync', {
+            method: 'POST',
+            headers: reconcileHeaders,
+            body: JSON.stringify({
+              action: 'get_discontinued_candidates',
+              source: targetSource,
+              active_ids: Array.from(seenProductIds)
+            })
+          });
+
+          if (reconcileRes.ok) {
+            const reconcileData = await reconcileRes.json();
+            if (reconcileData.success && Array.isArray(reconcileData.discontinued_products)) {
+              discontinuedCandidates = reconcileData.discontinued_products;
+            }
+          }
+        } catch (recErr: any) {
+          console.warn("Discontinued candidate check notice:", recErr.message);
+        }
+      }
+
       if (stopSyncRef.current) {
-        alert(`Sync Paused by User!\nProcessed so far: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+        alert(`Sync Paused by User!\nProcessed so far: ${totalImported + totalUpdated + totalFailed} products\nImported (New): ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}\n\n(Note: Discontinued product check was safely skipped because sync was paused).`);
       } else {
-        alert(`Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+        let completionMsg = `Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported (New): ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`;
+        if (syncScope === 'all') {
+          if (discontinuedCandidates.length > 0) {
+            completionMsg += `\n\n⚠️ ${discontinuedCandidates.length} discontinued products detected from Mohasagor.\nA review window will now open for you to confirm whether to mark them Out of Stock or Delete.`;
+          } else {
+            completionMsg += `\n\n✅ 0 discontinued products detected. All catalog items match upstream!`;
+          }
+        } else {
+          completionMsg += `\n\n(Note: Partial sync completed. Discontinued product check strictly runs only on Full Sync).`;
+        }
+        alert(completionMsg);
+
+        if (discontinuedCandidates.length > 0) {
+          setDiscontinuedProducts(discontinuedCandidates);
+          setDiscontinuedModalOpen(true);
+        }
       }
       
       // Reload logs & overview data
@@ -1309,7 +1426,21 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       seo_title: form.seoTitle || (form as any).seo_title || null,
       seo_description: form.seoDescription || (form as any).seo_description || null,
       images: form.images || [],
-      source_id: (form as any).source_id || 'manual',
+      source_id: (() => {
+        const isMohasagor = (
+          (id && String(id).toLowerCase().startsWith('mohasagor-')) ||
+          (form.sku && String(form.sku).toUpperCase().startsWith('MOHASAGOR-')) ||
+          (editingProduct?.id && String(editingProduct.id).toLowerCase().startsWith('mohasagor-')) ||
+          (editingProduct?.sku && String(editingProduct.sku).toUpperCase().startsWith('MOHASAGOR-')) ||
+          (editingProduct as any)?.source_id === 'mohasagor' ||
+          (editingProduct as any)?.sourceId === 'mohasagor' ||
+          (form as any).source_id === 'mohasagor' ||
+          (form as any).sourceId === 'mohasagor'
+        );
+        if (isMohasagor) return 'mohasagor';
+        return (form as any).source_id || (form as any).sourceId || (editingProduct as any)?.source_id || (editingProduct as any)?.sourceId || 'manual';
+      })(),
+      source_product_id: (form as any).source_product_id || (form as any).sourceProductId || (editingProduct as any)?.source_product_id || (editingProduct as any)?.sourceProductId || (id && String(id).toLowerCase().startsWith('mohasagor-') ? String(id).replace(/^mohasagor-/i, '') : null),
       // Dynamic variants overhaul
       variants: finalVariants,
       variant_stock: (finalVariants.length > 0 && form.maintain_variant_stock)
@@ -1408,7 +1539,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         isTrending: updateData.is_trending,
         isNew: updateData.is_new,
         isBestSeller: updateData.is_best_seller,
-        isFlashSale: updateData.is_flash_sale
+        isFlashSale: updateData.is_flash_sale,
+        sourceId: updateData.source_id,
+        source_id: updateData.source_id,
+        sourceProductId: updateData.source_product_id,
+        source_product_id: updateData.source_product_id
       };
       setProducts(products.map(p => p.id === editingProduct.id ? mergedProduct : p));
       setEditingProduct(null);
@@ -1468,7 +1603,11 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         isTrending: insertData.is_trending,
         isNew: insertData.is_new,
         isBestSeller: insertData.is_best_seller,
-        isFlashSale: insertData.is_flash_sale
+        isFlashSale: insertData.is_flash_sale,
+        sourceId: insertData.source_id,
+        source_id: insertData.source_id,
+        sourceProductId: insertData.source_product_id,
+        source_product_id: insertData.source_product_id
       };
       setProducts([newProduct, ...products]);
       setEditingProduct(null);
@@ -2010,7 +2149,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }, false);
   };
 
-  const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false) => {
+  const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false, initialContent?: string) => {
     if (blog) {
       setEditingBlog(blog);
       let layout: 'standard' | 'blank' = blog.category === '__landing_page__' ? 'blank' : 'standard';
@@ -2047,17 +2186,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       setBlogSeoEnabled(true);
       setBlogMarketingEnabled(true);
       setBlogForm({
-        id: '',
-        title: '',
+        id: isLandingPage && initialContent ? '/a9-pro' : '',
+        title: isLandingPage && initialContent ? 'A9 Pro ANC Touch Display Earbuds' : '',
         excerpt: '',
-        content: isLandingPage
+        content: initialContent || (isLandingPage
           ? '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>Landing Page</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-gray-50">\n  <div class="max-w-4xl mx-auto py-16 px-4 text-center">\n    <h1 class="text-4xl font-extrabold text-gray-900">Special Campaign</h1>\n  </div>\n</body>\n</html>'
-          : '<p>Write your article content here...</p>',
+          : '<p>Write your article content here...</p>'),
         image: '',
         readTime: '3 min read',
         category: isLandingPage ? '__landing_page__' : 'Fashion',
         status: 'published',
-        seoTitle: '',
+        seoTitle: isLandingPage && initialContent ? 'A9 Pro ANC Touch Display Earbuds' : '',
         seoDescription: ''
       });
     }
@@ -2789,6 +2928,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               {activeTab === 'blogs' && (
                 <BlogsTab
                   blogs={blogs}
+                  products={products}
                   onOpenBlogForm={openBlogForm}
                   onDeleteBlog={handleDeleteBlog}
                 />
@@ -3541,6 +3681,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                     <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400">Editorial Content Composer</h3>
                     
                     <div className="flex items-center gap-2">
+                      {(blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') && (
+                        <button
+                          type="button"
+                          onClick={() => setShowLandingGuideModal(true)}
+                          className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold text-[10px] uppercase transition-all cursor-pointer shadow-2xs"
+                          title="Open Landing Page Architecture, Dynamic Variables Table, and AI Prompt Guide"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-orange-500" />
+                          <span>📘 ল্যান্ডিং পেজ ও AI গাইড</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setShowFinalCodeModal(true)}
@@ -3827,6 +3979,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         </div>
       )}
 
+      {/* LANDING PAGE ARCHITECTURE & AI PROMPT GUIDE MODAL */}
+      <LandingPageGuideModal
+        isOpen={showLandingGuideModal}
+        products={products}
+        onClose={() => setShowLandingGuideModal(false)}
+        onLoadDemoTemplate={(code) => {
+          setBlogForm((prev: any) => ({
+            ...prev,
+            content: code,
+            title: prev.title || 'A9 Pro ANC Touch Display Earbuds',
+            id: prev.id || '/a9-pro',
+            category: '__landing_page__'
+          }));
+          setBlogLayoutMode('blank');
+        }}
+      />
+
       {/* VERSION VERIFICATION MODAL */}
       {versionModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -3923,6 +4092,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           </div>
         </div>
       )}
+
+      {/* DISCONTINUED PRODUCTS REVIEW MODAL */}
+      <DiscontinuedProductsModal
+        open={discontinuedModalOpen}
+        onClose={() => setDiscontinuedModalOpen(false)}
+        discontinuedProducts={discontinuedProducts}
+        onMarkOutOfStock={handleMarkOutOfStock}
+        onDeleteProducts={handleDeleteDiscontinued}
+      />
     </div>
   );
 }

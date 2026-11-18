@@ -57,6 +57,7 @@ export default function SyncTab({
   const deductionPct = pricingConfig.deduction_percentage !== undefined ? Number(pricingConfig.deduction_percentage) : 50;
   const marginVal = pricingConfig.default_margin_value !== undefined ? Number(pricingConfig.default_margin_value) : 10;
   const marginType = pricingConfig.default_margin_type || 'percentage';
+  const resellerDeliveryCost = pricingConfig.reseller_delivery_cost !== undefined ? Number(pricingConfig.reseller_delivery_cost) : 120;
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -256,11 +257,11 @@ export default function SyncTab({
                   অটো প্রাইসিং ও মার্জিন রিক্যালকুলেশন সক্রিয়
                 </span>
                 <span className="bg-emerald-200/60 text-emerald-800 px-1.5 py-0.5 rounded text-[9px] font-mono">
-                  {deductionPct}% ডিডাকশন
+                  +৳{resellerDeliveryCost} পরিবহন খরচ | {deductionPct}% ডিডাকশন
                 </span>
               </div>
               <p className="text-[9px] text-emerald-800/90 leading-relaxed font-medium">
-                সাপ্লায়ার Mohasagor API-তে যে দামই (MSRP / Wholesale Cost) দিক না কেন, সিঙ্ক করার সাথে সাথে বর্তমান <strong>{deductionPct}% ডিডাকশন</strong> ও <strong>{marginVal}{marginType === 'percentage' ? '%' : '৳'} মার্জিন</strong> ফর্মুলা অনুযায়ী ফাইনাল প্রাইস (Floor) ও বিক্রয়মূল্য স্বয়ংক্রিয়ভাবে রিক্যালকুলেট হয়ে ডাটাবেজে আপডেট হয়ে যাবে। সাপ্লায়ার দাম বাড়ালে আমাদের বিক্রয়মূল্যও স্বয়ংক্রিয়ভাবে বৃদ্ধি পাবে।
+                সাপ্লায়ার Mohasagor API-তে যে দামই (MSRP / Wholesale Cost) দিক না কেন, সিঙ্ক করার সাথে সাথে সাপ্লায়ার পরিবহন খরচ (৳{resellerDeliveryCost}), বর্তমান <strong>{deductionPct}% ডিডাকশন</strong> ও <strong>{marginVal}{marginType === 'percentage' ? '%' : '৳'} মার্জিন</strong> ফর্মুলা অনুযায়ী ফাইনাল প্রাইস (Floor) ও বিক্রয়মূল্য স্বয়ংক্রিয়ভাবে রিক্যালকুলেট হয়ে ডাটাবেজে আপডেট হয়ে যাবে। সাপ্লায়ার দাম বাড়ালে আমাদের বিক্রয়মূল্যও স্বয়ংক্রিয়ভাবে বৃদ্ধি পাবে।
               </p>
             </div>
 

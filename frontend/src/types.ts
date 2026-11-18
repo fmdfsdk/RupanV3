@@ -57,10 +57,15 @@ export interface Product {
   material?: string;
   status?: 'published' | 'draft' | 'archived';
   isFeatured?: boolean;
+  is_featured?: boolean;
   isTrending?: boolean;
+  is_trending?: boolean;
   isNew?: boolean;
+  is_new?: boolean;
   isBestSeller?: boolean;
+  is_best_seller?: boolean;
   isFlashSale?: boolean;
+  is_flash_sale?: boolean;
   flashSaleLimit?: number;
   flashSaleSold?: number;
   seoTitle?: string;
@@ -69,6 +74,8 @@ export interface Product {
   purchase_price?: number;
   finalPrice?: number;
   final_price?: number;
+  sourceId?: string;
+  source_id?: string;
   sourceProductId?: string;
   source_product_id?: string;
   // Variants overhaul
@@ -193,6 +200,7 @@ export interface PricingConfig {
   online_payment_discount_type?: 'margin_percentage' | 'selling_percentage' | 'fixed';
   online_payment_discount_value?: number;
   minimum_price_protection_enabled?: boolean;
+  reseller_delivery_cost?: number; // Extra transport/courier cost from supplier per product (e.g. 120 BDT)
 }
 
 export interface WebsiteSettings {

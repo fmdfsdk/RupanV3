@@ -4,14 +4,15 @@ import {
   FileText, MessageSquare, ShieldAlert, Plus, Edit, Trash2, Copy, Eye, 
   CheckCircle, XCircle, Search, Filter, RefreshCw, Upload, Link, Check, 
   X, FileDown, Calendar, Percent, Truck, HelpCircle, Smartphone, Lock, 
-  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap
+  UserCheck, AlertTriangle, Play, ChevronRight, Save, Info, Ban, Menu, Settings, Loader2, Globe, Code, Zap,
+  FolderTree, BookOpen
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, BarChart, Bar, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell 
 } from 'recharts';
 import { supabase } from '../lib/supabase';
-import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile } from '../types';
+import { Product, Order, Review, BlogPost, Coupon, Banner, WebsiteSettings, UserProfile, Category } from '../types';
 import { PRODUCTS } from '../data';
 import { generateFullSimulatedCatalog } from '../utils/mockCatalogGenerator';
 import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
@@ -19,6 +20,7 @@ import { APP_VERSION, BUILD_TIMESTAMP, SYSTEM_BRANCH } from '../version';
 // Import Decomposed Tab Components
 import OverviewTab from './tabs/OverviewTab';
 import ProductsTab from './tabs/ProductsTab';
+import CategoriesTab from './tabs/CategoriesTab';
 import OrdersTab from './tabs/OrdersTab';
 import InventoryTab from './tabs/InventoryTab';
 import CustomersTab from './tabs/CustomersTab';
@@ -31,6 +33,10 @@ import SettingsTab from './tabs/SettingsTab';
 import SeoMarketingTab from './tabs/SeoMarketingTab';
 import SyncTab from './tabs/SyncTab';
 import MarginsTab from './tabs/MarginsTab';
+import ProductEditorModal from './product/ProductEditorModal';
+import DiscontinuedProductsModal from './product/DiscontinuedProductsModal';
+import LandingPageGuideModal from './tabs/LandingPageGuideModal';
+import { detectProductGender, resolveProductVariants } from '../utils/variantUtils';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -43,9 +49,14 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [versionModalOpen, setVersionModalOpen] = useState<boolean>(false);
   const [versionCopied, setVersionCopied] = useState<boolean>(false);
+  const [discontinuedModalOpen, setDiscontinuedModalOpen] = useState<boolean>(false);
+  const [discontinuedProducts, setDiscontinuedProducts] = useState<Product[]>([]);
   
   // Database state fetched from Supabase (or fallback)
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [productCountsByCategory, setProductCountsByCategory] = useState<Record<string, number>>({});
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -174,6 +185,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
   const [showFinalCodeModal, setShowFinalCodeModal] = useState<boolean>(false);
   const [copiedFinalCode, setCopiedFinalCode] = useState<boolean>(false);
+  const [showLandingGuideModal, setShowLandingGuideModal] = useState<boolean>(false);
 
   // Close blog composer modal on Escape key
   useEffect(() => {
@@ -737,11 +749,52 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       if (sourcesData && sourcesData.length > 0) setSyncSources(sourcesData); else setSyncSources(sourcesFallback);
       if (logsData && logsData.length > 0) setSyncLogs(logsData); else setSyncLogs(logsFallback);
 
+      // Fetch Categories from dedicated table
+      let fetchedCategories: Category[] = [];
+      try {
+        const { data: catRows } = await supabase
+          .from('categories')
+          .select('*')
+          .order('sort_order', { ascending: true });
+        if (catRows && catRows.length > 0) {
+          const normalized = catRows.map((cat: any) => {
+            const pId = cat.parent_id !== undefined ? cat.parent_id : (cat.parentId !== undefined ? cat.parentId : null);
+            return {
+              ...cat,
+              parent_id: pId,
+              parentId: pId,
+              banner_image: cat.banner_image || cat.bannerImage || null,
+              bannerImage: cat.banner_image || cat.bannerImage || null,
+              description: cat.description || cat.short_description || cat.shortDescription || null,
+              sort_order: cat.sort_order ?? cat.sortOrder ?? 0,
+              sortOrder: cat.sort_order ?? cat.sortOrder ?? 0,
+              is_active: cat.is_active !== undefined ? cat.is_active : (cat.isActive !== false)
+            };
+          });
+          fetchedCategories = normalized;
+          setCategories(normalized);
+        }
+      } catch (err) {
+        console.warn("Could not fetch categories table:", err);
+      }
+
       if (isSupabaseOnline) {
         const { data: catData } = await supabase.from('products').select('category');
         if (catData) {
-          const uniqueCats = Array.from(new Set(catData.map(c => (c as any).category).filter(Boolean))) as string[];
-          setAvailableCategories(['All', ...uniqueCats]);
+          const counts: Record<string, number> = {};
+          const uniqueCats = new Set<string>();
+          catData.forEach((c: any) => {
+            if (c.category) {
+              uniqueCats.add(c.category);
+              const k = c.category.toLowerCase().trim();
+              counts[k] = (counts[k] || 0) + 1;
+            }
+          });
+          setProductCountsByCategory(counts);
+          
+          const dbCatNames = fetchedCategories.map((c: any) => c.name);
+          const merged = Array.from(new Set([...dbCatNames, ...uniqueCats]));
+          setAvailableCategories(['All', ...merged]);
         }
       } else {
         let localData = PRODUCTS;
@@ -749,7 +802,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         if (stored) {
           try { localData = JSON.parse(stored); } catch (e) {}
         }
-        const uniqueCats = Array.from(new Set(localData.map(p => p.category).filter(Boolean)));
+        const counts: Record<string, number> = {};
+        const uniqueCats = Array.from(new Set(localData.map(p => {
+          if (p.category) {
+            const k = p.category.toLowerCase().trim();
+            counts[k] = (counts[k] || 0) + 1;
+          }
+          return p.category;
+        }).filter(Boolean)));
+        setProductCountsByCategory(counts);
         setAvailableCategories(['All', ...uniqueCats]);
       }
 
@@ -895,7 +956,60 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     }
   };
 
+  // Discontinued products action handlers
+  const handleMarkOutOfStock = async (selectedIds: string[]) => {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        action: 'mark_out_of_stock',
+        source: activeSource,
+        product_ids: selectedIds
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to update stock');
+    }
+
+    // Update local state
+    const idSet = new Set(selectedIds);
+    setProducts(prev => prev.map(p => idSet.has(p.id) ? { ...p, stock: 0 } : p));
+    alert(`Successfully marked ${selectedIds.length} discontinued products as Out of Stock (Stock: 0).`);
+  };
+
+  const handleDeleteDiscontinued = async (selectedIds: string[]) => {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        action: 'delete_discontinued',
+        source: activeSource,
+        product_ids: selectedIds
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to delete products');
+    }
+
+    // Remove from local state
+    const idSet = new Set(selectedIds);
+    setProducts(prev => prev.filter(p => !idSet.has(p.id)));
+    alert(`Successfully deleted ${selectedIds.length} products from your store.`);
+  };
 
   // Synchronize reseller products page-by-page
   const runSync = async () => {
@@ -973,6 +1087,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       let totalImported = 0;
       let totalUpdated = 0;
       let totalFailed = 0;
+      const seenProductIds = new Set<string>();
       const THROTTLE_PAUSE_SECONDS = 13; // 13s pause between pages to strictly comply with Mohasagor max 5 req/min
 
       while (currentPage <= lastPage) {
@@ -1036,9 +1151,21 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           throw new Error(result.error || `Sync failed at page ${currentPage}`);
         }
 
-        if (currentPage === 1 && syncScope === 'all') {
-          lastPage = result.last_page || 1;
+        // Dynamically update lastPage from the live API response on every iteration
+        if (syncScope === 'all' && result.last_page) {
+          lastPage = result.last_page;
           setSyncLastPage(lastPage);
+        }
+
+        // Collect all processed product IDs from live supplier payload
+        if (Array.isArray(result.processed_ids)) {
+          result.processed_ids.forEach((pId: string) => seenProductIds.add(pId));
+        }
+
+        // Early exit if the upstream catalog returned zero products for this page
+        if (result.items_fetched === 0 && currentPage > 1) {
+          setSyncStatusMessage(`Reached end of live catalog at page ${currentPage}. Finishing sync.`);
+          break;
         }
 
         totalImported += result.imported || 0;
@@ -1066,10 +1193,63 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         currentPage++;
       }
 
+      // --- DISCONTINUED PRODUCTS RECONCILIATION & POP-UP REVIEW ---
+      // STRICT SAFETY RULES:
+      // 1. MUST be Full Sync (syncScope === 'all') — Partial/Recent syncs NEVER touch existing stock!
+      // 2. MUST have completed 100% without being paused/cancelled by user (!stopSyncRef.current && currentPage > lastPage)
+      // 3. MUST have seen at least 500 active products (guard against upstream blank API responses)
+      // 4. STRICTLY filters by source_id = targetSource so manual products are 100% immune!
+      let discontinuedCandidates: Product[] = [];
+      if (syncScope === 'all' && !stopSyncRef.current && currentPage > lastPage && seenProductIds.size >= 500) {
+        setSyncStatusMessage(`Checking for discontinued products against ${seenProductIds.size} active items...`);
+        try {
+          const sessionRes = await supabase.auth.getSession();
+          const token = sessionRes.data.session?.access_token;
+          const reconcileHeaders: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          if (token) reconcileHeaders['Authorization'] = `Bearer ${token}`;
+
+          const reconcileRes = await fetch('/api/sync', {
+            method: 'POST',
+            headers: reconcileHeaders,
+            body: JSON.stringify({
+              action: 'get_discontinued_candidates',
+              source: targetSource,
+              active_ids: Array.from(seenProductIds)
+            })
+          });
+
+          if (reconcileRes.ok) {
+            const reconcileData = await reconcileRes.json();
+            if (reconcileData.success && Array.isArray(reconcileData.discontinued_products)) {
+              discontinuedCandidates = reconcileData.discontinued_products;
+            }
+          }
+        } catch (recErr: any) {
+          console.warn("Discontinued candidate check notice:", recErr.message);
+        }
+      }
+
       if (stopSyncRef.current) {
-        alert(`Sync Paused by User!\nProcessed so far: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+        alert(`Sync Paused by User!\nProcessed so far: ${totalImported + totalUpdated + totalFailed} products\nImported (New): ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}\n\n(Note: Discontinued product check was safely skipped because sync was paused).`);
       } else {
-        alert(`Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported: ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`);
+        let completionMsg = `Sync Completed Successfully!\nProcessed: ${totalImported + totalUpdated + totalFailed} products\nImported (New): ${totalImported}\nUpdated: ${totalUpdated}\nFailed: ${totalFailed}`;
+        if (syncScope === 'all') {
+          if (discontinuedCandidates.length > 0) {
+            completionMsg += `\n\n⚠️ ${discontinuedCandidates.length} discontinued products detected from Mohasagor.\nA review window will now open for you to confirm whether to mark them Out of Stock or Delete.`;
+          } else {
+            completionMsg += `\n\n✅ 0 discontinued products detected. All catalog items match upstream!`;
+          }
+        } else {
+          completionMsg += `\n\n(Note: Partial sync completed. Discontinued product check strictly runs only on Full Sync).`;
+        }
+        alert(completionMsg);
+
+        if (discontinuedCandidates.length > 0) {
+          setDiscontinuedProducts(discontinuedCandidates);
+          setDiscontinuedModalOpen(true);
+        }
       }
       
       // Reload logs & overview data
@@ -1090,12 +1270,43 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Delete product
   const handleDeleteProduct = async (id: string) => {
-    if (confirm("Are you sure you want to delete this product? This is irreversible.")) {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (!error) {
-        setProducts(products.filter(p => p.id !== id));
-      }
+    if (!confirm("Are you sure you want to delete this product? This is irreversible.")) return;
+
+    let deleted = false;
+    let deleteError: any = null;
+
+    try {
+      const { data, error } = await supabase.from('products').delete().eq('id', id).select();
+      deleteError = error;
+      if (data && data.length > 0) deleted = true;
+    } catch (err: any) {
+      deleteError = err;
     }
+
+    // Fallback to secure serverless endpoint if client-side was blocked by RLS
+    if (!deleted) {
+      try {
+        const apiRes = await fetch('/api/save-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id })
+        });
+        const apiJson = await apiRes.json();
+        if (apiJson && apiJson.success) deleted = true;
+        else if (apiJson?.error) deleteError = { message: apiJson.error, code: apiJson.code };
+      } catch (_) {}
+    }
+
+    if (!deleted) {
+      const detail = deleteError
+        ? `Error [${deleteError.code || 'RLS_BLOCK'}]: ${deleteError.message}`
+        : '0 rows were deleted in database (operation blocked by permissions).';
+      alert(`❌ Delete Failed!\n\n${detail}\n\nProduct was NOT removed from the database.`);
+      return;
+    }
+
+    setProducts(products.filter(p => p.id !== id));
+    alert("Product deleted successfully.");
   };
 
   // Open Product Modal
@@ -1140,6 +1351,51 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
   // Helper to map UI Product state to Supabase snake_case columns
   const toDbProductPayload = (form: Partial<Product>, id: string, slug: string, isUpdate = false) => {
+    // If form explicitly specifies variants (even if empty []), use them;
+    // only fallback to resolveProductVariants if form.variants is undefined/null
+    const finalVariants = Array.isArray(form.variants)
+      ? form.variants
+      : resolveProductVariants(form);
+
+    // Derive fallback sizes/colors from variants to ensure 100% backward compatibility
+    let derivedSizes: string[] = [];
+    let derivedColors: { name: string; class: string; hex: string }[] = [];
+
+    if (Array.isArray(finalVariants) && finalVariants.length > 0) {
+      const sizeVariant = finalVariants.find((v) => /size/i.test(v.title));
+      if (sizeVariant && sizeVariant.options.length > 0) {
+        derivedSizes = sizeVariant.options.map((o) => o.value);
+      }
+      const colorVariant = finalVariants.find((v) => /colou?r|age/i.test(v.title));
+      if (colorVariant && colorVariant.options.length > 0) {
+        derivedColors = colorVariant.options.map((o) => ({
+          name: o.value,
+          class: 'bg-zinc-800',
+          hex: '#1E3A8A'
+        }));
+      }
+    } else if (!Array.isArray(form.variants)) {
+      // Only keep legacy form.sizes/colors if variants was not explicitly provided
+      derivedSizes = form.sizes || [];
+      derivedColors = form.colors || [];
+    }
+
+    // Extract material and features from detailsList if provided
+    let materialVal = form.material || null;
+    let featuresList = Array.isArray(form.features) ? [...form.features] : [];
+
+    if (Array.isArray((form as any).detailsList) && (form as any).detailsList.length > 0) {
+      const matItem = (form as any).detailsList.find((d: any) => /material/i.test(d.type));
+      if (matItem && matItem.description) {
+        materialVal = matItem.description;
+      }
+      if (featuresList.length === 0) {
+        featuresList = (form as any).detailsList
+          .filter((d: any) => d.type && d.description)
+          .map((d: any) => `${d.type}: ${d.description}`);
+      }
+    }
+
     const payload: any = {
       name: form.name,
       slug: slug,
@@ -1148,19 +1404,19 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       category: form.category,
       sub_category: form.subCategory || (form as any).sub_category || null,
       tags: form.tags || [],
-      gender: form.gender || 'Men',
+      gender: form.gender || detectProductGender(form.category, form.name),
       price: Number(form.price || 0),
       discount_price: form.discountPrice !== undefined && form.discountPrice !== null && (form.discountPrice as any) !== '' ? Number(form.discountPrice) : null,
       purchase_price: form.purchasePrice !== undefined && form.purchasePrice !== null && (form.purchasePrice as any) !== '' ? Number(form.purchasePrice) : null,
       description: form.description || '',
       short_description: form.shortDescription || (form as any).short_description || '',
-      features: form.features || [],
-      sizes: form.sizes || [],
-      colors: form.colors || [],
+      features: featuresList,
+      sizes: derivedSizes,
+      colors: derivedColors,
       stock: Number(form.stock || 0),
       low_stock_warning: Number(form.lowStockWarning || (form as any).low_stock_warning || 5),
       weight: form.weight ? Number(form.weight) : null,
-      material: form.material || null,
+      material: materialVal,
       status: form.status || 'published',
       is_featured: !!form.isFeatured || !!(form as any).is_featured,
       is_trending: !!form.isTrending || !!(form as any).is_trending,
@@ -1170,7 +1426,30 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       seo_title: form.seoTitle || (form as any).seo_title || null,
       seo_description: form.seoDescription || (form as any).seo_description || null,
       images: form.images || [],
-      source_id: (form as any).source_id || 'manual'
+      source_id: (() => {
+        const isMohasagor = (
+          (id && String(id).toLowerCase().startsWith('mohasagor-')) ||
+          (form.sku && String(form.sku).toUpperCase().startsWith('MOHASAGOR-')) ||
+          (editingProduct?.id && String(editingProduct.id).toLowerCase().startsWith('mohasagor-')) ||
+          (editingProduct?.sku && String(editingProduct.sku).toUpperCase().startsWith('MOHASAGOR-')) ||
+          (editingProduct as any)?.source_id === 'mohasagor' ||
+          (editingProduct as any)?.sourceId === 'mohasagor' ||
+          (form as any).source_id === 'mohasagor' ||
+          (form as any).sourceId === 'mohasagor'
+        );
+        if (isMohasagor) return 'mohasagor';
+        return (form as any).source_id || (form as any).sourceId || (editingProduct as any)?.source_id || (editingProduct as any)?.sourceId || 'manual';
+      })(),
+      source_product_id: (form as any).source_product_id || (form as any).sourceProductId || (editingProduct as any)?.source_product_id || (editingProduct as any)?.sourceProductId || (id && String(id).toLowerCase().startsWith('mohasagor-') ? String(id).replace(/^mohasagor-/i, '') : null),
+      // Dynamic variants overhaul
+      variants: finalVariants,
+      variant_stock: (finalVariants.length > 0 && form.maintain_variant_stock)
+        ? (form.variant_stock || (form as any).variantStock || {})
+        : {},
+      variant_images: finalVariants.length > 0
+        ? (form.variant_images || (form as any).variantImages || {})
+        : {},
+      maintain_variant_stock: finalVariants.length > 0 && !!form.maintain_variant_stock
     };
 
     if (!isUpdate) {
@@ -1181,19 +1460,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     return payload;
   };
 
-  // Save/Update product
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!productForm.name || !productForm.category || !productForm.price) {
+  // Save/Update product (called from ProductEditorModal)
+  const handleSaveProduct = async (productData?: Partial<Product> | React.FormEvent) => {
+    // Check if called directly from form submit event or with product data
+    const activeData: Partial<Product> = (productData && !(productData as any).preventDefault)
+      ? (productData as Partial<Product>)
+      : productForm;
+
+    if (!activeData.name || !activeData.category || !activeData.price) {
       alert("Please fill in Name, Category, and Price");
       return;
     }
 
     const productId = editingProduct ? editingProduct.id : `rup-${Date.now()}`;
-    const productSlug = productForm.slug || productForm.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const productSlug = activeData.slug || activeData.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     const finalProduct = {
-      ...productForm,
+      ...activeData,
       id: productId,
       slug: productSlug,
       reviewsCount: editingProduct ? editingProduct.reviewsCount : 0,
@@ -1201,23 +1484,134 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     } as Product;
 
     if (editingProduct) {
-      const dbPayload = toDbProductPayload(productForm, productId, productSlug, true);
-      const { error } = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id);
-      if (!error) {
-        setProducts(products.map(p => p.id === editingProduct.id ? { ...editingProduct, ...finalProduct } : p));
-        alert("Product updated successfully!");
-      } else {
-        alert(`Error updating product: ${error.message}`);
+      const dbPayload = toDbProductPayload(activeData, productId, productSlug, true);
+      let updateData: any = null;
+      let updateError: any = null;
+
+      // 1. Direct Supabase update with .select() verification
+      try {
+        const res = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id).select();
+        updateError = res.error;
+        if (res.data && res.data.length > 0) {
+          updateData = res.data[0];
+        }
+      } catch (err: any) {
+        updateError = err;
       }
+
+      // 2. Server-side fallback via /api/save-product if client-side write was blocked by RLS
+      if (!updateData) {
+        try {
+          const apiRes = await fetch('/api/save-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update', id: editingProduct.id, product: dbPayload })
+          });
+          const apiJson = await apiRes.json();
+          if (apiJson && apiJson.success && apiJson.data) {
+            updateData = apiJson.data;
+            updateError = null;
+          } else if (apiJson && apiJson.error) {
+            updateError = { message: apiJson.error, code: apiJson.code || 'API_ERROR' };
+          }
+        } catch (apiErr: any) {
+          console.warn("Fallback /api/save-product request failed:", apiErr);
+        }
+      }
+
+      // 3. Strict verification: NEVER display fake success message if 0 rows were updated!
+      if (!updateData) {
+        const errorDetail = updateError 
+          ? `[${updateError.code || 'RLS_BLOCK'}]: ${updateError.message}` 
+          : '0 rows were updated in Supabase (write blocked by Row Level Security policy or unauthenticated session).';
+        alert(`❌ Database Save Failed!\n\n${errorDetail}\n\nYour changes could NOT be saved to the database. Please execute the Supabase RLS migration in your Supabase SQL Editor.`);
+        return;
+      }
+
+      // 4. Truly verified saved in database!
+      const mergedProduct: Product = {
+        ...editingProduct,
+        ...finalProduct,
+        ...updateData,
+        discountPrice: updateData.discount_price,
+        purchasePrice: updateData.purchase_price,
+        isFeatured: updateData.is_featured,
+        isTrending: updateData.is_trending,
+        isNew: updateData.is_new,
+        isBestSeller: updateData.is_best_seller,
+        isFlashSale: updateData.is_flash_sale,
+        sourceId: updateData.source_id,
+        source_id: updateData.source_id,
+        sourceProductId: updateData.source_product_id,
+        source_product_id: updateData.source_product_id
+      };
+      setProducts(products.map(p => p.id === editingProduct.id ? mergedProduct : p));
+      setEditingProduct(null);
+      alert("✅ Product updated successfully in database!");
     } else {
-      const dbPayload = toDbProductPayload(productForm, productId, productSlug, false);
-      const { error } = await supabase.from('products').insert([dbPayload]);
-      if (!error) {
-        setProducts([finalProduct, ...products]);
-        alert("Product created successfully!");
-      } else {
-        alert(`Error creating product: ${error.message}`);
+      const dbPayload = toDbProductPayload(activeData, productId, productSlug, false);
+      let insertData: any = null;
+      let insertError: any = null;
+
+      // 1. Direct Supabase insert with .select() verification
+      try {
+        const res = await supabase.from('products').insert([dbPayload]).select();
+        insertError = res.error;
+        if (res.data && res.data.length > 0) {
+          insertData = res.data[0];
+        }
+      } catch (err: any) {
+        insertError = err;
       }
+
+      // 2. Server-side fallback via /api/save-product if client-side write was blocked by RLS
+      if (!insertData) {
+        try {
+          const apiRes = await fetch('/api/save-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'insert', product: dbPayload })
+          });
+          const apiJson = await apiRes.json();
+          if (apiJson && apiJson.success && apiJson.data) {
+            insertData = apiJson.data;
+            insertError = null;
+          } else if (apiJson && apiJson.error) {
+            insertError = { message: apiJson.error, code: apiJson.code || 'API_ERROR' };
+          }
+        } catch (apiErr: any) {
+          console.warn("Fallback /api/save-product insert failed:", apiErr);
+        }
+      }
+
+      // 3. Strict verification
+      if (!insertData) {
+        const errorDetail = insertError 
+          ? `[${insertError.code || 'RLS_BLOCK'}]: ${insertError.message}` 
+          : '0 rows were inserted in Supabase (write blocked by Row Level Security policy).';
+        alert(`❌ Database Insert Failed!\n\n${errorDetail}\n\nProduct was NOT saved to the database.`);
+        return;
+      }
+
+      // 4. Truly verified inserted in database!
+      const newProduct: Product = {
+        ...finalProduct,
+        ...insertData,
+        discountPrice: insertData.discount_price,
+        purchasePrice: insertData.purchase_price,
+        isFeatured: insertData.is_featured,
+        isTrending: insertData.is_trending,
+        isNew: insertData.is_new,
+        isBestSeller: insertData.is_best_seller,
+        isFlashSale: insertData.is_flash_sale,
+        sourceId: insertData.source_id,
+        source_id: insertData.source_id,
+        sourceProductId: insertData.source_product_id,
+        source_product_id: insertData.source_product_id
+      };
+      setProducts([newProduct, ...products]);
+      setEditingProduct(null);
+      alert("✅ Product created successfully in database!");
     }
     setProductModalOpen(false);
   };
@@ -1620,7 +2014,142 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
     alert("Coupon deleted successfully!");
   };
 
-  const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false) => {
+  // --- Category Handlers ---
+  const fetchCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const { data: catRows } = await supabase
+        .from('categories')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (catRows && catRows.length > 0) {
+        const normalized = catRows.map((cat: any) => {
+          const pId = cat.parent_id !== undefined ? cat.parent_id : (cat.parentId !== undefined ? cat.parentId : null);
+          return {
+            ...cat,
+            parent_id: pId,
+            parentId: pId,
+            banner_image: cat.banner_image || cat.bannerImage || null,
+            bannerImage: cat.banner_image || cat.bannerImage || null,
+            description: cat.description || cat.short_description || cat.shortDescription || null,
+            sort_order: cat.sort_order ?? cat.sortOrder ?? 0,
+            sortOrder: cat.sort_order ?? cat.sortOrder ?? 0,
+            is_active: cat.is_active !== undefined ? cat.is_active : (cat.isActive !== false)
+          };
+        });
+        setCategories(normalized);
+      }
+    } catch (err) {
+      console.warn("Error refetching categories:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleSaveCategory = async (catData: Partial<Category>, isEdit: boolean) => {
+    try {
+      setCategoriesLoading(true);
+      const pId = catData.parent_id !== undefined ? catData.parent_id : ((catData as any).parentId !== undefined ? (catData as any).parentId : null);
+      const payload: any = {
+        id: catData.id,
+        name: catData.name,
+        slug: catData.slug,
+        image: catData.image || null,
+        banner_image: catData.banner_image || catData.bannerImage || null,
+        description: catData.description || (catData as any).short_description || null,
+        parent_id: pId,
+        sort_order: catData.sort_order ?? (catData as any).sortOrder ?? 0,
+        is_active: catData.is_active !== false
+      };
+
+      const { data, error } = await supabase.from('categories').upsert(payload).select().single();
+      if (error) throw error;
+
+      const normalizedPayload = {
+        ...payload,
+        parentId: payload.parent_id,
+        bannerImage: payload.banner_image,
+        sortOrder: payload.sort_order,
+        isActive: payload.is_active
+      };
+
+      setCategories((prev) => {
+        const idx = prev.findIndex((c) => c.id === payload.id);
+        let next: Category[];
+        if (idx >= 0) {
+          next = [...prev];
+          next[idx] = { ...next[idx], ...normalizedPayload };
+        } else {
+          next = [...prev, normalizedPayload as Category];
+        }
+        return next.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      });
+
+      setAvailableCategories((prev) => {
+        if (!prev.includes(payload.name)) {
+          return [...prev, payload.name];
+        }
+        return prev;
+      });
+
+      alert(`Category "${payload.name}" saved successfully!`);
+    } catch (err: any) {
+      console.error('Error saving category:', err);
+      alert('Error saving category: ' + err.message);
+      throw err;
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      setCategoriesLoading(true);
+      const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+      if (error) throw error;
+
+      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+      alert('Category deleted successfully!');
+    } catch (err: any) {
+      console.error('Error deleting category:', err);
+      alert('Error deleting category: ' + err.message);
+      throw err;
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleToggleCategoryStatus = async (categoryId: string, currentStatus: boolean) => {
+    try {
+      const nextStatus = !currentStatus;
+      const { error } = await supabase.from('categories').update({ is_active: nextStatus }).eq('id', categoryId);
+      if (error) throw error;
+
+      setCategories((prev) =>
+        prev.map((c) => (c.id === categoryId ? { ...c, is_active: nextStatus, isActive: nextStatus } : c))
+      );
+    } catch (err: any) {
+      console.error('Error updating category status:', err);
+      alert('Error toggling category status: ' + err.message);
+      throw err;
+    }
+  };
+
+  const handleQuickAddCategory = async (name: string, parentId: string | null = null) => {
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const id = name.toLowerCase().trim();
+    await handleSaveCategory({
+      id,
+      name,
+      slug,
+      image: null,
+      parent_id: parentId,
+      sort_order: categories.length + 1,
+      is_active: true
+    }, false);
+  };
+
+  const openBlogForm = (blog: BlogPost | null = null, isLandingPage: boolean = false, initialContent?: string) => {
     if (blog) {
       setEditingBlog(blog);
       let layout: 'standard' | 'blank' = blog.category === '__landing_page__' ? 'blank' : 'standard';
@@ -1657,17 +2186,17 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
       setBlogSeoEnabled(true);
       setBlogMarketingEnabled(true);
       setBlogForm({
-        id: '',
-        title: '',
+        id: isLandingPage && initialContent ? '/a9-pro' : '',
+        title: isLandingPage && initialContent ? 'A9 Pro ANC Touch Display Earbuds' : '',
         excerpt: '',
-        content: isLandingPage
+        content: initialContent || (isLandingPage
           ? '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>Landing Page</title>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body class="bg-gray-50">\n  <div class="max-w-4xl mx-auto py-16 px-4 text-center">\n    <h1 class="text-4xl font-extrabold text-gray-900">Special Campaign</h1>\n  </div>\n</body>\n</html>'
-          : '<p>Write your article content here...</p>',
+          : '<p>Write your article content here...</p>'),
         image: '',
         readTime: '3 min read',
         category: isLandingPage ? '__landing_page__' : 'Fashion',
         status: 'published',
-        seoTitle: '',
+        seoTitle: isLandingPage && initialContent ? 'A9 Pro ANC Touch Display Earbuds' : '',
         seoDescription: ''
       });
     }
@@ -2083,6 +2612,25 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
             </button>
 
             <button
+              onClick={() => { 
+                setActiveTab('categories'); 
+                setMobileSidebarOpen(false); 
+                fetchCategories();
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'categories' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <FolderTree className="w-4 h-4 text-emerald-500" />
+                <span>Categories</span>
+              </div>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {categories.filter(c => !(c.parent_id || (c as any).parentId)).length}
+              </span>
+            </button>
+
+            <button
               onClick={() => { setActiveTab('orders'); setMobileSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'orders' ? 'bg-brand-primary text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
@@ -2302,6 +2850,19 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                 />
               )}
 
+              {/* TAB: CATEGORY MANAGEMENT */}
+              {activeTab === 'categories' && (
+                <CategoriesTab
+                  categories={categories}
+                  productCountsByCategory={productCountsByCategory}
+                  onSaveCategory={handleSaveCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  onToggleStatus={handleToggleCategoryStatus}
+                  onRefresh={fetchCategories}
+                  loading={categoriesLoading}
+                />
+              )}
+
               {/* TAB 3: ORDERS INDEX */}
               {activeTab === 'orders' && (
                 <OrdersTab
@@ -2367,6 +2928,7 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
               {activeTab === 'blogs' && (
                 <BlogsTab
                   blogs={blogs}
+                  products={products}
                   onOpenBlogForm={openBlogForm}
                   onDeleteBlog={handleDeleteBlog}
                 />
@@ -2450,483 +3012,16 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
 
       </div>
 
-      {/* MODAL 1: ADD / EDIT PRODUCT */}
-      {productModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-              <h2 className="text-xl font-black tracking-tight text-zinc-900">
-                {editingProduct ? `Edit Product: ${editingProduct.name}` : "Create New Store SKU"}
-              </h2>
-              <button 
-                onClick={() => setProductModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-zinc-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProduct} className="space-y-6">
-              
-              {/* Image upload choice */}
-              <div className="space-y-3 p-4 bg-gray-50 border border-gray-100 rounded-2xl">
-                <span className="text-[10px] font-bold uppercase text-gray-400 block">Product Images Acquisition</span>
-                <div className="flex gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setImageInputMethod('url')}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 border cursor-pointer transition-all ${
-                      imageInputMethod === 'url' ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm' : 'bg-white text-zinc-600 border-gray-200'
-                    }`}
-                  >
-                    <Link className="w-4 h-4" />
-                    External Image URL (Preferred)
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setImageInputMethod('upload')}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 border cursor-pointer transition-all ${
-                      imageInputMethod === 'upload' ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm' : 'bg-white text-zinc-600 border-gray-200'
-                    }`}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Image to Supabase
-                  </button>
-                </div>
-
-                {imageInputMethod === 'url' ? (
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Paste product picture URL (e.g., https://images.unsplash.com/...)"
-                      value={customImageUrl}
-                      onChange={(e) => setCustomImageUrl(e.target.value)}
-                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={addImageUrl}
-                      className="bg-brand-primary text-white text-xs font-bold px-4 py-2 rounded-xl"
-                    >
-                      Add Image
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
-                    <input 
-                      type="file" 
-                      id="admin-file-upload" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const dummyUrl = URL.createObjectURL(file);
-                          setProductForm({
-                            ...productForm,
-                            images: [...(productForm.images || []), dummyUrl]
-                          });
-                          alert(`Simulated file upload: ${file.name} uploaded successfully!`);
-                        }
-                      }}
-                    />
-                    <label htmlFor="admin-file-upload" className="cursor-pointer space-y-1 block">
-                      <Upload className="w-8 h-8 text-gray-300 mx-auto" />
-                      <p className="text-xs font-bold text-brand-primary">Click to select files or drag-and-drop</p>
-                      <p className="text-[10px] text-gray-400">Supports WebP, AVIF, PNG, JPG. Optimized automatically.</p>
-                    </label>
-                  </div>
-                )}
-
-                {/* Images Preview list */}
-                {productForm.images && productForm.images.length > 0 && (
-                  <div className="flex flex-wrap gap-3 mt-3">
-                    {productForm.images.map((url, idx) => (
-                      <div key={idx} className="relative w-16 h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                        <img src={url || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        <button
-                          type="button"
-                          onClick={() => setProductForm({
-                            ...productForm,
-                            images: productForm.images?.filter((_, i) => i !== idx) || []
-                          })}
-                          className="absolute top-1 right-1 bg-black/60 p-0.5 rounded-full text-white hover:bg-black"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Core Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-semibold text-zinc-700">
-                <div className="md:col-span-2 space-y-1">
-                  <label>Product Name</label>
-                  <input 
-                    type="text" 
-                    value={productForm.name || ''}
-                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                    placeholder="e.g. Signature Golden Jaal Jacquard Panjabi"
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>SKU (Store Keeping Unit)</label>
-                  <input 
-                    type="text" 
-                    value={productForm.sku || ''}
-                    onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Price (৳)</label>
-                  <input 
-                    type="number" 
-                    value={productForm.price || ''}
-                    onChange={(e) => setProductForm({ ...productForm, price: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Discount price (৳) (Optional)</label>
-                  <input 
-                    type="number" 
-                    value={productForm.discountPrice || ''}
-                    onChange={(e) => setProductForm({ ...productForm, discountPrice: parseInt(e.target.value) || undefined })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Reseller Cost (৳) (Optional)</label>
-                  <input 
-                    type="number" 
-                    value={productForm.purchasePrice || ''}
-                    onChange={(e) => setProductForm({ ...productForm, purchasePrice: parseInt(e.target.value) || undefined })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Profit Margin Markup (%)</label>
-                  <div className="flex gap-1.5">
-                    <input 
-                      type="number" 
-                      placeholder="Enter % to calc price"
-                      value={
-                        productForm.purchasePrice && (productForm.discountPrice || productForm.price)
-                          ? Math.round((((productForm.discountPrice || productForm.price) - productForm.purchasePrice) / productForm.purchasePrice) * 100)
-                          : ''
-                      }
-                      onChange={(e) => {
-                        const m = parseInt(e.target.value) || 0;
-                        const cost = productForm.purchasePrice || 0;
-                        if (cost > 0) {
-                          const sell = Math.round(cost * (1 + m / 100));
-                          setProductForm({
-                            ...productForm,
-                            price: sell,
-                            discountPrice: undefined // Reset discount if setting markup
-                          });
-                        }
-                      }}
-                      className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                    />
-                    <span className="bg-gray-100 border border-gray-200 text-gray-500 font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center text-xs">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Gender classification</label>
-                  <select 
-                    value={productForm.gender}
-                    onChange={(e) => setProductForm({ ...productForm, gender: e.target.value as any })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary cursor-pointer"
-                  >
-                    <option value="Men">Men</option>
-                    <option value="Women">Women</option>
-                    <option value="Couple">Couple Collection</option>
-                    <option value="Kids">Kids</option>
-                    <option value="Accessories">Accessories</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Category</label>
-                  <select 
-                    value={productForm.category}
-                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Panjabi">Panjabi</option>
-                    <option value="Saree">Saree</option>
-                    <option value="Shirts">Shirts</option>
-                    <option value="Couple Collection">Couple Collection</option>
-                    <option value="Accessories">Accessories</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Sub-Category</label>
-                  <input 
-                    type="text" 
-                    value={productForm.subCategory || ''}
-                    onChange={(e) => setProductForm({ ...productForm, subCategory: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Status</label>
-                  <select 
-                    value={productForm.status || 'published'}
-                    onChange={(e) => setProductForm({ ...productForm, status: e.target.value as any })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
-                  >
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label>Inventory stock level</label>
-                  <input 
-                    type="number" 
-                    value={productForm.stock || 0}
-                    onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Safety Alert Threshold</label>
-                  <input 
-                    type="number" 
-                    value={productForm.lowStockWarning || 5}
-                    onChange={(e) => setProductForm({ ...productForm, lowStockWarning: parseInt(e.target.value) || 5 })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label>Material composition</label>
-                  <input 
-                    type="text" 
-                    value={productForm.material || ''}
-                    onChange={(e) => setProductForm({ ...productForm, material: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Product Flags */}
-              <div className="space-y-2 text-xs font-semibold text-zinc-700">
-                <label className="block text-gray-500 uppercase tracking-wider text-[10px]">Product Flags / Badges</label>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isFeatured || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isFeatured: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Featured</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isTrending || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isTrending: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Trending</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isNew || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isNew: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>New Arrival</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isBestSeller || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Best Seller</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={productForm.isFlashSale || false} 
-                      onChange={(e) => setProductForm({ ...productForm, isFlashSale: e.target.checked })}
-                      className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer w-4 h-4"
-                    />
-                    <span>Flash Sale</span>
-                  </label>
-                </div>
-              </div>
-
-
-              {/* Descriptions & Rich Details */}
-              <div className="space-y-4">
-                <div className="space-y-1 text-xs font-semibold">
-                  <label>Short Description (SEO-friendly snippet)</label>
-                  <input 
-                    type="text" 
-                    value={productForm.shortDescription || ''}
-                    onChange={(e) => setProductForm({ ...productForm, shortDescription: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1 text-xs font-semibold">
-                  <label>Full Product Description (Rich Text/Markdown supported)</label>
-                  <textarea 
-                    rows={4}
-                    value={productForm.description || ''}
-                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic properties lists: tags, features, colors */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-semibold">
-                
-                {/* tags editing */}
-                <div className="space-y-2">
-                  <label>Add Search tags</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Traditional, Jacquard"
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={addTag}
-                      className="bg-zinc-800 text-white px-3 py-2 rounded-xl"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {productForm.tags?.map(t => (
-                      <span key={t} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-1">
-                        {t}
-                        <button type="button" onClick={() => removeTag(t)} className="text-gray-400 hover:text-red-500">×</button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* color specifications adding */}
-                <div className="space-y-2">
-                  <label>Color Swatch Specifications</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Color Name"
-                      value={newColorName}
-                      onChange={(e) => setNewColorName(e.target.value)}
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2"
-                    />
-                    <input 
-                      type="color" 
-                      value={newColorHex}
-                      onChange={(e) => setNewColorHex(e.target.value)}
-                      className="w-10 h-9 p-0 bg-transparent border-none cursor-pointer"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={addColor}
-                      className="bg-zinc-800 text-white px-3 py-2 rounded-xl"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {productForm.colors?.map((col, i) => (
-                      <span key={i} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full border border-gray-200" style={{ backgroundColor: col.hex }}></span>
-                        {col.name}
-                        <button type="button" onClick={() => removeColor(i)} className="text-gray-400 hover:text-red-500">×</button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Form buttons */}
-              <div className="flex justify-end gap-3 border-t border-gray-100 pt-6">
-                {editingProduct && (
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      const sourceProductId = editingProduct.sourceProductId || editingProduct.source_product_id || editingProduct.id.split('-')[1] || editingProduct.id;
-                      const productCode = editingProduct.sku ? editingProduct.sku.split('-').slice(1).join('-') : sourceProductId;
-                      
-                      const apiFormat = {
-                        id: Number(sourceProductId) || sourceProductId,
-                        name: editingProduct.name,
-                        slug: editingProduct.slug,
-                        product_code: productCode,
-                        brand: editingProduct.brand || 'Rupan',
-                        category: editingProduct.category,
-                        details: editingProduct.description || editingProduct.name,
-                        price: editingProduct.price,
-                        sale_price: editingProduct.purchasePrice || editingProduct.purchase_price || editingProduct.price,
-                        stock_status: editingProduct.stock > 0 ? 'in_stock' : 'out_of_stock',
-                        thumbnail_img: editingProduct.images?.[0] || '',
-                        product_images: (editingProduct.images || []).map(img => ({ product_image: img })),
-                        product_variants: [
-                          ...(editingProduct.colors || []).map((c: any) => ({ attribute: 'color', variant: c.name || c })),
-                          ...(editingProduct.sizes || []).map((s: any) => ({ attribute: 'size', variant: s }))
-                        ]
-                      };
-                      
-                      navigator.clipboard.writeText(JSON.stringify(apiFormat, null, 2));
-                      alert("Copied raw API JSON to clipboard!");
-                    }}
-                    className="mr-auto bg-zinc-800 hover:bg-black text-white text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy API JSON</span>
-                  </button>
-                )}
-                <button 
-                  type="button" 
-                  onClick={() => setProductModalOpen(false)}
-                  className="bg-gray-100 hover:bg-gray-200 text-zinc-600 font-bold px-6 py-3 rounded-xl cursor-pointer text-xs uppercase tracking-wider"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-brand-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-900 transition-all cursor-pointer text-xs uppercase tracking-wider"
-                >
-                  {editingProduct ? "Save Changes" : "Create Product SKU"}
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
+      {/* MODAL 1: ADD / EDIT PRODUCT (OVERHAULED ACCORDION FORM WITH CUSTOM VARIANTS) */}
+      <ProductEditorModal
+        open={productModalOpen}
+        onClose={() => setProductModalOpen(false)}
+        editingProduct={editingProduct}
+        onSave={handleSaveProduct}
+        availableCategories={availableCategories}
+        categories={categories}
+        onQuickAddCategory={handleQuickAddCategory}
+      />
 
       {/* MODAL 5: INSPECT SYNC LOG */}
       {selectedLog && (
@@ -3586,6 +3681,18 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
                     <h3 className="font-bold text-xs uppercase tracking-wider text-gray-400">Editorial Content Composer</h3>
                     
                     <div className="flex items-center gap-2">
+                      {(blogForm.category === '__landing_page__' || blogLayoutMode === 'blank') && (
+                        <button
+                          type="button"
+                          onClick={() => setShowLandingGuideModal(true)}
+                          className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold text-[10px] uppercase transition-all cursor-pointer shadow-2xs"
+                          title="Open Landing Page Architecture, Dynamic Variables Table, and AI Prompt Guide"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-orange-500" />
+                          <span>📘 ল্যান্ডিং পেজ ও AI গাইড</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setShowFinalCodeModal(true)}
@@ -3872,6 +3979,23 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
         </div>
       )}
 
+      {/* LANDING PAGE ARCHITECTURE & AI PROMPT GUIDE MODAL */}
+      <LandingPageGuideModal
+        isOpen={showLandingGuideModal}
+        products={products}
+        onClose={() => setShowLandingGuideModal(false)}
+        onLoadDemoTemplate={(code) => {
+          setBlogForm((prev: any) => ({
+            ...prev,
+            content: code,
+            title: prev.title || 'A9 Pro ANC Touch Display Earbuds',
+            id: prev.id || '/a9-pro',
+            category: '__landing_page__'
+          }));
+          setBlogLayoutMode('blank');
+        }}
+      />
+
       {/* VERSION VERIFICATION MODAL */}
       {versionModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -3968,6 +4092,15 @@ export default function AdminPanel({ onClose, isSupabaseOnline = false }: AdminP
           </div>
         </div>
       )}
+
+      {/* DISCONTINUED PRODUCTS REVIEW MODAL */}
+      <DiscontinuedProductsModal
+        open={discontinuedModalOpen}
+        onClose={() => setDiscontinuedModalOpen(false)}
+        discontinuedProducts={discontinuedProducts}
+        onMarkOutOfStock={handleMarkOutOfStock}
+        onDeleteProducts={handleDeleteDiscontinued}
+      />
     </div>
   );
 }

@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, ExternalLink, BookOpen, Layers, Rocket } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, BookOpen, Layers, Rocket, Sparkles } from 'lucide-react';
 import { BlogPost } from '../../types';
+import LandingPageGuideModal from './LandingPageGuideModal';
 
 interface BlogsTabProps {
   blogs: BlogPost[];
-  onOpenBlogForm: (blog: BlogPost | null, isLandingPage?: boolean) => void;
+  products?: any[];
+  onOpenBlogForm: (blog: BlogPost | null, isLandingPage?: boolean, initialContent?: string) => void;
   onDeleteBlog: (id: string) => void;
 }
 
-export default function BlogsTab({ blogs, onOpenBlogForm, onDeleteBlog }: BlogsTabProps) {
+export default function BlogsTab({ blogs, products = [], onOpenBlogForm, onDeleteBlog }: BlogsTabProps) {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'articles' | 'landing'>('all');
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
   const filteredBlogs = blogs.filter((b) => {
     const isLanding = b.category === '__landing_page__';
@@ -35,6 +38,14 @@ export default function BlogsTab({ blogs, onOpenBlogForm, onDeleteBlog }: BlogsT
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={() => setShowGuideModal(true)}
+            className="bg-white border-2 border-orange-500 hover:bg-orange-50 text-orange-600 text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center space-x-2 transition-all cursor-pointer shadow-xs"
+            title="Open Landing Page Architecture, Dynamic Variables Table, and AI Prompt Guide"
+          >
+            <BookOpen className="w-4 h-4 text-orange-500" />
+            <span>📘 ল্যান্ডিং পেজ ও AI গাইড</span>
+          </button>
+          <button
             onClick={() => onOpenBlogForm(null, false)}
             className="bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center space-x-2 hover:bg-black transition-all cursor-pointer shadow-sm"
           >
@@ -49,6 +60,28 @@ export default function BlogsTab({ blogs, onOpenBlogForm, onDeleteBlog }: BlogsT
             <span>New Campaign Page</span>
           </button>
         </div>
+      </div>
+
+      {/* Campaign Landing Pages Banner */}
+      <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/50 border border-orange-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/15 text-orange-600 flex items-center justify-center shrink-0 mt-0.5">
+            <Rocket className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-zinc-900">ডাইনামিক ক্যাম্পেইন ও প্রোডাক্ট ল্যান্ডিং পেজ ইঞ্জিন</h4>
+            <p className="text-[11px] text-zinc-600 mt-0.5 leading-relaxed">
+              যেকোনো নির্দিষ্ট প্রোডাক্ট বা অফারের জন্য কাস্টম HTML/CSS ল্যান্ডিং পেজ তৈরি করতে পারবেন। এতে ডাইনামিক মেটা পিক্সেল, শিপিং চার্জ এবং সরাসরি ডাটাবেজ অর্ডার সাবমিশন সাপোর্ট রয়েছে।
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowGuideModal(true)}
+          className="bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-sm shadow-orange-200"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>গাইডলাইন, ভেরিয়েবল ও ডেমো কোড &rarr;</span>
+        </button>
       </div>
 
       {/* Filter Tabs */}
@@ -198,6 +231,16 @@ export default function BlogsTab({ blogs, onOpenBlogForm, onDeleteBlog }: BlogsT
           </table>
         </div>
       </div>
+
+      {/* Guide Modal */}
+      <LandingPageGuideModal
+        isOpen={showGuideModal}
+        products={products}
+        onClose={() => setShowGuideModal(false)}
+        onLoadDemoTemplate={(code) => {
+          onOpenBlogForm(null, true, code);
+        }}
+      />
     </div>
   );
 }

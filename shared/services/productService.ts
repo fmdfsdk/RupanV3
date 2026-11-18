@@ -42,13 +42,39 @@ function detectProductGender(
   return 'Accessories';
 }
 
+function formatProductRow(p: any): Product {
+  if (!p) return p;
+  const regPrice = Number(p.price || 0);
+  const purchPrice = Number(p.purchase_price ?? p.purchasePrice ?? regPrice);
+  const diffX = Math.max(0, regPrice - purchPrice);
+  const calcFloor = Math.round(regPrice - 0.25 * diffX);
+  const accurateGender = detectProductGender(p.category, p.name, p.gender);
+
+  return {
+    ...p,
+    gender: accurateGender,
+    discountPrice: p.discount_price !== undefined ? p.discount_price : p.discountPrice,
+    purchasePrice: p.purchase_price !== undefined ? p.purchase_price : p.purchasePrice,
+    finalPrice: p.final_price !== undefined ? p.final_price : (p.finalPrice ?? calcFloor),
+    isFeatured: Boolean(p.is_featured ?? p.isFeatured),
+    isTrending: Boolean(p.is_trending ?? p.isTrending),
+    isNew: p.is_new !== undefined ? Boolean(p.is_new) : (p.isNew !== undefined ? Boolean(p.isNew) : true),
+    isBestSeller: Boolean(p.is_best_seller ?? p.isBestSeller),
+    isFlashSale: Boolean(p.is_flash_sale ?? p.isFlashSale),
+    sourceId: p.source_id ?? p.sourceId,
+    source_id: p.source_id ?? p.sourceId,
+    sourceProductId: p.source_product_id ?? p.sourceProductId,
+    source_product_id: p.source_product_id ?? p.sourceProductId
+  };
+}
+
 export const productService = {
   /**
    * Fetches first 1000 published products (full fields) for the initial browsing experience.
    * Fast: single query, used to render shop/homepage on first load.
    */
   async fetchProducts(): Promise<Product[]> {
-    const columns = 'id, name, price, discount_price, purchase_price, final_price, category, sub_category, brand, images, colors, sizes, variants, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug, gender';
+    const columns = 'id, name, price, discount_price, purchase_price, final_price, category, sub_category, brand, images, colors, sizes, variants, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug, gender, sku, source_id, source_product_id';
     let { data, error } = await supabase
       .from('products')
       .select(columns)
@@ -58,7 +84,7 @@ export const productService = {
 
     if (error) {
       console.warn("Product fetch with variants failed, falling back to base columns:", error.message);
-      const fallbackColumns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug, gender';
+      const fallbackColumns = 'id, name, price, discount_price, category, sub_category, brand, images, stock, status, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, created_at, slug, gender, sku, source_id, source_product_id';
       const fallbackRes = await supabase
         .from('products')
         .select(fallbackColumns)
@@ -68,21 +94,27 @@ export const productService = {
       data = fallbackRes.data;
     }
 
-    return (data || []).map((p: any) => {
-      const regPrice = Number(p.price || 0);
-      const purchPrice = Number(p.purchase_price ?? regPrice);
-      const diffX = Math.max(0, regPrice - purchPrice);
-      const calcFloor = Math.round(regPrice - 0.25 * diffX);
-      const accurateGender = detectProductGender(p.category, p.name, p.gender);
+    // Always guarantee that all published items marked as featured are included, even if outside first 1000
+    try {
+      const { data: featuredItems } = await supabase
+        .from('products')
+        .select(columns)
+        .eq('status', 'published')
+        .eq('is_featured', true);
+      if (featuredItems && featuredItems.length > 0) {
+        const currentIds = new Set((data || []).map((p: any) => p.id));
+        for (const item of featuredItems) {
+          if (!currentIds.has(item.id)) {
+            data = [item, ...(data || [])];
+            currentIds.add(item.id);
+          }
+        }
+      }
+    } catch (featErr: any) {
+      console.warn("Failed to fetch extra featured products:", featErr.message);
+    }
 
-      return {
-        ...p,
-        gender: accurateGender,
-        discountPrice: p.discount_price,
-        purchasePrice: p.purchase_price,
-        finalPrice: p.final_price ?? calcFloor
-      };
-    });
+    return (data || []).map(formatProductRow);
   },
 
   /**
@@ -91,7 +123,7 @@ export const productService = {
    * Runs in parallel background chunks after initial load.
    */
   async fetchProductCatalogIndex(): Promise<Product[]> {
-    const columns = 'id, name, slug, category, images, price, discount_price, purchase_price, final_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, gender';
+    const columns = 'id, name, slug, sku, category, images, price, discount_price, purchase_price, final_price, stock, is_featured, is_trending, is_new, is_best_seller, is_flash_sale, gender, source_id, source_product_id';
     try {
       let allItems: Product[] = [];
       let page = 0;
@@ -108,13 +140,7 @@ export const productService = {
         if (error || !data || data.length === 0) {
           hasMore = false;
         } else {
-          const mappedPage = (data || []).map((p: any) => ({
-            ...p,
-            gender: detectProductGender(p.category, p.name, p.gender),
-            discountPrice: p.discount_price,
-            purchasePrice: p.purchase_price,
-            finalPrice: p.final_price
-          }));
+          const mappedPage = (data || []).map(formatProductRow);
           allItems = allItems.concat(mappedPage as Product[]);
           if (data.length < pageSize) {
             hasMore = false;
@@ -252,26 +278,49 @@ export const productService = {
   },
 
   /**
-   * Fetches a single product details by ID or Slug.
+   * Fetches a single product details by ID, Slug, or SKU.
    */
   async fetchProductByIdOrSlug(idOrSlug: string): Promise<Product | null> {
     const cleanId = idOrSlug.trim();
     
-    // 1. Try exact match first
+    // 1. Try exact match on ID, slug, or SKU first
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .or(`id.eq.${cleanId},slug.eq.${cleanId}`)
+      .or(`id.eq.${cleanId},slug.eq.${cleanId},sku.eq.${cleanId}`)
       .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to fetch product detail: ${error.message}`);
     }
     
-    if (data) return data;
+    if (data) return formatProductRow(data);
 
-    // 2. If exact match fails, apply 3000 offset tolerance mapping
+    // 2. Exact match by extracted numeric ID (without offset)
     const numMatch = cleanId.match(/\d+$/);
+    if (numMatch) {
+      const num = numMatch[0];
+      // 2a. Match product ID by numeric part (mohasagor-{num} or {num})
+      const { data: numIdData } = await supabase
+        .from('products')
+        .select('*')
+        .or(`id.eq.mohasagor-${num},id.eq.${num}`)
+        .maybeSingle();
+
+      if (numIdData) return formatProductRow(numIdData);
+
+      // 2b. Match product SKU by numeric part (MOHASAGOR-{num} or {num})
+      const { data: numSkuData } = await supabase
+        .from('products')
+        .select('*')
+        .or(`sku.eq.MOHASAGOR-${num},sku.eq.${num}`)
+        .maybeSingle();
+
+      if (numSkuData) return formatProductRow(numSkuData);
+    }
+
+    // 3. Fallback ONLY — If no product exists with that ID, slug, or SKU anywhere,
+    // apply 3000 offset tolerance mapping for legacy external links
     if (numMatch) {
       const searchNum = parseInt(numMatch[0], 10);
       const prefixMatch = cleanId.match(/^[a-zA-Z]+/);
@@ -288,7 +337,7 @@ export const productService = {
             .or(`id.eq.${altId},id.eq.${altNum},slug.eq.${altId},slug.eq.${altNum},slug.eq.-${altNum},slug.eq.product-${altNum}`)
             .maybeSingle();
             
-          if (altData) return altData;
+          if (altData) return formatProductRow(altData);
         }
       }
       
@@ -304,7 +353,7 @@ export const productService = {
               .or(`id.eq.${altId},id.eq.${altNum},slug.eq.${altId},slug.eq.${altNum},slug.eq.-${altNum},slug.eq.product-${altNum}`)
               .maybeSingle();
               
-            if (altData) return altData;
+            if (altData) return formatProductRow(altData);
           }
         }
       }
@@ -329,7 +378,7 @@ export const productService = {
       throw new Error(`Failed to search products: ${error.message}`);
     }
 
-    const results = data || [];
+    const results = (data || []).map(formatProductRow);
 
     // 2. If results length is less than limit, fetch matching products by SKU directly
     if (results.length < limit) {
@@ -344,7 +393,7 @@ export const productService = {
         const existingIds = new Set(results.map(p => p.id));
         for (const p of skuData) {
           if (!existingIds.has(p.id)) {
-            results.push(p);
+            results.push(formatProductRow(p));
           }
         }
       }

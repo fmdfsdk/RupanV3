@@ -167,6 +167,180 @@ export default async function handler(req: any, res: any) {
     return res.status(403).json({ success: false, error: 'Forbidden: Insufficient privileges.' });
   }
 
+  // Handle Discontinued Products: Fetch Candidates, Mark Out of Stock, or Delete
+  if (req.method === 'POST' && req.body?.action === 'get_discontinued_candidates') {
+    const { source = 'mohasagor', active_ids = [] } = req.body;
+
+    if (!Array.isArray(active_ids) || active_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid or empty active_ids array.' });
+    }
+
+    // Safety guard: Must have at least 500 active products to protect against blank/corrupted sync payloads
+    if (active_ids.length < 500) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Safety guard: active_ids length (${active_ids.length}) is too low to safely identify discontinued products.` 
+      });
+    }
+
+    try {
+      const activeSet = new Set(active_ids.map((id: any) => String(id).trim()));
+
+      // Fetch all products in DB belonging strictly to this source (e.g. 'mohasagor')
+      let pageIndex = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      const discontinuedList: any[] = [];
+
+      while (hasMore) {
+        const { data: dbItems, error: dbErr } = await supabase
+          .from('products')
+          .select('id, name, sku, category, price, discount_price, stock, images, source_id, created_at')
+          .eq('source_id', source)
+          .range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
+
+        if (dbErr || !dbItems || dbItems.length === 0) {
+          hasMore = false;
+        } else {
+          for (const item of dbItems) {
+            // Strictly check that this is a supplier product (NOT manual) and missing from upstream active list
+            if (item.source_id === source && !activeSet.has(item.id)) {
+              discontinuedList.push(item);
+            }
+          }
+          if (dbItems.length < pageSize) {
+            hasMore = false;
+          } else {
+            pageIndex++;
+          }
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        source,
+        discontinued_count: discontinuedList.length,
+        discontinued_products: discontinuedList
+      });
+    } catch (err: any) {
+      console.error("Error fetching discontinued candidates:", err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // Handle Action: Mark Selected Discontinued Products as Out of Stock (Stock: 0)
+  if (req.method === 'POST' && req.body?.action === 'mark_out_of_stock') {
+    const { source = 'mohasagor', product_ids = [] } = req.body;
+
+    if (!Array.isArray(product_ids) || product_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'No product IDs provided.' });
+    }
+
+    try {
+      let updatedCount = 0;
+      const chunkSize = 100;
+      const now = new Date().toISOString();
+
+      for (let i = 0; i < product_ids.length; i += chunkSize) {
+        const chunk = product_ids.slice(i, i + chunkSize);
+        const { error: updateErr } = await supabase
+          .from('products')
+          .update({ stock: 0, updated_at: now })
+          .in('id', chunk)
+          .eq('source_id', source); // Strictly protect manual products!
+
+        if (!updateErr) {
+          updatedCount += chunk.length;
+        } else {
+          console.error(`Failed to mark stock 0 for chunk ${i}:`, updateErr.message);
+        }
+      }
+
+      // Record in sync logs
+      await supabase
+        .from('sync_logs')
+        .insert([{
+          source_id: source,
+          status: 'success',
+          items_fetched: product_ids.length,
+          items_imported: 0,
+          items_updated: updatedCount,
+          items_failed: product_ids.length - updatedCount,
+          details: {
+            action: 'mark_out_of_stock',
+            updated_count: updatedCount,
+            product_ids: product_ids.slice(0, 100)
+          },
+          started_at: now,
+          completed_at: new Date().toISOString()
+        }]);
+
+      return res.status(200).json({
+        success: true,
+        updated_count: updatedCount
+      });
+    } catch (err: any) {
+      console.error("Error marking out of stock:", err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // Handle Action: Permanently Delete Selected Discontinued Products
+  if (req.method === 'POST' && req.body?.action === 'delete_discontinued') {
+    const { source = 'mohasagor', product_ids = [] } = req.body;
+
+    if (!Array.isArray(product_ids) || product_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'No product IDs provided for deletion.' });
+    }
+
+    try {
+      let deletedCount = 0;
+      const chunkSize = 100;
+
+      for (let i = 0; i < product_ids.length; i += chunkSize) {
+        const chunk = product_ids.slice(i, i + chunkSize);
+        const { error: delErr } = await supabase
+          .from('products')
+          .delete()
+          .in('id', chunk)
+          .eq('source_id', source); // Strictly protect manual products!
+
+        if (!delErr) {
+          deletedCount += chunk.length;
+        } else {
+          console.error(`Failed to delete chunk ${i}:`, delErr.message);
+        }
+      }
+
+      const now = new Date().toISOString();
+      await supabase
+        .from('sync_logs')
+        .insert([{
+          source_id: source,
+          status: 'success',
+          items_fetched: product_ids.length,
+          items_imported: 0,
+          items_updated: 0,
+          items_failed: product_ids.length - deletedCount,
+          details: {
+            action: 'delete_discontinued',
+            deleted_count: deletedCount,
+            product_ids: product_ids.slice(0, 100)
+          },
+          started_at: now,
+          completed_at: new Date().toISOString()
+        }]);
+
+      return res.status(200).json({
+        success: true,
+        deleted_count: deletedCount
+      });
+    } catch (err: any) {
+      console.error("Error deleting discontinued products:", err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   const { source = 'mohasagor', page = '1' } = req.query;
   const startedAt = new Date().toISOString();
 
@@ -300,6 +474,11 @@ export default async function handler(req: any, res: any) {
       } else if (hConfig.category_margins) {
         categoryMargins = hConfig.category_margins;
       }
+
+      var resellerDeliveryCost = 120; // Default 120 BDT supplier courier/delivery cost per product
+      if (pConfig.reseller_delivery_cost !== undefined) {
+        resellerDeliveryCost = Number(pConfig.reseller_delivery_cost);
+      }
     } catch (_) {}
 
     let importedCount = 0;
@@ -400,8 +579,9 @@ export default async function handler(req: any, res: any) {
         // Mohasagor Pricing Calculation:
         // sale_price = Wholesale Reseller Cost (purchase_price)
         // price = Maximum Retail Price (MSRP)
-        const regularMSRP = Number(item.price || 0);
-        const wholesaleCost = Number(item.sale_price || item.price || 0);
+        // Add supplier delivery / reseller cost (+120 BDT) so landed cost and retail price cover transportation
+        const regularMSRP = Number(item.price || 0) + resellerDeliveryCost;
+        const wholesaleCost = Number(item.sale_price || item.price || 0) + resellerDeliveryCost;
 
         // Step 1: Calculate Price Difference X = price - sale_price
         const diffX = Math.max(0, regularMSRP - wholesaleCost);
@@ -678,6 +858,7 @@ export default async function handler(req: any, res: any) {
       imported: importedCount,
       updated: updatedCount,
       failed: failedCount,
+      processed_ids: upsertBuffer.map(p => p.id),
       errors: errors.slice(0, 10) // return up to 10 warnings
     });
 

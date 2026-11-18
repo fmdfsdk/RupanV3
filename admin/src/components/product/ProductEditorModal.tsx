@@ -111,6 +111,20 @@ export default function ProductEditorModal({
 
       setFormData({
         ...editingProduct,
+        isFeatured: editingProduct.isFeatured !== undefined ? !!editingProduct.isFeatured : !!(editingProduct as any).is_featured,
+        is_featured: editingProduct.isFeatured !== undefined ? !!editingProduct.isFeatured : !!(editingProduct as any).is_featured,
+        isTrending: editingProduct.isTrending !== undefined ? !!editingProduct.isTrending : !!(editingProduct as any).is_trending,
+        is_trending: editingProduct.isTrending !== undefined ? !!editingProduct.isTrending : !!(editingProduct as any).is_trending,
+        isNew: editingProduct.isNew !== undefined ? !!editingProduct.isNew : ((editingProduct as any).is_new !== undefined ? !!(editingProduct as any).is_new : true),
+        is_new: editingProduct.isNew !== undefined ? !!editingProduct.isNew : ((editingProduct as any).is_new !== undefined ? !!(editingProduct as any).is_new : true),
+        isBestSeller: editingProduct.isBestSeller !== undefined ? !!editingProduct.isBestSeller : !!(editingProduct as any).is_best_seller,
+        is_best_seller: editingProduct.isBestSeller !== undefined ? !!editingProduct.isBestSeller : !!(editingProduct as any).is_best_seller,
+        isFlashSale: editingProduct.isFlashSale !== undefined ? !!editingProduct.isFlashSale : !!(editingProduct as any).is_flash_sale,
+        is_flash_sale: editingProduct.isFlashSale !== undefined ? !!editingProduct.isFlashSale : !!(editingProduct as any).is_flash_sale,
+        sourceId: (editingProduct as any).sourceId || (editingProduct as any).source_id || (editingProduct.id?.startsWith('mohasagor-') ? 'mohasagor' : 'manual'),
+        source_id: (editingProduct as any).source_id || (editingProduct as any).sourceId || (editingProduct.id?.startsWith('mohasagor-') ? 'mohasagor' : 'manual'),
+        sourceProductId: (editingProduct as any).sourceProductId || (editingProduct as any).source_product_id || null,
+        source_product_id: (editingProduct as any).source_product_id || (editingProduct as any).sourceProductId || null,
         gender: accurateGender,
         variants: initialVariants,
         sizes: editingProduct.sizes || [],
@@ -573,8 +587,9 @@ export default function ProductEditorModal({
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-gray-700">
-                        Buying / Cost Price (Optional)
+                      <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                        <span>Buying / Cost Price (ক্রয়মূল্য ও রিসেলার খরচ)</span>
+                        <span className="text-[10px] text-gray-400 font-normal">পাইকারি মূল্য + পরিবহন (৳১২০)</span>
                       </label>
                       <input
                         type="number"
@@ -586,6 +601,7 @@ export default function ProductEditorModal({
                             purchasePrice: e.target.value ? parseInt(e.target.value) : undefined
                           })
                         }
+                        placeholder="e.g. 570"
                         className="w-full bg-white border border-gray-200 text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-[#7C3AED]"
                       />
                     </div>
@@ -1266,9 +1282,9 @@ export default function ProductEditorModal({
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={formData.isFeatured || false}
+                      checked={Boolean(formData.isFeatured || (formData as any).is_featured)}
                       onChange={(e) =>
-                        setFormData({ ...formData, isFeatured: e.target.checked })
+                        setFormData({ ...formData, isFeatured: e.target.checked, is_featured: e.target.checked } as any)
                       }
                       className="rounded border-gray-300 text-[#5B21B6] focus:ring-[#5B21B6] w-4 h-4 cursor-pointer"
                     />
@@ -1277,9 +1293,9 @@ export default function ProductEditorModal({
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={formData.isTrending || false}
+                      checked={Boolean(formData.isTrending || (formData as any).is_trending)}
                       onChange={(e) =>
-                        setFormData({ ...formData, isTrending: e.target.checked })
+                        setFormData({ ...formData, isTrending: e.target.checked, is_trending: e.target.checked } as any)
                       }
                       className="rounded border-gray-300 text-[#5B21B6] focus:ring-[#5B21B6] w-4 h-4 cursor-pointer"
                     />
@@ -1288,8 +1304,8 @@ export default function ProductEditorModal({
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={formData.isNew !== undefined ? formData.isNew : true}
-                      onChange={(e) => setFormData({ ...formData, isNew: e.target.checked })}
+                      checked={formData.isNew !== undefined ? Boolean(formData.isNew) : ((formData as any).is_new !== undefined ? Boolean((formData as any).is_new) : true)}
+                      onChange={(e) => setFormData({ ...formData, isNew: e.target.checked, is_new: e.target.checked } as any)}
                       className="rounded border-gray-300 text-[#5B21B6] focus:ring-[#5B21B6] w-4 h-4 cursor-pointer"
                     />
                     <span className="font-semibold text-gray-700">New Arrival</span>
@@ -1297,9 +1313,9 @@ export default function ProductEditorModal({
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={formData.isBestSeller || false}
+                      checked={Boolean(formData.isBestSeller || (formData as any).is_best_seller)}
                       onChange={(e) =>
-                        setFormData({ ...formData, isBestSeller: e.target.checked })
+                        setFormData({ ...formData, isBestSeller: e.target.checked, is_best_seller: e.target.checked } as any)
                       }
                       className="rounded border-gray-300 text-[#5B21B6] focus:ring-[#5B21B6] w-4 h-4 cursor-pointer"
                     />
@@ -1308,9 +1324,9 @@ export default function ProductEditorModal({
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={formData.isFlashSale || false}
+                      checked={Boolean(formData.isFlashSale || (formData as any).is_flash_sale)}
                       onChange={(e) =>
-                        setFormData({ ...formData, isFlashSale: e.target.checked })
+                        setFormData({ ...formData, isFlashSale: e.target.checked, is_flash_sale: e.target.checked } as any)
                       }
                       className="rounded border-gray-300 text-[#5B21B6] focus:ring-[#5B21B6] w-4 h-4 cursor-pointer"
                     />
